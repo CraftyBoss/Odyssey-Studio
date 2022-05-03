@@ -47,7 +47,9 @@ namespace MapStudio
             GraphicsMode mode = new GraphicsMode(new ColorFormat(32), 24, 8, 4, new ColorFormat(32), 2, false);
             var asssemblyVersion = GetRepoCompileDate(Runtime.ExecutableDir);
 
-            var wnd = new UIFramework.Framework(new MainWindow(argumentHandle), mode, asssemblyVersion);
+            string programName = System.Reflection.Assembly.GetExecutingAssembly().GetName().Name;
+
+            var wnd = new UIFramework.Framework(new MainWindow(argumentHandle), mode, asssemblyVersion, programName);
             wnd.Icon = System.Drawing.Icon.ExtractAssociatedIcon(Assembly.GetExecutingAssembly().Location);
             wnd.VSync = OpenTK.VSyncMode.On;
             wnd.Run();
