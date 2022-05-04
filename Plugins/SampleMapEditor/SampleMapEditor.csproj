@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+  </PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+		<OutputPath>..\..\MapStudio\bin\Debug\net5.0\plugins\</OutputPath>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+		<OutputPath>..\..\MapStudio\bin\Release\net5.0\plugins\</OutputPath>
+	</PropertyGroup>	
+  <ItemGroup>
+    <ProjectReference Include="..\..\GLFrameworkEngine\GLFrameworkEngine.csproj" />
+    <ProjectReference Include="..\..\MapStudio.UI\MapStudio.UI.csproj" />
+    <ProjectReference Include="..\..\Toolbox.Core\Toolbox.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="ImGui.NET">
+      <HintPath>..\..\..\MkwiiTrackStudio\Track Studio\Lib\ImGui.NET.dll</HintPath>
+    </Reference>
+    <Reference Include="OpenTK">
+      <HintPath>..\..\..\MkwiiTrackStudio\Track Studio\Lib\OpenTK.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>
