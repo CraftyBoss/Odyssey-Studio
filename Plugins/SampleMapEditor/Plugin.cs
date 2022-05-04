@@ -7,7 +7,7 @@ using Toolbox.Core;
 using MapStudio.UI;
 using GLFrameworkEngine;
 
-namespace RevoKartLibrary
+namespace SampleMapEditor
 {
     /// <summary>
     /// Represents a plugin for a map editor.
