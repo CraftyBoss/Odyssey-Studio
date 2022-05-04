@@ -14,6 +14,17 @@ namespace SampleMapEditor
     {
         public void Setup(EditorLoader loader)
         {
+            //Prepare a collision caster for snapping objects onto
+            SetupSceneCollision();
+            //Add some objects to the scene
+            SetupObjects(loader);
+        }
+
+        /// <summary>
+        /// Adds objects to the scene.
+        /// </summary>
+        private void SetupObjects(EditorLoader loader)
+        {
             //A folder to represent in the outliner UI
             NodeBase folder = new NodeBase("Objects");
             //Allow toggling visibility for the folder
@@ -49,6 +60,29 @@ namespace SampleMapEditor
             renderer.Transform.Scale = new Vector3(2.5f);
             renderer.Transform.UpdateMatrix(true);
             loader.AddRender(renderer);
+        }
+
+        /// <summary>
+        /// Creates a big plane which you can drop objects onto.
+        /// </summary>
+        private void SetupSceneCollision()
+        {
+            var context = GLContext.ActiveContext;
+
+            float size = 2000;
+            float height = 0;
+
+            //Make a big flat plane for placing spaces on.
+            context.CollisionCaster.Clear();
+            context.CollisionCaster.AddTri(
+                new Vector3(-size, height, size),
+                new Vector3(0, height, -(size * 2)),
+                new Vector3(size * 2, height, 0));
+            context.CollisionCaster.AddTri(
+                new Vector3(-size, height, -size),
+                new Vector3(size * 2, height, 0),
+                new Vector3(size * 2, height, size * 2));
+            context.CollisionCaster.UpdateCache();
         }
     }
 }

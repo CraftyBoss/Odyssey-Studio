@@ -2,6 +2,8 @@
 using System.IO;
 using Toolbox.Core;
 using MapStudio.UI;
+using OpenTK;
+using GLFrameworkEngine;
 
 namespace SampleMapEditor
 {
@@ -67,6 +69,26 @@ namespace SampleMapEditor
         public override void DrawViewportMenuBar()
         {
 
+        }
+
+        /// <summary>
+        /// When an asset item from the asset windows gets dropped into the editor.
+        /// You can configure your own asset category from the asset window and make custom asset items to drop into.
+        /// </summary>
+        public override void AssetViewportDrop(AssetItem item, Vector2 screenPosition)
+        {
+            //viewport context
+            var context = GLContext.ActiveContext;
+
+            //Screen coords can be converted into 3D space
+            //By default it will spawn in the mouse position at a distance
+            Vector3 position = context.ScreenToWorld(screenPosition.X, screenPosition.Y, 100);
+            //Collision dropping can be used to drop these assets to the ground from CollisionCaster
+            if (context.EnableDropToCollision)
+            {
+                Quaternion rot = Quaternion.Identity;
+                CollisionDetection.SetObjectToCollision(context, context.CollisionCaster, screenPosition, ref position, ref rot);
+            }
         }
 
         /// <summary>
