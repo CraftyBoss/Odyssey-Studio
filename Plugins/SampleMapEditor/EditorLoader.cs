@@ -38,10 +38,8 @@ namespace SampleMapEditor
         public File_Info FileInfo { get; set; }
 
         /// <summary>
-        /// List of Dictionary containing all Loaded Objects in each Actor List
+        /// All Placement Info used in the loaded Stage
         /// </summary>
-        public Dictionary<string, List<ActorList>> MapActorList;
-
         public Dictionary<string, Dictionary<string, List<PlacementInfo>>> MapPlacementList;
 
         /// <summary>
@@ -68,8 +66,6 @@ namespace SampleMapEditor
 
             if(mapData != null)
             {
-
-                MapActorList = new Dictionary<string, List<ActorList>>();
 
                 // Dict of Scenarios containing List of Dicts that contain Categories of PlacementInfo
                 MapPlacementList = new Dictionary<string, Dictionary<string, List<PlacementInfo>>>();
@@ -99,15 +95,14 @@ namespace SampleMapEditor
                         {
                             PlacementInfo actorInfo = new PlacementInfo(actorNode);
 
-                            actors.Add(actorInfo);
-
-                            //if(actorInfo.isUseLinks)
-                            //{
-                            //    CreateAllActors(scenarioList, actors, actorInfo);
-                            //}else
-                            //{
-
-                            //}
+                            if (actorInfo.isUseLinks)
+                            {
+                                CreateAllActors(scenarioList, actors, actorInfo);
+                            }
+                            else
+                            {
+                                actors.Add(actorInfo);
+                            }
                         }
                     }
 
@@ -173,7 +168,12 @@ namespace SampleMapEditor
         private void CreateAllActors(Dictionary<string, List<PlacementInfo>> scenarioActorLists, List<PlacementInfo> curActorList, PlacementInfo actorInfo)
         {
 
-            List<PlacementInfo> linkedObjList = scenarioActorLists.ContainsKey("LinkedObjs") ? scenarioActorLists["LinkedObjs"] : new List<PlacementInfo>();
+            if(!scenarioActorLists.ContainsKey("LinkedObjs"))
+            {
+                scenarioActorLists.Add("LinkedObjs", new List<PlacementInfo>());
+            }
+
+            List<PlacementInfo> linkedObjList = scenarioActorLists["LinkedObjs"];
 
             foreach (var linkList in actorInfo.Links)
             {

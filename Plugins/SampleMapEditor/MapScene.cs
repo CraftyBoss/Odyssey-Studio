@@ -18,8 +18,17 @@ namespace SampleMapEditor
 {
     internal class MapScene
     {
+
+        /// <summary>
+        /// List of Dictionary containing all Loaded Objects in each Actor List
+        /// </summary>
+        public Dictionary<string, List<ActorList>> MapActorList;
+
         public void Setup(EditorLoader loader)
         {
+
+            MapActorList = new Dictionary<string, List<ActorList>>();
+
             //Prepare a collision caster for snapping objects onto
             SetupSceneCollision();
             //Add some objects to the scene
@@ -33,7 +42,7 @@ namespace SampleMapEditor
             Console.WriteLine($"Placing Transform Object: {actor.placement.ModelName}");
             TransformableObject obj = new TransformableObject(list);
             //Name
-            obj.UINode.Header = actor.actorName;
+            obj.UINode.Header = actor.ActorName;
             obj.UINode.Icon = IconManager.MESH_ICON.ToString();
             //Give it a transform in the scene
             obj.Transform.Position = actor.placement.translation;
@@ -47,7 +56,7 @@ namespace SampleMapEditor
 
         private void CreateBfresObject(EditorLoader loader, NodeBase list, LiveActor actor, Stream modelStream, Dictionary<string, GenericRenderer.TextureView> textureList = null)
         {
-            Console.WriteLine($"Placing BFRES Object: {actor.actorName}");
+            Console.WriteLine($"Placing BFRES Object: {actor.ActorName}");
 
             BfresRender bfresObj = new BfresRender(modelStream, actor.modelPath);
 
@@ -63,7 +72,7 @@ namespace SampleMapEditor
                 }
             }
 
-            bfresObj.UINode.Header = actor.actorName;
+            bfresObj.UINode.Header = actor.ActorName;
             bfresObj.UINode.Icon = IconManager.MESH_ICON.ToString();
             bfresObj.Transform.Position = actor.placement.translation;
             bfresObj.Transform.Scale = actor.placement.scale;
@@ -214,10 +223,15 @@ namespace SampleMapEditor
             Dictionary<string, SARC> modelArcs = new Dictionary<string, SARC>();
             Dictionary<string, Dictionary<string, GenericRenderer.TextureView>> textureArcs = new Dictionary<string, Dictionary<string, GenericRenderer.TextureView>>();
 
+            MapActorList.Add("Scenario0", new List<ActorList>());
+
+            // Temp hardcode until i figure out/jupa teaches me about layers
             foreach (var mapActors in loader.MapPlacementList["Scenario0"])
             {
+                if (mapActors.Key == "LinkedObjs") continue; // skip re-creating linked obj's
 
                 NodeBase actorList = new NodeBase(mapActors.Key);
+                ActorList curActorList = new ActorList(mapActors.Key);
                 actorList.HasCheckBox = true;
                 loader.Root.AddChild(actorList);
                 actorList.Icon = IconManager.MODEL_ICON.ToString();
@@ -254,9 +268,8 @@ namespace SampleMapEditor
                         }
                     }
 
-                    actor.Transform.UpdateMatrix(true);
-
-                    loader.AddRender(actor);
+                    loader.AddRender(actor.ObjectRender);
+                    
                 }
             }
 
