@@ -8,7 +8,7 @@ using ImGuiNET;
 using MapStudio.UI;
 using Toolbox.Core;
 
-namespace RevoKartLibrary
+namespace SampleMapEditor
 {
     /// <summary>
     /// Represents UI for the plugin which is currently showing in the Paths section of the main menu UI.
@@ -29,7 +29,7 @@ namespace RevoKartLibrary
         /// </summary>
         public void DrawUI()
         {
-            if (ImguiCustomWidgets.PathSelector("Sample UI", ref GamePath))
+            if (ImguiCustomWidgets.PathSelector("Super Mario Odyssey Path", ref GamePath))
             {
                 Save();
             }
@@ -40,9 +40,10 @@ namespace RevoKartLibrary
         /// </summary>
         /// <returns></returns>
         public static PluginConfig Load() {
+            Console.WriteLine("Loading config...");
             if (!File.Exists($"{Runtime.ExecutableDir}\\SampleMapEditorConfig.json")) { new PluginConfig().Save(); }
 
-            var config = JsonConvert.DeserializeObject<PluginConfig>(File.ReadAllText($"{Runtime.ExecutableDir}\\RevoKartConfig.json"));
+            var config = JsonConvert.DeserializeObject<PluginConfig>(File.ReadAllText($"{Runtime.ExecutableDir}\\SampleMapEditorConfig.json"));
             config.Reload();
             return config;
         }
@@ -51,7 +52,8 @@ namespace RevoKartLibrary
         /// Saves the current configuration to json on disc.
         /// </summary>
         public void Save() {
-           File.WriteAllText($"{Runtime.ExecutableDir}\\SampleMapEditorConfig.json", JsonConvert.SerializeObject(this));
+            Console.WriteLine("Saving config...");
+            File.WriteAllText($"{Runtime.ExecutableDir}\\SampleMapEditorConfig.json", JsonConvert.SerializeObject(this));
             Reload();
         }
 

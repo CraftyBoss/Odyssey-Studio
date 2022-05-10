@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.1.32328.378
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.31729.503
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Updater", "Updater\Updater.csproj", "{A1D830E8-2A3B-4FE3-AF15-38FF2900446F}"
 EndProject
@@ -16,6 +16,8 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SampleMapEditor", "Plugins\SampleMapEditor\SampleMapEditor.csproj", "{4558E81A-8427-4EB9-868D-7C3D63451B48}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MapStudio", "Track Studio\MapStudio.csproj", "{91C216DD-9F43-4B8A-B955-01A43EE2E582}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CafeLibrary", "Plugins\CafeLibrary\CafeLibrary.csproj", "{5D3EEEEA-917B-47EE-B264-EBB044211D6E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -99,12 +101,25 @@ Global
 		{91C216DD-9F43-4B8A-B955-01A43EE2E582}.Release|x64.Build.0 = Release|Any CPU
 		{91C216DD-9F43-4B8A-B955-01A43EE2E582}.Release|x86.ActiveCfg = Release|Any CPU
 		{91C216DD-9F43-4B8A-B955-01A43EE2E582}.Release|x86.Build.0 = Release|Any CPU
+		{5D3EEEEA-917B-47EE-B264-EBB044211D6E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5D3EEEEA-917B-47EE-B264-EBB044211D6E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5D3EEEEA-917B-47EE-B264-EBB044211D6E}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{5D3EEEEA-917B-47EE-B264-EBB044211D6E}.Debug|x64.Build.0 = Debug|Any CPU
+		{5D3EEEEA-917B-47EE-B264-EBB044211D6E}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{5D3EEEEA-917B-47EE-B264-EBB044211D6E}.Debug|x86.Build.0 = Debug|Any CPU
+		{5D3EEEEA-917B-47EE-B264-EBB044211D6E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5D3EEEEA-917B-47EE-B264-EBB044211D6E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5D3EEEEA-917B-47EE-B264-EBB044211D6E}.Release|x64.ActiveCfg = Release|Any CPU
+		{5D3EEEEA-917B-47EE-B264-EBB044211D6E}.Release|x64.Build.0 = Release|Any CPU
+		{5D3EEEEA-917B-47EE-B264-EBB044211D6E}.Release|x86.ActiveCfg = Release|Any CPU
+		{5D3EEEEA-917B-47EE-B264-EBB044211D6E}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{4558E81A-8427-4EB9-868D-7C3D63451B48} = {44D34303-323A-4291-B8E4-E2B12ACA17C9}
+		{5D3EEEEA-917B-47EE-B264-EBB044211D6E} = {44D34303-323A-4291-B8E4-E2B12ACA17C9}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {631A19BB-11BA-4D23-BA6B-0509CA9CC6AD}

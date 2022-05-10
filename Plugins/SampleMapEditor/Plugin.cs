@@ -19,6 +19,8 @@ namespace SampleMapEditor
 
         public Plugin()
         {
+            if(!PluginConfig.init)
+                PluginConfig.Load();
         }
     }
 }

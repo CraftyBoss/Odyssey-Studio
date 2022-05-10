@@ -4,6 +4,10 @@ using Toolbox.Core;
 using MapStudio.UI;
 using OpenTK;
 using GLFrameworkEngine;
+using CafeLibrary;
+using ByamlExt.Byaml;
+using System.Collections.Generic;
+using SampleMapEditor.GameTypes;
 
 namespace SampleMapEditor
 {
@@ -34,6 +38,13 @@ namespace SampleMapEditor
         public File_Info FileInfo { get; set; }
 
         /// <summary>
+        /// List of Dictionary containing all Loaded Objects in each Actor List
+        /// </summary>
+        public Dictionary<string, List<ActorList>> MapActorList;
+
+        public Dictionary<string, Dictionary<string, List<PlacementInfo>>> MapPlacementList;
+
+        /// <summary>
         /// Determines when to use the map editor from a given file.
         /// You can check from file extension or check the data inside the file stream.
         /// The file stream is always decompressed if the given file has a supported ICompressionFormat like Yaz0.
@@ -48,6 +59,65 @@ namespace SampleMapEditor
         /// </summary>
         public void Load(Stream stream)
         {
+
+            SARC mapArc = new SARC();
+
+            mapArc.Load(stream);
+
+            ArchiveFileInfo mapData = mapArc.files.Find(e => e.FileName.Contains("StageMap.byml") || e.FileName.Contains("StageDesign.byml") || e.FileName.Contains("StageSound.byml"));
+
+            if(mapData != null)
+            {
+
+                MapActorList = new Dictionary<string, List<ActorList>>();
+
+                // Dict of Scenarios containing List of Dicts that contain Categories of PlacementInfo
+                MapPlacementList = new Dictionary<string, Dictionary<string, List<PlacementInfo>>>();
+
+                BymlFileData mapByml = ByamlFile.LoadN(mapData.FileData, false);
+
+                int scenarioNo = 0;
+
+                foreach (Dictionary<string, dynamic> scenarioNode in mapByml.RootNode as List<dynamic>)
+                {
+
+                    Dictionary<string, List<PlacementInfo>> scenarioList = new Dictionary<string, List<PlacementInfo>>();
+
+                    string scenarioName = $"Scenario{scenarioNo}";
+
+                    foreach (var actorListNode in scenarioNode)
+                    {
+
+                        if(!scenarioList.ContainsKey(actorListNode.Key))
+                        {
+                            scenarioList.Add(actorListNode.Key, new List<PlacementInfo>());
+                        }
+
+                        List<PlacementInfo> actors = scenarioList[actorListNode.Key];
+
+                        foreach (Dictionary<string, dynamic> actorNode in actorListNode.Value)
+                        {
+                            PlacementInfo actorInfo = new PlacementInfo(actorNode);
+
+                            actors.Add(actorInfo);
+
+                            //if(actorInfo.isUseLinks)
+                            //{
+                            //    CreateAllActors(scenarioList, actors, actorInfo);
+                            //}else
+                            //{
+
+                            //}
+                        }
+                    }
+
+                    MapPlacementList.Add(scenarioName, scenarioList);
+
+                    scenarioNo++;
+                }
+            }
+            
+
             //For this example I will show loading 3D objects into the scene
             MapScene scene = new MapScene();
             scene.Setup(this);
@@ -98,6 +168,39 @@ namespace SampleMapEditor
         public override bool OnFileDrop(string filePath)
         {
             return false;
+        }
+
+        private void CreateAllActors(Dictionary<string, List<PlacementInfo>> scenarioActorLists, List<PlacementInfo> curActorList, PlacementInfo actorInfo)
+        {
+
+            List<PlacementInfo> linkedObjList = scenarioActorLists.ContainsKey("LinkedObjs") ? scenarioActorLists["LinkedObjs"] : new List<PlacementInfo>();
+
+            foreach (var linkList in actorInfo.Links)
+            {
+                foreach (Dictionary<string, dynamic> objNode in linkList.Value)
+                {
+
+                    if (!linkedObjList.Exists(e => e.ObjID == objNode["Id"]))
+                    {
+                        PlacementInfo childActorPlacement = new PlacementInfo(objNode);
+
+                        List<PlacementInfo> targetCategory = scenarioActorLists.ContainsKey(childActorPlacement.ActorCategory) ? scenarioActorLists[childActorPlacement.ActorCategory] : new List<PlacementInfo>();
+
+                        if (childActorPlacement.isUseLinks)
+                        {
+                            CreateAllActors(scenarioActorLists, targetCategory, childActorPlacement); // recursively call function
+                        }else
+                        {
+                            targetCategory.Add(childActorPlacement);
+                        }
+
+                        linkedObjList.Add(childActorPlacement);
+
+                    }
+                }
+            }
+
+            curActorList.Add(actorInfo);
         }
     }
 }
