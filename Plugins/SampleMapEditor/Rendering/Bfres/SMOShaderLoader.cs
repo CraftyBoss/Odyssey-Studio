@@ -6,12 +6,13 @@ using System.Threading.Tasks;
 using Toolbox.Core.IO;
 using Toolbox.Core;
 using CafeLibrary.Rendering;
+using CafeLibrary;
 
-namespace CafeLibrary.Rendering
+namespace RedStarLibrary.Rendering
 {
     public class SMOShaderLoader
     {
-        public static string GamePath => SampleMapEditor.PluginConfig.GamePath;
+        public static string GamePath => PluginConfig.GamePath;
 
         public static BfshaLibrary.BfshaFile LoadShader(string archive)
         {

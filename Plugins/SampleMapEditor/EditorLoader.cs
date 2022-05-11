@@ -8,6 +8,7 @@ using CafeLibrary;
 using ByamlExt.Byaml;
 using System.Collections.Generic;
 using RedStarLibrary.GameTypes;
+using RedStarLibrary.Rendering;
 
 namespace RedStarLibrary
 {
@@ -70,7 +71,7 @@ namespace RedStarLibrary
         {
             //Set the game shader
             if (USE_GAME_SHADERS)
-                CafeLibrary.Rendering.BfresLoader.AddShaderType(typeof(CafeLibrary.Rendering.SMORenderer));
+                CafeLibrary.Rendering.BfresLoader.AddShaderType(typeof(SMORenderer));
 
             mapArc = new SARC();
 

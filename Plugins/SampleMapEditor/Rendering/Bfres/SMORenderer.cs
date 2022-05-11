@@ -13,7 +13,7 @@ using SampleMapEditor.Properties;
 using CafeLibrary;
 using BfresLibrary;
 
-namespace CafeLibrary.Rendering
+namespace RedStarLibrary.Rendering
 {
     public class SMORenderer : BfshaRenderer
     {
