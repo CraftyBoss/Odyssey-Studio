@@ -7,7 +7,7 @@ using Toolbox.Core;
 using MapStudio.UI;
 using GLFrameworkEngine;
 
-namespace SampleMapEditor
+namespace RedStarLibrary
 {
     /// <summary>
     /// Represents a plugin for a map editor.

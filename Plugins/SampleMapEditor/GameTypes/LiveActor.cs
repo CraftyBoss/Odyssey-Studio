@@ -9,12 +9,12 @@ using OpenTK.Graphics.OpenGL;
 using Toolbox.Core.ViewModels;
 using CafeLibrary.Rendering;
 using MapStudio.UI;
-using SampleMapEditor.Rendering.Area;
+using RedStarLibrary.Rendering.Area;
 using System.Drawing;
 using Toolbox.Core;
 using ImGuiNET;
 
-namespace SampleMapEditor.GameTypes
+namespace RedStarLibrary.GameTypes
 {
     public enum ActorRenderMode
     {
@@ -41,6 +41,10 @@ namespace SampleMapEditor.GameTypes
         public Dictionary<string, string> linkedObjs;
 
         public EditableObject ObjectRender;
+        public GLTransform Transform
+        {
+            get { return ObjectRender.Transform; }
+        }
 
         private ActorRenderMode renderMode;
         public LiveActor(NodeBase parentNode, PlacementInfo info)
@@ -137,6 +141,10 @@ namespace SampleMapEditor.GameTypes
             ObjectRender.UINode.Header = ActorName;
             ObjectRender.UINode.Icon = IconManager.MESH_ICON.ToString();
             ObjectRender.UINode.Tag = this;
+            ObjectRender.UINode.TagUI.UIDrawer += delegate
+            {
+                PropertyDrawer.Draw(placement.actorNode);
+            };
             ObjectRender.Transform.Position = placement.translation;
             ObjectRender.Transform.Scale = placement.scale;
             ObjectRender.Transform.RotationEulerDegrees = placement.rotation;

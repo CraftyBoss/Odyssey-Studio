@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using GLFrameworkEngine;
 using Toolbox.Core.ViewModels;
 
-namespace SampleMapEditor
+namespace RedStarLibrary
 {
     /// <summary>
     /// Represents a custom renderer that can be transformed and manipulated.
