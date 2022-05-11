@@ -3,12 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.IO;
 using System.Threading.Tasks;
-using BfresEditor;
 using Toolbox.Core.IO;
 using Toolbox.Core;
 using CafeLibrary.Rendering;
 
-namespace BfresEditor
+namespace CafeLibrary.Rendering
 {
     public class SMOShaderLoader
     {
@@ -44,14 +43,13 @@ namespace BfresEditor
             Console.WriteLine($"TryLoadPath " + $"{folder}\\{fileName}.szs");
 
             //Load from game folder instead if not cached 
-            if (System.IO.File.Exists($"{folder}\\{fileName}.szs")) {
+            if (File.Exists($"{folder}\\{fileName}.szs")) {
                 if (!Directory.Exists("GlobalShaders"))
                     Directory.CreateDirectory("GlobalShaders");
 
                 //Cache the file and save to disk
-                var sarc = STFileLoader.OpenFileFormat($"{folder}\\{fileName}.szs") as IArchiveFile;
-                var file = sarc.Files.FirstOrDefault(x => x.FileName == $"{fileName}.bfsha");
-                file.FileData.SaveToFile(outputPath);
+                var sarc = SARC_Parser.UnpackRamN(YAZ0.Decompress($"{folder}\\{fileName}.szs"));
+                File.WriteAllBytes(outputPath, sarc.Files[$"{fileName}.bfsha"]);
 
                 var bfsha = new BfshaLibrary.BfshaFile(outputPath);
                 GlobalShaderCache.ShaderFiles.Add(outputPath, bfsha);

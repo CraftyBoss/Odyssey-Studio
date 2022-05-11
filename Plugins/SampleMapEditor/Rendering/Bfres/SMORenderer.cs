@@ -13,11 +13,11 @@ using SampleMapEditor.Properties;
 using CafeLibrary;
 using BfresLibrary;
 
-namespace BfresEditor
+namespace CafeLibrary.Rendering
 {
     public class SMORenderer : BfshaRenderer
     {
-        public bool UseRenderer(FMAT material, string archive, string model) {
+        public override bool UseRenderer(BfresLibrary.Material material, string archive, string model) {
             return archive == "alRenderMaterial";
         }
 

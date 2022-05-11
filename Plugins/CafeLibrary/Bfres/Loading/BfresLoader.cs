@@ -280,7 +280,7 @@ namespace CafeLibrary.Rendering
 
             foreach (var type in CustomShaders)
             {
-                var shaderMat = (ShaderRenderBase)Activator.CreateInstance(TargetShader, render, model);
+                var shaderMat = (ShaderRenderBase)Activator.CreateInstance(type, render, model);
                 if (shaderMat.UseRenderer(mat, mat.ShaderAssign.ShaderArchiveName, mat.ShaderAssign.ShadingModelName))
                     matRender = shaderMat;
             }
@@ -308,6 +308,13 @@ namespace CafeLibrary.Rendering
                 if (TargetShader != null)
                     matRender = (BfresMaterialRender)Activator.CreateInstance(TargetShader, render, model);
             }
+            foreach (var type in CustomShaders)
+            {
+                var shaderMat = (ShaderRenderBase)Activator.CreateInstance(type, render, model);
+                if (shaderMat.UseRenderer(mat, mat.ShaderAssign.ShaderArchiveName, mat.ShaderAssign.ShadingModelName))
+                    matRender = shaderMat;
+            }
+
             matRender.Material = new FMAT();
             matRender.Name = mat.Name;
             matRender.Material.ReloadMaterial(mat);

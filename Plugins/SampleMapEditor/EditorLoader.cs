@@ -52,11 +52,16 @@ namespace SampleMapEditor
             return fileInfo.Extension == ".szs";
         }
 
+        const bool USE_GAME_SHADERS = false;
+
         /// <summary>
         /// Loads the given file data from a stream.
         /// </summary>
         public void Load(Stream stream)
         {
+            //Set the game shader
+            if (USE_GAME_SHADERS)
+                CafeLibrary.Rendering.BfresLoader.AddShaderType(typeof(CafeLibrary.Rendering.SMORenderer));
 
             SARC mapArc = new SARC();
 
