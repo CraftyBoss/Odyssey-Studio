@@ -211,13 +211,10 @@ namespace CafeLibrary.Rendering
                 var shaderBlock = GetBlock(name + "vs", false);
 
                 //If a block is not cached, update it in the render loop.
-                if (!BlocksToCache.Contains(name) || UpdateMaterialBlock) {
+                { 
 
                     shaderBlock.Buffer.Clear();
                     LoadUniformBlock(control, shader,  i, parentModel, transform, shaderBlock, name, mesh);
-                    if (name != "gsys_context" && name != "gsys_skeleton" && name != "gsys_shape" && name != "gsys_environment" && 
-                        name != "View" &&!BlocksToCache.Contains(name))
-                        BlocksToCache.Add(name);
                 }
 
                 RenderBlock(shaderBlock, programID, vertLocation, fragLocation, binding++);

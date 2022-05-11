@@ -126,12 +126,13 @@ namespace RedStarLibrary.Rendering
             Uniform0Texture = GLTexture2D.CreateConstantColorTexture(4, 4, 0, 0, 0, 1);
         }
 
-        public override void Render(GLContext control, ShaderProgram shader, GenericPickableMesh mesh)
+        public override void Render(GLContext control, BfresModelRender parentModel, GLTransform transform, ShaderProgram shader, GenericPickableMesh mesh)
         {
             if (MaterialLightCube == null)
                 InitTextures();
 
-            base.Render(control, shader, mesh);
+            control.UseSRBFrameBuffer = true;
+            base.Render(control, parentModel, transform, shader, mesh);
 
             if (((BfresMeshRender)mesh).UseColorBufferPass)
                 SetScreenTextureBuffer(shader, control);
@@ -139,7 +140,6 @@ namespace RedStarLibrary.Rendering
 
         public override void LoadUniformBlock(GLContext control, ShaderProgram shader, int index, BfresModelRender parentModel, GLTransform transform, UniformBlock block, string name, GenericPickableMesh mesh)
         {
-            var bfresMaterial = (FMAT)this.MaterialData;
             var bfresMesh = (BfresMeshRender)mesh;
             var meshBone = parentModel.ModelData.Skeleton.Bones[bfresMesh.BoneIndex];
 

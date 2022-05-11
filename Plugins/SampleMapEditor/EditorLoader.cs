@@ -71,7 +71,10 @@ namespace RedStarLibrary
         {
             //Set the game shader
             if (USE_GAME_SHADERS)
+            {
                 CafeLibrary.Rendering.BfresLoader.AddShaderType(typeof(SMORenderer));
+                CafeLibrary.PluginConfig.UseGameShaders = true;
+            }
 
             mapArc = new SARC();
 
