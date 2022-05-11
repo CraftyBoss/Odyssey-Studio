@@ -7,9 +7,9 @@ using GLFrameworkEngine;
 using CafeLibrary;
 using ByamlExt.Byaml;
 using System.Collections.Generic;
-using SampleMapEditor.GameTypes;
+using RedStarLibrary.GameTypes;
 
-namespace SampleMapEditor
+namespace RedStarLibrary
 {
     /// <summary>
     /// Represents a class used for loading files into the editor.
@@ -42,6 +42,15 @@ namespace SampleMapEditor
         /// </summary>
         public Dictionary<string, Dictionary<string, List<PlacementInfo>>> MapPlacementList;
 
+        public Dictionary<string, List<ActorList>> MapActorList;
+
+        /// <summary>
+        /// SARC containing all data used in the map
+        /// </summary>
+        private SARC mapArc;
+
+        private string mapName;
+
         /// <summary>
         /// Determines when to use the map editor from a given file.
         /// You can check from file extension or check the data inside the file stream.
@@ -63,7 +72,7 @@ namespace SampleMapEditor
             if (USE_GAME_SHADERS)
                 CafeLibrary.Rendering.BfresLoader.AddShaderType(typeof(CafeLibrary.Rendering.SMORenderer));
 
-            SARC mapArc = new SARC();
+            mapArc = new SARC();
 
             mapArc.Load(stream);
 
@@ -71,6 +80,8 @@ namespace SampleMapEditor
 
             if(mapData != null)
             {
+
+                mapName = mapData.FileName;
 
                 // Dict of Scenarios containing List of Dicts that contain Categories of PlacementInfo
                 MapPlacementList = new Dictionary<string, Dictionary<string, List<PlacementInfo>>>();
@@ -115,12 +126,16 @@ namespace SampleMapEditor
 
                     scenarioNo++;
                 }
-            }
-            
 
-            //For this example I will show loading 3D objects into the scene
-            MapScene scene = new MapScene();
-            scene.Setup(this);
+                //For this example I will show loading 3D objects into the scene
+                MapScene scene = new MapScene();
+                scene.Setup(this);
+
+            }
+            else
+            {
+                throw new FileLoadException("Unable to Load Archive!");
+            }
         }
 
         /// <summary>
@@ -129,6 +144,63 @@ namespace SampleMapEditor
         public void Save(Stream stream)
         {
 
+            BymlFileData mapByml = new BymlFileData()
+            {
+                byteOrder = Syroot.BinaryData.ByteOrder.LittleEndian,
+                SupportPaths = false,
+                Version = 3
+            };
+            // List<Dictionary<string,List<Dictionary<string,dynamic>>>>
+            List<dynamic> serializedDict = new List<dynamic>();
+
+            ArchiveFileInfo mapData = mapArc.files.Find(e => e.FileName.Contains("StageMap.byml") || e.FileName.Contains("StageDesign.byml") || e.FileName.Contains("StageSound.byml"));
+
+            BymlFileData origMapByml = ByamlFile.LoadN(mapData.FileData, false);
+
+            int scenarioNo = 0;
+
+            foreach (var mapScenario in MapPlacementList)
+            {
+
+                Dictionary<string, dynamic> scenarioDict = new Dictionary<string, dynamic>();
+
+                List<ActorList> actorCategories;
+
+                MapActorList.TryGetValue($"Scenario{scenarioNo}", out actorCategories);
+
+                if (actorCategories != null)
+                {
+                    actorCategories.ForEach(e => e.UpdateAllActorPlacement());
+                }
+
+                foreach (var mapActorLists in mapScenario.Value)
+                {
+
+                    if (mapActorLists.Key == "LinkedObjs") continue;
+
+                    List<dynamic> actorList = new List<dynamic>();
+
+                    foreach (var actorPlacementInfo in mapActorLists.Value)
+                    {
+
+                        actorPlacementInfo.SaveTransform();
+
+                        actorList.Add(actorPlacementInfo.actorNode);
+                    }
+
+                    scenarioDict.Add(mapActorLists.Key, actorList);
+                }
+
+                serializedDict.Add(scenarioDict);
+
+                scenarioNo++;
+            }
+
+            mapByml.RootNode = serializedDict;
+
+            mapArc.SetFileData(mapName, new MemoryStream(ByamlFile.SaveN(mapByml)));
+
+            mapArc.Save(stream);
         }
 
         //Extra overrides for FileEditor you can use for custom UI
@@ -173,10 +245,7 @@ namespace SampleMapEditor
         private void CreateAllActors(Dictionary<string, List<PlacementInfo>> scenarioActorLists, List<PlacementInfo> curActorList, PlacementInfo actorInfo)
         {
 
-            if(!scenarioActorLists.ContainsKey("LinkedObjs"))
-            {
-                scenarioActorLists.Add("LinkedObjs", new List<PlacementInfo>());
-            }
+            if(!scenarioActorLists.ContainsKey("LinkedObjs")) scenarioActorLists.Add("LinkedObjs", new List<PlacementInfo>());
 
             List<PlacementInfo> linkedObjList = scenarioActorLists["LinkedObjs"];
 
@@ -189,14 +258,12 @@ namespace SampleMapEditor
                     {
                         PlacementInfo childActorPlacement = new PlacementInfo(objNode);
 
-                        List<PlacementInfo> targetCategory = scenarioActorLists.ContainsKey(childActorPlacement.ActorCategory) ? scenarioActorLists[childActorPlacement.ActorCategory] : new List<PlacementInfo>();
-
                         if (childActorPlacement.isUseLinks)
                         {
-                            CreateAllActors(scenarioActorLists, targetCategory, childActorPlacement); // recursively call function
+                            CreateAllActors(scenarioActorLists, linkedObjList, childActorPlacement); // recursively call function
                         }else
                         {
-                            targetCategory.Add(childActorPlacement);
+                            linkedObjList.Add(childActorPlacement);
                         }
 
                         linkedObjList.Add(childActorPlacement);

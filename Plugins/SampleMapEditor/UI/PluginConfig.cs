@@ -8,7 +8,7 @@ using ImGuiNET;
 using MapStudio.UI;
 using Toolbox.Core;
 
-namespace SampleMapEditor
+namespace RedStarLibrary
 {
     /// <summary>
     /// Represents UI for the plugin which is currently showing in the Paths section of the main menu UI.

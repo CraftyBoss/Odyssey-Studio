@@ -7,7 +7,7 @@ using CafeLibrary;
 using ByamlExt.Byaml;
 using OpenTK;
 
-namespace SampleMapEditor.GameTypes
+namespace RedStarLibrary.GameTypes
 {
     public class PlacementInfo
     {

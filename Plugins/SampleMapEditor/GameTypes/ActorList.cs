@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace SampleMapEditor.GameTypes
+namespace RedStarLibrary.GameTypes
 {
     public class ActorList : IEnumerable<LiveActor>
     {
@@ -48,6 +48,20 @@ namespace SampleMapEditor.GameTypes
         public bool isContainActor(string objID)
         {
             return _actorList.Any(e => e.placement.ObjID == objID);
+        }
+
+        public void UpdateAllActorPlacement()
+        {
+            foreach (var actor in _actorList)
+            {
+                var placementInfo = actor.placement;
+
+                placementInfo.translation = actor.Transform.Position;
+                placementInfo.rotation = actor.Transform.RotationEulerDegrees;
+                placementInfo.scale = actor.Transform.Scale;
+
+                placementInfo.SaveTransform();
+            }
         }
 
     }

@@ -8,7 +8,7 @@ using OpenTK;
 using OpenTK.Graphics.OpenGL;
 using Toolbox.Core.ViewModels;
 
-namespace SampleMapEditor.Rendering.Area
+namespace RedStarLibrary.Rendering.Area
 {
     public class AreaRender : EditableObject, IColorPickable
     {
