@@ -141,7 +141,6 @@ namespace RedStarLibrary.Rendering
 
         public override void LoadUniformBlock(GLContext control, ShaderProgram shader, int index, BfresModelRender parentModel, GLTransform transform, UniformBlock block, string name, GenericPickableMesh mesh)
         {
-            var bfresMaterial = (FMAT)this.MaterialData;
             var bfresMesh = (BfresMeshRender)mesh;
             var meshBone = parentModel.ModelData.Skeleton.Bones[bfresMesh.BoneIndex];
 

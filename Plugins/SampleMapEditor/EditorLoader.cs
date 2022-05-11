@@ -62,7 +62,7 @@ namespace RedStarLibrary
             return fileInfo.Extension == ".szs";
         }
 
-        const bool USE_GAME_SHADERS = false;
+        const bool USE_GAME_SHADERS = true;
 
         /// <summary>
         /// Loads the given file data from a stream.
