@@ -611,8 +611,9 @@ namespace MapStudio
             bool canSave = Workspace.ActiveWorkspace != null;
             SaveMenu.Enabled = canSave;
             SaveAsMenu.Enabled = canSave;
-           // SaveProjectMenu.Enabled = canSave;
-          //  SaveAsProjectMenu.Enabled = canSave;
+            // SaveProjectMenu.Enabled = canSave;
+            //  SaveAsProjectMenu.Enabled = canSave;
+            UpdateDockLayout = true;
         }
 
         private void ClearWorkspace()
