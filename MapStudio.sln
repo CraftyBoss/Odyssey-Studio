@@ -13,7 +13,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Plugins", "Plugins", "{44D3
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Toolbox.Core", "Toolbox.Core\Toolbox.Core.csproj", "{0779CE2E-B165-4DBB-B778-1E39B5645A34}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SampleMapEditor", "Plugins\SampleMapEditor\SampleMapEditor.csproj", "{4558E81A-8427-4EB9-868D-7C3D63451B48}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RedStarLibrary", "Plugins\SampleMapEditor\RedStarLibrary.csproj", "{4558E81A-8427-4EB9-868D-7C3D63451B48}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MapStudio", "Track Studio\MapStudio.csproj", "{91C216DD-9F43-4B8A-B955-01A43EE2E582}"
 EndProject

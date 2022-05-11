@@ -33,7 +33,7 @@
 	<ItemGroup>
 	  <ProjectReference Include="..\GLFrameworkEngine\GLFrameworkEngine.csproj" />
 	  <ProjectReference Include="..\MapStudio.UI\MapStudio.UI.csproj" />
-	  <ProjectReference Include="..\Plugins\SampleMapEditor\SampleMapEditor.csproj" />
+	  <ProjectReference Include="..\Plugins\SampleMapEditor\RedStarLibrary.csproj" />
 	</ItemGroup>
   
 	<ItemGroup>
