@@ -115,6 +115,8 @@ namespace MapStudio
                 ImGui.End();
             }
 
+            SetupDocks();
+
             List<Workspace> removedWindows = new List<Workspace>();
             foreach (var workspace in Workspaces)
             {
@@ -132,8 +134,6 @@ namespace MapStudio
                 if (!workspace.Opened)
                     removedWindows.Add(workspace);
             }
-
-            SetupDocks();
 
             //Remove windows that are not opened
             if (removedWindows.Count > 0)
