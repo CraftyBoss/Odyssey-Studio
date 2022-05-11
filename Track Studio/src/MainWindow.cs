@@ -133,6 +133,8 @@ namespace MapStudio
                     removedWindows.Add(workspace);
             }
 
+            SetupDocks();
+
             //Remove windows that are not opened
             if (removedWindows.Count > 0)
             {
@@ -155,6 +157,13 @@ namespace MapStudio
             //Progress bar
             if (ProcessLoading.Instance.IsLoading)
                 ProcessLoading.Instance.Draw(_window.Width, _window.Height);
+        }
+
+        private void SetupDocks()
+        {
+            var dock_id = ImGui.GetID("##DockspaceRoot");
+
+            SetupParentDock(dock_id, Workspaces);
         }
 
         #region MainMenuBar
