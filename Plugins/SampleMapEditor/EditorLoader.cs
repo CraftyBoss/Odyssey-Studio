@@ -9,6 +9,7 @@ using ByamlExt.Byaml;
 using System.Collections.Generic;
 using RedStarLibrary.GameTypes;
 using RedStarLibrary.Rendering;
+using Toolbox.Core.IO;
 
 namespace RedStarLibrary
 {
@@ -45,12 +46,14 @@ namespace RedStarLibrary
 
         public Dictionary<string, List<ActorList>> MapActorList;
 
+        public Dictionary<string, dynamic> MapGraphicsPreset;
+
         /// <summary>
         /// SARC containing all data used in the map
         /// </summary>
         private SARC mapArc;
 
-        private string mapName;
+        private string PlacementFileName;
 
         /// <summary>
         /// Determines when to use the map editor from a given file.
@@ -62,7 +65,7 @@ namespace RedStarLibrary
             return fileInfo.Extension == ".szs";
         }
 
-        const bool USE_GAME_SHADERS = true;
+        const bool USE_GAME_SHADERS = false;
 
         /// <summary>
         /// Loads the given file data from a stream.
@@ -84,8 +87,6 @@ namespace RedStarLibrary
 
             if(mapData != null)
             {
-
-                mapName = mapData.FileName;
 
                 // Dict of Scenarios containing List of Dicts that contain Categories of PlacementInfo
                 MapPlacementList = new Dictionary<string, Dictionary<string, List<PlacementInfo>>>();
@@ -115,6 +116,11 @@ namespace RedStarLibrary
                         {
                             PlacementInfo actorInfo = new PlacementInfo(actorNode);
 
+                            if(PlacementFileName == null)
+                            {
+                                PlacementFileName = actorNode["PlacementFileName"];
+                            }
+
                             if (actorInfo.isUseLinks)
                             {
                                 CreateAllActors(scenarioList, actors, actorInfo);
@@ -131,7 +137,13 @@ namespace RedStarLibrary
                     scenarioNo++;
                 }
 
-                //For this example I will show loading 3D objects into the scene
+                string designPath = $"{PluginConfig.GamePath}\\StageData\\{PlacementFileName}Design.szs";
+
+                if(File.Exists(designPath))
+                {
+                    LoadGraphicsData(designPath);
+                }
+
                 MapScene scene = new MapScene();
                 scene.Setup(this);
 
@@ -202,9 +214,38 @@ namespace RedStarLibrary
 
             mapByml.RootNode = serializedDict;
 
-            mapArc.SetFileData(mapName, new MemoryStream(ByamlFile.SaveN(mapByml)));
+            mapArc.SetFileData(PlacementFileName, new MemoryStream(ByamlFile.SaveN(mapByml)));
 
             mapArc.Save(stream);
+        }
+
+        private void LoadGraphicsData(string path)
+        {
+
+            var sarc = SARC_Parser.UnpackRamN(YAZ0.Decompress(path));
+
+            BymlFileData gfxParam = ByamlFile.LoadN(new MemoryStream(sarc.Files["GraphicsArea.byml"]), false);
+
+            var presetSarc = SARC_Parser.UnpackRamN(YAZ0.Decompress($"{PluginConfig.GamePath}\\SystemData\\GraphicsPreset.szs"));
+
+            foreach (Dictionary<string,dynamic> areaParam in gfxParam.RootNode["GraphicsAreaParamArray"])
+            {
+                if(areaParam["AreaName"] == "DefaultArea" && areaParam["PresetName"] != null)
+                {
+                    byte[] paramBytes = null;
+                    presetSarc.Files.TryGetValue($"{areaParam["PresetName"]}.byml", out paramBytes);
+
+                    if(paramBytes != null)
+                    {
+                        BymlFileData gfxPreset = ByamlFile.LoadN(new MemoryStream(paramBytes), false);
+
+                        MapGraphicsPreset = gfxPreset.RootNode;
+
+                        break;
+                    }
+                }
+            }
+
         }
 
         //Extra overrides for FileEditor you can use for custom UI
@@ -214,7 +255,10 @@ namespace RedStarLibrary
         /// </summary>
         public override void DrawViewportMenuBar()
         {
-
+            //if(MapGraphicsArea != null)
+            //{
+            //    PropertyDrawer.Draw(MapGraphicsArea);
+            //}
         }
 
         /// <summary>

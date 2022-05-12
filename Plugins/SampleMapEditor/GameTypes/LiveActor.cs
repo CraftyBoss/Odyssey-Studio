@@ -46,7 +46,31 @@ namespace RedStarLibrary.GameTypes
             get { return ObjectRender.Transform; }
         }
 
+        public bool IsInvalidateClipping = true;
+
+        public float ClippingDist = 10000.0f;
+
         private ActorRenderMode renderMode;
+
+        public LiveActor(NodeBase parentNode, string actorName, string path)
+        {
+            parent = parentNode;
+            placement = new PlacementInfo();
+
+            placement.ModelName = actorName;
+
+            linkedObjs = new Dictionary<string, string>();
+
+            ActorName = actorName;
+
+            modelPath = path;
+
+            if (File.Exists(modelPath))
+            {
+                hasArchive = true;
+            }
+
+        }
         public LiveActor(NodeBase parentNode, PlacementInfo info)
         {
             parent = parentNode;
@@ -88,6 +112,14 @@ namespace RedStarLibrary.GameTypes
                         ((BfresRender)ObjectRender).Textures.Add(texture.Key, texture.Value);
                     }
                 }
+            }
+
+            ((BfresRender)ObjectRender).UseDrawDistance = !IsInvalidateClipping;
+
+            if(!IsInvalidateClipping)
+            {
+                ((BfresRender)ObjectRender).renderDistance = ClippingDist;
+                ((BfresRender)ObjectRender).renderDistanceSquared = ClippingDist * 10;
             }
 
             renderMode = ActorRenderMode.Model;

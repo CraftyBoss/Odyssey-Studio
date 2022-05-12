@@ -73,7 +73,34 @@ namespace RedStarLibrary.GameTypes
 
         public PlacementInfo()
         {
-            actorNode = new Dictionary<string, dynamic>();
+            actorNode = new Dictionary<string, dynamic>()
+            {
+                {"Id", "" },
+                {"IsLinkDest", false },
+                {"LayerConfigName", "" },
+                {"ModelName",""},
+                {"PlacementFileName",""},
+                {"UnitConfigName", "" },
+                {"Links", new Dictionary<string,dynamic>() },
+                {"Rotate", new Dictionary<string,dynamic>(){ { "X", 0.0f }, { "Y", 0.0f }, { "Z", 0.0f } } },
+                {"Scale", new Dictionary<string,dynamic>(){ { "X", 1.0f }, { "Y", 1.0f }, { "Z", 1.0f } } },
+                {"Translate", new Dictionary<string,dynamic>(){ { "X", 0.0f }, { "Y", 0.0f }, { "Z", 0.0f } } },
+                {"UnitConfig", new Dictionary<string,dynamic>(){ 
+                    { "DisplayName", "" },
+                    { "GenerateCategory", "" },
+                    { "ParameterConfigName", "" }, 
+                    { "ParameterTargetFile", "" },
+                    {"DisplayRotate", new Dictionary<string,dynamic>(){ { "X", 0.0f }, { "Y", 0.0f }, { "Z", 0.0f } } },
+                    {"DisplayScale", new Dictionary<string,dynamic>(){ { "X", 1.0f }, { "Y", 1.0f }, { "Z", 1.0f } } },
+                    {"DisplayTranslate", new Dictionary<string,dynamic>(){ { "X", 0.0f }, { "Y", 0.0f }, { "Z", 0.0f } } },
+                } },
+            };
+
+            translation = LoadVector("Translate");
+            rotation = LoadVector("Rotate");
+            scale = LoadVector("Scale");
+
+            isUseLinks = false;
         }
 
         public PlacementInfo(Dictionary<string, dynamic> rootActorNode)

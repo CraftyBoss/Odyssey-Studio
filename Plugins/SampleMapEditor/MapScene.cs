@@ -131,6 +131,34 @@ namespace RedStarLibrary
 
             }
 
+            // Load Skybox
+
+            if(loader.MapGraphicsPreset != null)
+            {
+                string arcName = loader.MapGraphicsPreset["Sky"]["Name"];
+
+                string skyPath = $"{PluginConfig.GamePath}\\ObjectData\\{arcName}.szs";
+
+                var skySarc = ResourceManager.FindOrLoadSARC(skyPath);
+
+                NodeBase GraphicsObjs = new NodeBase("Graphics Objects");
+                GraphicsObjs.HasCheckBox = true;
+                loader.Root.AddChild(GraphicsObjs);
+                GraphicsObjs.Icon = IconManager.MODEL_ICON.ToString();
+
+                LiveActor skyActor = new LiveActor(GraphicsObjs, arcName, skyPath);
+
+                skyActor.CreateBfresRenderer(GetModelStream(skySarc, arcName));
+
+                ((BfresRender)skyActor.ObjectRender).UseDrawDistance = false;
+                ((BfresRender)skyActor.ObjectRender).StayInFrustum = true;
+
+                skyActor.ObjectRender.CanSelect = false;
+
+                loader.AddRender(skyActor.ObjectRender);
+            }
+
+
             loader.MapActorList.Add("Scenario0", categoryList);
 
         }

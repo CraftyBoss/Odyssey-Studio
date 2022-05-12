@@ -99,8 +99,8 @@ namespace CafeLibrary.Rendering
         public Func<bool> FrustumCullingCallback;
 
         //Render distance for models to cull from far away.
-        protected float renderDistanceSquared = 20000000;
-        protected float renderDistance = 2000000;
+        public float renderDistanceSquared = 20000000;
+        public float renderDistance = 2000000;
 
         public EventHandler OnRenderInitialized;
 
@@ -446,8 +446,8 @@ namespace CafeLibrary.Rendering
             }
 
             // Draw distance map objects
-            //if (UseDrawDistance)
-             //   return context.Camera.InRange(renderDistanceSquared, Transform.Position);
+            if (UseDrawDistance)
+                return context.Camera.InRange(Transform.Position, renderDistanceSquared);
             return true;
         }
 

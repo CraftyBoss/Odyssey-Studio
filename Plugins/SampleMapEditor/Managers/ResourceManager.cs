@@ -52,18 +52,24 @@ namespace RedStarLibrary
 
         public static SARC FindOrLoadSARC(string sarcPath)
         {
-            string arcName = Path.GetFileNameWithoutExtension(sarcPath);
-
-            if (!LoadedSARCS.ContainsKey(arcName))
+            if(File.Exists(sarcPath))
             {
-                SARC arc = new SARC();
+                string arcName = Path.GetFileNameWithoutExtension(sarcPath);
 
-                arc.Load(new MemoryStream(YAZ0.Decompress(sarcPath)));
+                if (!LoadedSARCS.ContainsKey(arcName))
+                {
+                    SARC arc = new SARC();
 
-                LoadedSARCS.Add(arcName, arc);
+                    arc.Load(new MemoryStream(YAZ0.Decompress(sarcPath)));
+
+                    LoadedSARCS.Add(arcName, arc);
+                }
+
+                return LoadedSARCS[arcName];
+            }else
+            {
+                return null;
             }
-
-            return LoadedSARCS[arcName];
         }
     }
 }
