@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using CafeLibrary;
 using ByamlExt.Byaml;
 using OpenTK;
+using RedStarLibrary.MapData;
 
 namespace RedStarLibrary.GameTypes
 {
@@ -70,14 +71,13 @@ namespace RedStarLibrary.GameTypes
         public Vector3 scale;
 
         public bool isUseLinks = false;
-
         public PlacementInfo()
         {
             actorNode = new Dictionary<string, dynamic>()
             {
                 {"Id", "" },
                 {"IsLinkDest", false },
-                {"LayerConfigName", "" },
+                {"LayerConfigName", "Common" },
                 {"ModelName",""},
                 {"PlacementFileName",""},
                 {"UnitConfigName", "" },
@@ -111,7 +111,7 @@ namespace RedStarLibrary.GameTypes
             rotation = LoadVector("Rotate");
             scale = LoadVector("Scale");
 
-            if(rootActorNode["Links"].Count > 0)
+            if (rootActorNode["Links"].Count > 0)
             {
                 isUseLinks = true;
             }
@@ -132,6 +132,13 @@ namespace RedStarLibrary.GameTypes
             actorNode[key]["X"] = vec.X;
             actorNode[key]["Y"] = vec.Y;
             actorNode[key]["Z"] = vec.Z;
+        }
+
+        public override bool Equals(object obj)
+        {
+            if(obj is PlacementInfo)
+                return this.ObjID == ((PlacementInfo)obj).ObjID;
+            return false;
         }
 
     }

@@ -76,14 +76,10 @@ namespace RedStarLibrary
         private void SetupObjects(EditorLoader loader)
         {
 
-            loader.MapActorList = new Dictionary<string, List<ActorList>>();
+            loader.MapActorList = new List<ActorList>();
 
-            List<ActorList> categoryList = new List<ActorList>();
-
-            // Temp hardcode until i figure out/jupa teaches me about layers
-            foreach (var mapActors in loader.MapPlacementList["Scenario0"])
+            foreach (var mapActors in LayerManager.GetAllObjectsInScenario(loader.MapScenarioNo))
             {
-
                 NodeBase actorList = new NodeBase(mapActors.Key);
                 ActorList actorCategory = new ActorList(mapActors.Key);
                 actorList.HasCheckBox = true;
@@ -127,40 +123,55 @@ namespace RedStarLibrary
                     
                 }
 
-                categoryList.Add(actorCategory);
+                loader.MapActorList.Add(actorCategory);
 
             }
 
             // Load Skybox
 
-            if(loader.MapGraphicsPreset != null)
+            //if(loader.MapGraphicsPreset != null)
+            //{
+            //    string arcName = loader.MapGraphicsPreset["Sky"]["Name"];
+
+            //    string skyPath = $"{PluginConfig.GamePath}\\ObjectData\\{arcName}.szs";
+
+            //    var skySarc = ResourceManager.FindOrLoadSARC(skyPath);
+
+            //    NodeBase GraphicsObjs = new NodeBase("Graphics Objects");
+            //    GraphicsObjs.HasCheckBox = true;
+            //    loader.Root.AddChild(GraphicsObjs);
+            //    GraphicsObjs.Icon = IconManager.MODEL_ICON.ToString();
+
+            //    LiveActor skyActor = new LiveActor(GraphicsObjs, arcName, skyPath);
+
+            //    skyActor.CreateBfresRenderer(GetModelStream(skySarc, arcName));
+
+            //    ((BfresRender)skyActor.ObjectRender).UseDrawDistance = false;
+            //    ((BfresRender)skyActor.ObjectRender).StayInFrustum = true;
+
+            //    skyActor.ObjectRender.CanSelect = false;
+
+            //    loader.AddRender(skyActor.ObjectRender);
+            //}
+
+        }
+
+        public void RestartScene(EditorLoader loader)
+        {
+
+            loader.MapActorList = new List<ActorList>();
+
+            for (int i = loader.Scene.Objects.Count - 1; i >= 0; i--)
             {
-                string arcName = loader.MapGraphicsPreset["Sky"]["Name"];
-
-                string skyPath = $"{PluginConfig.GamePath}\\ObjectData\\{arcName}.szs";
-
-                var skySarc = ResourceManager.FindOrLoadSARC(skyPath);
-
-                NodeBase GraphicsObjs = new NodeBase("Graphics Objects");
-                GraphicsObjs.HasCheckBox = true;
-                loader.Root.AddChild(GraphicsObjs);
-                GraphicsObjs.Icon = IconManager.MODEL_ICON.ToString();
-
-                LiveActor skyActor = new LiveActor(GraphicsObjs, arcName, skyPath);
-
-                skyActor.CreateBfresRenderer(GetModelStream(skySarc, arcName));
-
-                ((BfresRender)skyActor.ObjectRender).UseDrawDistance = false;
-                ((BfresRender)skyActor.ObjectRender).StayInFrustum = true;
-
-                skyActor.ObjectRender.CanSelect = false;
-
-                loader.AddRender(skyActor.ObjectRender);
+                loader.RemoveRender(loader.Scene.Objects[i]);
             }
 
+            for (int i = loader.Root.Children.Count - 1; i >= 0; i--)
+            {
+                loader.Root.Children.Remove(loader.Root.Children[i]);
+            }
 
-            loader.MapActorList.Add("Scenario0", categoryList);
-
+            SetupObjects(loader);
         }
 
         /// <summary>

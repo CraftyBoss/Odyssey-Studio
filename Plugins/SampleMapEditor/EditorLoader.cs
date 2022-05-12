@@ -10,6 +10,8 @@ using System.Collections.Generic;
 using RedStarLibrary.GameTypes;
 using RedStarLibrary.Rendering;
 using Toolbox.Core.IO;
+using RedStarLibrary.MapData;
+using ImGuiNET;
 
 namespace RedStarLibrary
 {
@@ -44,16 +46,25 @@ namespace RedStarLibrary
         /// </summary>
         public Dictionary<string, Dictionary<string, List<PlacementInfo>>> MapPlacementList;
 
-        public Dictionary<string, List<ActorList>> MapActorList;
+        public List<ActorList> MapActorList;
 
         public Dictionary<string, dynamic> MapGraphicsPreset;
+
+        /// <summary>
+        /// The current Scenario selected for the loaded map.
+        /// </summary>
+        public int MapScenarioNo = 0;
 
         /// <summary>
         /// SARC containing all data used in the map
         /// </summary>
         private SARC mapArc;
-
+        /// <summary>
+        /// Name of the currently loaded map without the Design/Map/Sound prefix
+        /// </summary>
         private string PlacementFileName;
+
+        private MapScene CurrentMapScene { get; set; }
 
         /// <summary>
         /// Determines when to use the map editor from a given file.
@@ -84,6 +95,8 @@ namespace RedStarLibrary
             mapArc.Load(stream);
 
             ArchiveFileInfo mapData = mapArc.files.Find(e => e.FileName.Contains("StageMap.byml") || e.FileName.Contains("StageDesign.byml") || e.FileName.Contains("StageSound.byml"));
+
+            LayerManager.CreateNewList();
 
             if(mapData != null)
             {
@@ -116,7 +129,9 @@ namespace RedStarLibrary
                         {
                             PlacementInfo actorInfo = new PlacementInfo(actorNode);
 
-                            if(PlacementFileName == null)
+                            LayerManager.AddObjectToLayers(actorInfo, scenarioNo, actorListNode.Key);
+
+                            if (PlacementFileName == null)
                             {
                                 PlacementFileName = actorNode["PlacementFileName"];
                             }
@@ -139,13 +154,15 @@ namespace RedStarLibrary
 
                 string designPath = $"{PluginConfig.GamePath}\\StageData\\{PlacementFileName}Design.szs";
 
+                List<LayerInfo> tempList = LayerManager.LayerList;
+
                 if(File.Exists(designPath))
                 {
                     LoadGraphicsData(designPath);
                 }
 
-                MapScene scene = new MapScene();
-                scene.Setup(this);
+                CurrentMapScene = new MapScene();
+                CurrentMapScene.Setup(this);
 
             }
             else
@@ -180,14 +197,7 @@ namespace RedStarLibrary
 
                 Dictionary<string, dynamic> scenarioDict = new Dictionary<string, dynamic>();
 
-                List<ActorList> actorCategories;
-
-                MapActorList.TryGetValue($"Scenario{scenarioNo}", out actorCategories);
-
-                if (actorCategories != null)
-                {
-                    actorCategories.ForEach(e => e.UpdateAllActorPlacement());
-                }
+                MapActorList.ForEach(e => e.UpdateAllActorPlacement());
 
                 foreach (var mapActorLists in mapScenario.Value)
                 {
@@ -255,10 +265,35 @@ namespace RedStarLibrary
         /// </summary>
         public override void DrawViewportMenuBar()
         {
-            //if(MapGraphicsArea != null)
-            //{
-            //    PropertyDrawer.Draw(MapGraphicsArea);
-            //}
+
+        }
+
+        public override void DrawToolWindow()
+        {
+            if(ImGui.Button("Reload Scene"))
+            {
+                CurrentMapScene.RestartScene(this);
+            }
+
+            int prevScenarioValue = MapScenarioNo;
+
+            if (ImGui.DragInt("Scenario", ref MapScenarioNo, 1))
+            {
+                if(MapScenarioNo >= 0 && MapScenarioNo < 15 && prevScenarioValue != MapScenarioNo)
+                {
+                    CurrentMapScene.RestartScene(this);
+
+                    prevScenarioValue = MapScenarioNo;
+                }
+            }
+
+            ImGuiHelper.BoldText("Layers Loaded in this Scenario:");
+
+            foreach (var layerName in LayerManager.GetAllLayerNamesInScenario(MapScenarioNo))
+            {
+                ImGui.Text(layerName);
+            }
+
         }
 
         /// <summary>
