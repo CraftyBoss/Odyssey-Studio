@@ -16,14 +16,14 @@ namespace RedStarLibrary
         public static void Draw(IDictionary<string, dynamic> values, PropertyChangedCallback callback = null)
         {
             IDictionary<string, dynamic> properties = null;
-            if (values.ContainsKey("!Parameters"))
-                properties = (IDictionary<string, dynamic>)values["!Parameters"];
+            if (values.ContainsKey("UnitConfig"))
+                properties = (IDictionary<string, dynamic>)values["UnitConfig"];
 
             float width = ImGui.GetWindowWidth();
 
-            if (ImGui.CollapsingHeader(TranslationSource.GetText("OBJ"), ImGuiTreeNodeFlags.DefaultOpen))
+            if (ImGui.CollapsingHeader("Object Properties", ImGuiTreeNodeFlags.DefaultOpen))
             {
-                if (ImGui.Button($"{TranslationSource.GetText("EDIT")}##obj", new System.Numerics.Vector2(width, 22)))
+                if (ImGui.Button("Edit Properties", new System.Numerics.Vector2(width, 22)))
                     DialogHandler.Show("Property Window", () => PropertiesDialog(values), null);
 
                 ImGui.Columns(2);
@@ -31,10 +31,10 @@ namespace RedStarLibrary
                 ImGui.Columns(1);
             }
 
-            if (properties != null && ImGui.CollapsingHeader(TranslationSource.GetText("PROPERTIES"), ImGuiTreeNodeFlags.DefaultOpen))
+            if (properties != null && ImGui.CollapsingHeader("Unit Config", ImGuiTreeNodeFlags.DefaultOpen))
             {
-                if (ImGui.Button("Edit##prop", new System.Numerics.Vector2(width, 22)))
-                    DialogHandler.Show("Property Window", () => PropertiesDialog(properties), null);
+                if (ImGui.Button("Edit Unit Config", new System.Numerics.Vector2(width, 22)))
+                    DialogHandler.Show("Unit Config Window", () => PropertiesDialog(properties), null);
 
                 ImGui.Columns(2);
                 LoadProperties(properties, callback);
@@ -96,9 +96,9 @@ namespace RedStarLibrary
 
                     switch (name)
                     {
-                        case "!Parameters":
+                        case "UnitConfig":
                             continue;
-                        case "LinksToObj":
+                        case "Links":
                             continue;
                         case "Translate":
                             continue;
@@ -230,7 +230,12 @@ namespace RedStarLibrary
                     ImGui.Text(value.ToString());
             }
             else
-                ImGui.Text("<NULL>");
+            {
+                //if (key == "comment")
+                //    DrawNullString(properties, key, callback);
+                //else
+                    ImGui.Text("<NULL>");
+            }
 
             if (value is string)
             {
@@ -267,7 +272,7 @@ namespace RedStarLibrary
         public static void DrawXYZ(IDictionary<string, dynamic> properties, string key, PropertyChangedCallback callback = null)
         {
             dynamic values = (IDictionary<string, dynamic>)properties[key];
-            var vec = new System.Numerics.Vector3(values["X"].Value, values["Y"].Value, values["Z"].Value);
+            var vec = new System.Numerics.Vector3(values["X"], values["Y"], values["Z"]);
             if (ImGui.DragFloat3($"##{key}", ref vec))
             {
                 values["X"] = vec.X;
@@ -279,6 +284,17 @@ namespace RedStarLibrary
         public static void DrawString(IDictionary<string, dynamic> properties, string key, PropertyChangedCallback callback = null)
         {
             string value = (string)properties[key];
+            if (ImGui.InputText($"##{key}", ref value, 0x200))
+            {
+                properties[key] = (string)value;
+                if (callback != null)
+                    callback(key);
+            }
+        }
+
+        public static void DrawNullString(IDictionary<string,dynamic> properties, string key, PropertyChangedCallback callback = null)
+        {
+            string value = "NULL";
             if (ImGui.InputText($"##{key}", ref value, 0x200))
             {
                 properties[key] = (string)value;

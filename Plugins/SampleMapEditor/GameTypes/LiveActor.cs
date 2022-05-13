@@ -45,10 +45,27 @@ namespace RedStarLibrary.GameTypes
         {
             get { return ObjectRender.Transform; }
         }
+        [BindGUI("Use Camera Clipping")]
+        public bool IsInvalidateClipping { get; set; } = true;
 
-        public bool IsInvalidateClipping = true;
+        private float clipRadius = 10000.0f;
 
-        public float ClippingDist = 10000.0f;
+        [BindGUI("Clipping Radius")]
+        public float ClippingDist { 
+            get
+            {
+                return clipRadius;
+            }
+            set
+            {
+                clipRadius = value;
+                if(ObjectRender is BfresRender)
+                {
+                    ((BfresRender)ObjectRender).renderDistance = value;
+                    ((BfresRender)ObjectRender).renderDistanceSquared = value * 10;
+                }
+            }
+        }
 
         private ActorRenderMode renderMode;
 
@@ -88,6 +105,12 @@ namespace RedStarLibrary.GameTypes
             }
         }
 
+        public void SetParentNode(NodeBase parentNode)
+        {
+            parent = parentNode;
+            ObjectRender.ParentUINode = parent;
+        }
+
         public void CreateBasicRenderer()
         {
             Console.WriteLine($"Creating Basic Render of Actor: {placement.ObjID} {placement.UnitConifgName}");
@@ -121,6 +144,10 @@ namespace RedStarLibrary.GameTypes
                 ((BfresRender)ObjectRender).renderDistance = ClippingDist;
                 ((BfresRender)ObjectRender).renderDistanceSquared = ClippingDist * 10;
             }
+
+            ((BfresRender)ObjectRender).FrustumCullingCallback = () => {
+                return FrustumCullActor((BfresRender)ObjectRender);
+            };
 
             renderMode = ActorRenderMode.Model;
             UpdateRenderer();
@@ -181,6 +208,28 @@ namespace RedStarLibrary.GameTypes
             ObjectRender.Transform.Scale = placement.scale;
             ObjectRender.Transform.RotationEulerDegrees = placement.rotation;
             ObjectRender.Transform.UpdateMatrix(true);
+        }
+
+        private bool FrustumCullActor(BfresRender render)
+        {
+            if (render.Models.Count == 0)
+                return false;
+
+            var transform = render.Transform;
+            var context = GLContext.ActiveContext;
+
+            var bounding = render.BoundingNode;
+            bounding.UpdateTransform(transform.TransformMatrix);
+            if (!context.Camera.InFustrum(bounding))
+                return false;
+
+            if (render.IsSelected)
+                return true;
+
+            if (render.UseDrawDistance)
+                return context.Camera.InRange(Transform.Position, ClippingDist * 10);
+
+            return true;
         }
     }
 }

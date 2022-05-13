@@ -46,9 +46,11 @@ namespace RedStarLibrary
         /// </summary>
         public Dictionary<string, Dictionary<string, List<PlacementInfo>>> MapPlacementList;
 
-        public List<ActorList> MapActorList;
+        public Dictionary<string, List<ActorList>> MapActorList;
 
         public Dictionary<string, dynamic> MapGraphicsPreset;
+
+        public int MapActorCount;
 
         /// <summary>
         /// The current Scenario selected for the loaded map.
@@ -56,14 +58,14 @@ namespace RedStarLibrary
         public int MapScenarioNo = 0;
 
         /// <summary>
+        /// Name of the currently loaded map without the Design/Map/Sound prefix
+        /// </summary>
+        public string PlacementFileName;
+
+        /// <summary>
         /// SARC containing all data used in the map
         /// </summary>
         private SARC mapArc;
-        /// <summary>
-        /// Name of the currently loaded map without the Design/Map/Sound prefix
-        /// </summary>
-        private string PlacementFileName;
-
         private MapScene CurrentMapScene { get; set; }
 
         /// <summary>
@@ -101,9 +103,6 @@ namespace RedStarLibrary
             if(mapData != null)
             {
 
-                // Dict of Scenarios containing List of Dicts that contain Categories of PlacementInfo
-                MapPlacementList = new Dictionary<string, Dictionary<string, List<PlacementInfo>>>();
-
                 BymlFileData mapByml = ByamlFile.LoadN(mapData.FileData, false);
 
                 int scenarioNo = 0;
@@ -111,25 +110,12 @@ namespace RedStarLibrary
                 foreach (Dictionary<string, dynamic> scenarioNode in mapByml.RootNode as List<dynamic>)
                 {
 
-                    Dictionary<string, List<PlacementInfo>> scenarioList = new Dictionary<string, List<PlacementInfo>>();
-
-                    string scenarioName = $"Scenario{scenarioNo}";
-
                     foreach (var actorListNode in scenarioNode)
                     {
-
-                        if(!scenarioList.ContainsKey(actorListNode.Key))
-                        {
-                            scenarioList.Add(actorListNode.Key, new List<PlacementInfo>());
-                        }
-
-                        List<PlacementInfo> actors = scenarioList[actorListNode.Key];
 
                         foreach (Dictionary<string, dynamic> actorNode in actorListNode.Value)
                         {
                             PlacementInfo actorInfo = new PlacementInfo(actorNode);
-
-                            LayerManager.AddObjectToLayers(actorInfo, scenarioNo, actorListNode.Key);
 
                             if (PlacementFileName == null)
                             {
@@ -138,23 +124,20 @@ namespace RedStarLibrary
 
                             if (actorInfo.isUseLinks)
                             {
-                                CreateAllActors(scenarioList, actors, actorInfo);
+                                CreateAllActors(actorInfo, scenarioNo, actorListNode.Key);
                             }
                             else
                             {
-                                actors.Add(actorInfo);
+                                LayerManager.AddObjectToLayers(actorInfo, scenarioNo, actorListNode.Key);
+                                MapActorCount++;
                             }
                         }
                     }
-
-                    MapPlacementList.Add(scenarioName, scenarioList);
 
                     scenarioNo++;
                 }
 
                 string designPath = $"{PluginConfig.GamePath}\\StageData\\{PlacementFileName}Design.szs";
-
-                List<LayerInfo> tempList = LayerManager.LayerList;
 
                 if(File.Exists(designPath))
                 {
@@ -192,14 +175,18 @@ namespace RedStarLibrary
 
             int scenarioNo = 0;
 
-            foreach (var mapScenario in MapPlacementList)
+            for(int i = 0; i < 15; i++)
             {
+                var mapScenario = LayerManager.GetAllObjectsInScenario(i);
 
                 Dictionary<string, dynamic> scenarioDict = new Dictionary<string, dynamic>();
 
-                MapActorList.ForEach(e => e.UpdateAllActorPlacement());
+                foreach (var actorLists in MapActorList)
+                {
+                    actorLists.Value.ForEach(e => e.UpdateAllActorPlacement());
+                }
 
-                foreach (var mapActorLists in mapScenario.Value)
+                foreach (var mapActorLists in mapScenario)
                 {
 
                     if (mapActorLists.Key == "LinkedObjs") continue;
@@ -268,6 +255,10 @@ namespace RedStarLibrary
 
         }
 
+        private static bool isShowAddLayer = false;
+        private static bool isShowAddNewLayer = false;
+        private static bool isShowRemoveLayer = false;
+
         public override void DrawToolWindow()
         {
             if(ImGui.Button("Reload Scene"))
@@ -275,24 +266,133 @@ namespace RedStarLibrary
                 CurrentMapScene.RestartScene(this);
             }
 
-            int prevScenarioValue = MapScenarioNo;
-
-            if (ImGui.DragInt("Scenario", ref MapScenarioNo, 1))
+            if(ImGui.Button("Open Stage Settings"))
             {
-                if(MapScenarioNo >= 0 && MapScenarioNo < 15 && prevScenarioValue != MapScenarioNo)
-                {
+                DialogHandler.Show("Stage Settings", 400, 400, () => {
+
+                    if (ImGui.Button("Close and Reload"))
+                    {
+                        DialogHandler.ClosePopup(true);
+                    }
+
+                    if (ImGui.CollapsingHeader($"Layer/Scenario Settings", ImGuiTreeNodeFlags.DefaultOpen))
+                    {
+                        DrawScenarioSettings();
+                    }
+
+                    if(ImGui.CollapsingHeader("Stage World List Settings", ImGuiTreeNodeFlags.DefaultOpen))
+                    {
+                        DrawWorldListSettings();
+                    }
+
+                }, (isDone) => {
+
                     CurrentMapScene.RestartScene(this);
 
-                    prevScenarioValue = MapScenarioNo;
+                });
+            }
+
+        }
+
+        private void DrawScenarioSettings()
+        {
+            var availableLayers = LayerManager.GetNamesNotInScenario(MapScenarioNo);
+
+            var usedLayers = LayerManager.GetNamesInScenario(MapScenarioNo);
+
+            ImGui.DragInt("Scenario", ref MapScenarioNo, 1, 0, 14);
+
+            ImGuiHelper.BoldText("Scenario Layers:");
+
+            ImGui.Columns(2, "layer_list", true);
+
+            bool isNextColumn = false;
+
+            for (int i = 0; i < usedLayers.Count; i++)
+            {
+                if (i > (usedLayers.Count - 1) / 2 && !isNextColumn)
+                {
+                    ImGui.NextColumn();
+                    isNextColumn = true;
+                }
+
+                var curLayer = LayerManager.GetLayerByName(usedLayers[i]);
+                ImGui.Checkbox(usedLayers[i], ref curLayer.IsEnabled);
+
+            }
+
+            ImGui.EndColumns();
+
+            if (availableLayers.Count > 0)
+            {
+                if (ImGui.Button("Add Existing Layer") && !(isShowAddNewLayer || isShowRemoveLayer))
+                {
+                    isShowAddLayer = !isShowAddLayer;
+                }
+
+                ImGui.SameLine();
+            }
+
+            if (ImGui.Button("Add New Layer") && !(isShowAddLayer || isShowRemoveLayer))
+            {
+                isShowAddNewLayer = !isShowAddNewLayer;
+            }
+
+            ImGui.SameLine();
+
+            if (ImGui.Button("Remove Layer") && !(isShowAddLayer || isShowAddNewLayer))
+            {
+                isShowRemoveLayer = !isShowRemoveLayer;
+            }
+
+            if (isShowAddLayer)
+            {
+                if (ImGui.BeginCombo("Available Layers", availableLayers[0]))
+                {
+                    foreach (var layerName in availableLayers)
+                    {
+                        if (ImGui.Selectable(layerName))
+                        {
+                            LayerManager.AddScenarioToLayer(layerName, MapScenarioNo);
+                            isShowAddLayer = false;
+                        }
+                    }
+                    ImGui.EndCombo();
                 }
             }
 
-            ImGuiHelper.BoldText("Layers Loaded in this Scenario:");
-
-            foreach (var layerName in LayerManager.GetAllLayerNamesInScenario(MapScenarioNo))
+            if (isShowAddNewLayer)
             {
-                ImGui.Text(layerName);
+                string layerName = "";
+                if (ImGui.InputText("Layer Name", ref layerName, 512,
+                    ImGuiInputTextFlags.EnterReturnsTrue | ImGuiInputTextFlags.CallbackCompletion |
+                    ImGuiInputTextFlags.CallbackHistory | ImGuiInputTextFlags.NoHorizontalScroll |
+                    ImGuiInputTextFlags.AutoSelectAll))
+                {
+                    LayerManager.CreateNewConfig(layerName, MapScenarioNo);
+                    isShowAddNewLayer = false;
+                }
             }
+
+            if (isShowRemoveLayer)
+            {
+                if (ImGui.BeginCombo("Active Layers", usedLayers[0]))
+                {
+                    foreach (var layerName in usedLayers)
+                    {
+                        if (ImGui.Selectable(layerName))
+                        {
+                            LayerManager.RemoveScenarioFromLayer(layerName, MapScenarioNo);
+                            isShowRemoveLayer = false;
+                        }
+                    }
+                    ImGui.EndCombo();
+                }
+            }
+        }
+
+        private void DrawWorldListSettings()
+        {
 
         }
 
@@ -325,12 +425,13 @@ namespace RedStarLibrary
             return false;
         }
 
-        private void CreateAllActors(Dictionary<string, List<PlacementInfo>> scenarioActorLists, List<PlacementInfo> curActorList, PlacementInfo actorInfo)
+        private void CreateAllActors(PlacementInfo actorInfo, int scenarioNo, string actorCategory)
         {
 
-            if(!scenarioActorLists.ContainsKey("LinkedObjs")) scenarioActorLists.Add("LinkedObjs", new List<PlacementInfo>());
+            LayerConfig layer = LayerManager.AddObjectToLayers(actorInfo, scenarioNo, actorCategory);
+            MapActorCount++;
 
-            List<PlacementInfo> linkedObjList = scenarioActorLists["LinkedObjs"];
+            List<PlacementInfo> linkedObjList = layer.LayerObjects[actorCategory];
 
             foreach (var linkList in actorInfo.Links)
             {
@@ -343,7 +444,7 @@ namespace RedStarLibrary
 
                         if (childActorPlacement.isUseLinks)
                         {
-                            CreateAllActors(scenarioActorLists, linkedObjList, childActorPlacement); // recursively call function
+                            CreateAllActors(childActorPlacement, scenarioNo, "LinkedObjs"); // recursively call function
                         }else
                         {
                             linkedObjList.Add(childActorPlacement);
@@ -355,7 +456,6 @@ namespace RedStarLibrary
                 }
             }
 
-            curActorList.Add(actorInfo);
         }
     }
 }

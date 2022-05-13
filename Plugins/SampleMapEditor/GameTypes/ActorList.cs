@@ -40,9 +40,14 @@ namespace RedStarLibrary.GameTypes
         public void Add(LiveActor actor)
         {
             if(actor != null)
-            {
                 _actorList.Add(actor);
-            }
+        }
+
+        public void AddRange(IEnumerable<LiveActor> actors)
+        {
+            if(actors != null)
+                foreach (var actor in actors)
+                    _actorList.Add(actor);
         }
 
         public bool isContainActor(string objID)

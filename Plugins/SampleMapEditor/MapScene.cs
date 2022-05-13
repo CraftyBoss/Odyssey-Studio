@@ -13,17 +13,46 @@ using Toolbox.Core;
 using ByamlExt.Byaml;
 using RedStarLibrary.GameTypes;
 using RedStarLibrary.Rendering.Area;
+using ImGuiNET;
 
 namespace RedStarLibrary
 {
     internal class MapScene
     {
+        // Cant decide if this dialog should be used honestly
+        const bool USE_SCENARIO_DIALOG = false;
+
         public void Setup(EditorLoader loader)
         {
-            //Prepare a collision caster for snapping objects onto
-            SetupSceneCollision();
-            //Add some objects to the scene
-            SetupObjects(loader);
+            ProcessLoading.Instance.IsLoading = true;
+
+            if (USE_SCENARIO_DIALOG)
+            {
+                DialogHandler.Show("Scenario Selection", 300, 100, () => {
+
+                    ImGui.Text("Please Select a Starting Scenario.");
+                    ImGui.DragInt("Scenario", ref loader.MapScenarioNo, 1);
+
+                    if (ImGui.Button("Done"))
+                    {
+                        DialogHandler.ClosePopup(true);
+                    }
+
+                }, (isFinished) => {
+                    //Prepare a collision caster for snapping objects onto
+                    SetupSceneCollision();
+                    //Add some objects to the scene
+                    SetupObjects(loader);
+                });
+            }else
+            {
+                //Prepare a collision caster for snapping objects onto
+                SetupSceneCollision();
+                //Add some objects to the scene
+                SetupObjects(loader);
+            }
+
+            ProcessLoading.Instance.IsLoading = false;
         }
 
         private Stream GetModelStream(SARC modelArc, string modelName)
@@ -39,6 +68,17 @@ namespace RedStarLibrary
                 return null;
             }
         }
+
+        private Stream GetInitFileStream(SARC modelArc, string initName)
+        {
+            ArchiveFileInfo initFile = modelArc.files.Find(e => e.FileName.Contains($"{initName}.byml"));
+
+            if (initFile != null)
+                return initFile.FileData;
+            else
+                return null;
+        }
+
         /// <summary>
         /// Loads the Textures found in the Actor's Texture Archive if found in InitModel.byml
         /// </summary>
@@ -75,57 +115,84 @@ namespace RedStarLibrary
         /// </summary>
         private void SetupObjects(EditorLoader loader)
         {
+            
+            loader.MapActorList = new Dictionary<string, List<ActorList>>();
 
-            loader.MapActorList = new List<ActorList>();
+            int actorLoadedCount = 0;
 
-            foreach (var mapActors in LayerManager.GetAllObjectsInScenario(loader.MapScenarioNo))
+            foreach (var mapLayer in LayerManager.LayerList)
             {
-                NodeBase actorList = new NodeBase(mapActors.Key);
-                ActorList actorCategory = new ActorList(mapActors.Key);
-                actorList.HasCheckBox = true;
-                loader.Root.AddChild(actorList);
-                actorList.Icon = IconManager.MODEL_ICON.ToString();
 
-                foreach (var placement in mapActors.Value)
+                List<ActorList> layerActors = new List<ActorList>();
+
+                foreach (var mapActors in mapLayer.LayerObjects)
                 {
 
-                    LiveActor actor = new LiveActor(actorList, placement);
+                    ActorList actorCategory = new ActorList(mapActors.Key);
 
-                    if(actor.hasArchive)
+                    foreach (var placement in mapActors.Value)
                     {
-                        var modelARC = ResourceManager.FindOrLoadSARC(actor.modelPath);
 
-                        var modelStream = GetModelStream(modelARC, Path.GetFileNameWithoutExtension(actor.modelPath));
+                        LiveActor actor = new LiveActor(null, placement);
 
-                        if(modelStream != null)
+                        if (actor.hasArchive)
                         {
-                            actor.CreateBfresRenderer(modelStream, GetTexArchive(modelARC));
+                            var modelARC = ResourceManager.FindOrLoadSARC(actor.modelPath);
 
-                        }else
-                        {
-                            actor.CreateBasicRenderer();
+                            var modelStream = GetModelStream(modelARC, Path.GetFileNameWithoutExtension(actor.modelPath));
+
+                            if (modelStream != null)
+                            {
+                                BymlFileData clippingData = ByamlFile.LoadN(GetInitFileStream(modelARC, "InitClipping"));
+
+                                if(((Dictionary<string,dynamic>)clippingData.RootNode).ContainsKey("Radius"))
+                                {
+                                    actor.IsInvalidateClipping = false;
+                                    actor.ClippingDist = clippingData.RootNode["Radius"] * 10000;
+                                }else if(((Dictionary<string, dynamic>)clippingData.RootNode).ContainsKey("Invalidate"))
+                                {
+                                    actor.IsInvalidateClipping = clippingData.RootNode["Invalidate"];
+                                }
+
+                                actor.CreateBfresRenderer(modelStream, GetTexArchive(modelARC));
+
+                            }
+                            else
+                            {
+                                actor.CreateBasicRenderer();
+                            }
                         }
-                    }
-                    else
-                    {
-                        if(mapActors.Key == "AreaList" && actor.placement.ClassName.Contains("Area"))
+                        else
                         {
-                            actor.CreateAreaRenderer();
-                        }else
-                        {
-                            actor.CreateBasicRenderer();
+                            if (actor.placement.ClassName.Contains("Area") && actor.placement.ModelName != null && actor.placement.ModelName.StartsWith("Area"))
+                            {
+                                actor.ActorName = actor.placement.ClassName;
+                                actor.CreateAreaRenderer();
+                            }
+                            else
+                            {
+                                actor.CreateBasicRenderer();
+                            }
                         }
+
+                        ProcessLoading.Instance.Update(actorLoadedCount, loader.MapActorCount, $"Loading Stage {loader.PlacementFileName}");
+
+                        actorCategory.Add(actor);
+
+                        actorLoadedCount++;
+
                     }
 
-                    actorCategory.Add(actor);
-
-                    loader.AddRender(actor.ObjectRender);
-                    
+                    layerActors.Add(actorCategory);
                 }
 
-                loader.MapActorList.Add(actorCategory);
+                loader.MapActorList.Add(mapLayer.LayerName, layerActors);
 
             }
+
+            // Load Actor Models used in Current Scenario
+
+            AddRendersInScenario(loader, loader.MapScenarioNo);
 
             // Load Skybox
 
@@ -153,13 +220,10 @@ namespace RedStarLibrary
 
             //    loader.AddRender(skyActor.ObjectRender);
             //}
-
         }
 
         public void RestartScene(EditorLoader loader)
         {
-
-            loader.MapActorList = new List<ActorList>();
 
             for (int i = loader.Scene.Objects.Count - 1; i >= 0; i--)
             {
@@ -168,10 +232,55 @@ namespace RedStarLibrary
 
             for (int i = loader.Root.Children.Count - 1; i >= 0; i--)
             {
+                // remove actor lists in layer
+                loader.Root.Children[i].Children.Clear();
+
+                // remove layer from root
                 loader.Root.Children.Remove(loader.Root.Children[i]);
             }
 
-            SetupObjects(loader);
+            AddRendersInScenario(loader, loader.MapScenarioNo);
+
+        }
+
+        public void AddRendersInScenario(EditorLoader loader, int scenario)
+        {
+            List<ActorList> combinedList = new List<ActorList>();
+
+            foreach (var layer in LayerManager.GetLayersInScenario(scenario))
+            {
+                if(layer.IsEnabled && loader.MapActorList.ContainsKey(layer.LayerName))
+                {
+                    foreach (var layerActors in loader.MapActorList[layer.LayerName])
+                    {
+
+                        ActorList combinedActorList = combinedList.Find(e => e.ActorListName == layerActors.ActorListName);
+
+                        if (combinedActorList == null)
+                        {
+                            combinedActorList = new ActorList(layerActors.ActorListName);
+                            combinedList.Add(combinedActorList);
+                        }
+
+                        combinedActorList.AddRange(layerActors);
+
+                    }
+                }
+            }
+
+            foreach (var mapActors in combinedList)
+            {
+                NodeBase actorList = new NodeBase(mapActors.ActorListName);
+                actorList.HasCheckBox = true;
+                loader.Root.AddChild(actorList);
+                actorList.Icon = IconManager.MODEL_ICON.ToString();
+
+                foreach (var actor in mapActors)
+                {
+                    actor.SetParentNode(actorList);
+                    loader.AddRender(actor.ObjectRender);
+                }
+            }
         }
 
         /// <summary>
