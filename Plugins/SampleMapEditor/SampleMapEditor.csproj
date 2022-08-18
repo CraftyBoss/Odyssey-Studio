@@ -23,6 +23,9 @@
     <Reference Include="OpenTK">
       <HintPath>..\..\Track Studio\Lib\OpenTK.dll</HintPath>
     </Reference>
+    <Reference Include="Syroot.BinaryData">
+      <HintPath>..\..\Track Studio\Lib\Syroot.BinaryData.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
 </Project>
