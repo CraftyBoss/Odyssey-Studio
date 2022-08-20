@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 using Toolbox.Core.Animations;
 using UIFramework;
 using MapStudio.UI;
+using ImGuiNET;
+using System.Numerics;
 
 namespace SampleMapEditor
 {
@@ -112,8 +114,58 @@ namespace SampleMapEditor
 
                     var fGroup = (FloatGroup)group;
                     //We want to add the tracks for editing certain values
-                    groupNode.AddChild(new AnimationTree.TrackNode(this, fGroup.Value));
+                    groupNode.AddChild(new CustomUI(this, fGroup.Value));
                 }
+            }
+        }
+
+        /// <summary>
+        /// Represents a custom animation graph tree node drawer
+        /// </summary>
+        class CustomUI : AnimationTree.TrackNode
+        {
+            public CustomUI(STAnimation anim, STAnimationTrack track) : base(anim, track)
+            {
+
+            }
+
+            public override void RenderNode()
+            {
+                //Here we can draw our own UI.
+
+                //Draw the text for the track
+                ImGui.Text(this.Header);
+                //Next column (values are column based)
+                ImGui.NextColumn();
+
+                var color = ImGui.GetStyle().Colors[(int)ImGuiCol.Text];
+                //Display keyed values differently
+                bool isKeyed = Track.KeyFrames.Any(x => x.Frame == Anim.Frame);
+                //Keyed color
+                if (isKeyed)
+                    color = new Vector4(0.602f, 0.569f, 0.240f, 1.000f);
+
+                //Set the text color
+                ImGui.PushStyleColor(ImGuiCol.Text, color);
+
+                //Display the current track value
+                float value = Track.GetFrameValue(Anim.Frame);
+                //Span the whole column
+                ImGui.PushItemWidth(ImGui.GetColumnWidth() - 3);
+                //The editable track value. We could do booleans, floats, etc
+                bool edited = ImGui.DragFloat($"##{Track.Name}_frame", ref value);
+                bool isActive = ImGui.IsItemDeactivated();
+
+                ImGui.PopItemWidth();
+
+                //Insert key value from current frame
+                if (edited || (isActive && ImGui.IsKeyDown((int)ImGuiKey.Enter)))
+                    InsertOrUpdateKeyValue(value);
+
+                ImGui.PopStyleColor();
+
+                //Go to the next column
+                ImGui.NextColumn();
             }
         }
 
