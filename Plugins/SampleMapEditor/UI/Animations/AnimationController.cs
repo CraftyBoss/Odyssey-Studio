@@ -133,6 +133,9 @@ namespace SampleMapEditor
             {
                 //Here we can draw our own UI.
 
+                //Note for using booleans, the track interpolation type must be step for no interpolation!
+                bool drawBoolean = false;
+
                 //Draw the text for the track
                 ImGui.Text(this.Header);
                 //Next column (values are column based)
@@ -153,7 +156,19 @@ namespace SampleMapEditor
                 //Span the whole column
                 ImGui.PushItemWidth(ImGui.GetColumnWidth() - 3);
                 //The editable track value. We could do booleans, floats, etc
-                bool edited = ImGui.DragFloat($"##{Track.Name}_frame", ref value);
+                bool edited = false;
+
+                if (drawBoolean)
+                {
+                    bool isChecked = value == 1;
+                    edited = ImGui.Checkbox($"##{Track.Name}_frame", ref isChecked);
+                    if (edited)
+                        value = isChecked ? 1 : 0;
+                }
+                else
+                {
+                    edited = ImGui.DragFloat($"##{Track.Name}_frame", ref value);
+                }
                 bool isActive = ImGui.IsItemDeactivated();
 
                 ImGui.PopItemWidth();
@@ -174,8 +189,8 @@ namespace SampleMapEditor
         {
             //A list of tracks per channel
             public STAnimationTrack R = new STAnimationTrack("R");
-            public STAnimationTrack G = new STAnimationTrack("R");
-            public STAnimationTrack B = new STAnimationTrack("R");
+            public STAnimationTrack G = new STAnimationTrack("G");
+            public STAnimationTrack B = new STAnimationTrack("B");
 
             //Get all the tracks used by this group
             public override List<STAnimationTrack> GetTracks()
