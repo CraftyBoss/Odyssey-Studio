@@ -5,6 +5,8 @@ using MapStudio.UI;
 using OpenTK;
 using GLFrameworkEngine;
 using Toolbox.Core.IO;
+using System.Collections.Generic;
+using UIFramework;
 
 namespace SampleMapEditor
 {
@@ -61,6 +63,12 @@ namespace SampleMapEditor
             //For this example I will show loading 3D objects into the scene
             MapScene scene = new MapScene();
             scene.Setup(this);
+
+            //Animation test
+            Root.AddChild(new Toolbox.Core.ViewModels.NodeBase("AnimationTest")
+            {
+                Tag = new AnimationController(),
+            });
         }
 
         /// <summary>
@@ -108,6 +116,18 @@ namespace SampleMapEditor
         public override bool OnFileDrop(string filePath)
         {
             return false;
+        }
+
+        public override List<DockWindow> PrepareDocks()
+        {
+            List<DockWindow> windows = new List<DockWindow>();
+            windows.Add(Workspace.Outliner);
+            windows.Add(Workspace.PropertyWindow);
+            windows.Add(Workspace.ConsoleWindow);
+            windows.Add(Workspace.ViewportWindow);
+            windows.Add(Workspace.TimelineWindow);
+            windows.Add(Workspace.GraphWindow);
+            return windows;
         }
     }
 }
