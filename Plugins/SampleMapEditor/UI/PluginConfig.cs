@@ -24,12 +24,19 @@ namespace RedStarLibrary
         [JsonProperty]
         public static string GamePath = "";
 
+        [JsonProperty]
+        public static string ModPath = "";
+
         /// <summary>
         /// Renders the current configuration UI.
         /// </summary>
         public void DrawUI()
         {
             if (ImguiCustomWidgets.PathSelector("Super Mario Odyssey Path", ref GamePath))
+            {
+                Save();
+            }
+            if (ImguiCustomWidgets.PathSelector("Super Mario Odyssey Mod Path", ref ModPath))
             {
                 Save();
             }

@@ -19,7 +19,8 @@ namespace RedStarLibrary.Rendering
     {
         public override bool UseRenderer(BfresLibrary.Material material, string archive, string model)
         {
-            return archive == "alRenderMaterial";
+            Console.WriteLine($"Checking if {archive} can be used.");
+            return archive == "alRenderMaterial"; //|| archive == "alRenderSky";
         }
 
         public SMORenderer(BfresRender render, BfresModelRender model) : base(render, model)
@@ -29,6 +30,7 @@ namespace RedStarLibrary.Rendering
 
         public override void ReloadRenderState(Material mat, BfresMeshRender mesh)
         {
+
             if (mat.ShaderAssign.ShaderOptions["cRenderType"] == "3") {
                 mesh.UseColorBufferPass = true;
             }
@@ -57,6 +59,7 @@ namespace RedStarLibrary.Rendering
 
         public override BfshaLibrary.BfshaFile TryLoadShaderArchive(BfresRender bfres, string shaderFile, string shaderModel)
         {
+            Console.WriteLine("Loading Shader: " + shaderFile);
             return SMOShaderLoader.LoadShader(shaderFile);
         }
 

@@ -13,44 +13,66 @@ using RedStarLibrary.Rendering.Area;
 using System.Drawing;
 using Toolbox.Core;
 using ImGuiNET;
+using RedStarLibrary.Rendering;
 
 namespace RedStarLibrary.GameTypes
 {
     public enum ActorRenderMode
     {
-        Basic,
-        Model,
-        Area
+        EditableObj,
+        Drawable
     };
 
     public class LiveActor
     {
         private NodeBase parent;
 
-        public PlacementInfo placement;
 
-        [BindGUI("Actor Name")]
-        public string ActorName { get; set; }
+        [BindGUI()]
+        public PlacementInfo Placement { get; set; }
 
         public bool hasArchive = false;
+
+        public bool isPlaced = false;
+        public string ArchiveName { get; set; }
 
         public string modelPath;
 
         public string textureArcName;
 
-        public Dictionary<string, string> linkedObjs;
+        public Dictionary<string, List<LiveActor>> linkedObjs;
+
+        public Dictionary<string, List<LiveActor>> destLinkObjs;
 
         public EditableObject ObjectRender;
+
+        public IDrawable ObjectDrawer;
         public GLTransform Transform
         {
             get { return ObjectRender.Transform; }
         }
-        [BindGUI("Use Camera Clipping")]
-        public bool IsInvalidateClipping { get; set; } = true;
 
-        private float clipRadius = 10000.0f;
 
-        [BindGUI("Clipping Radius")]
+        [BindGUI("Invalidate Camera Clipping", Category = "Archive Properties")]
+        public bool IsInvalidateClipping
+        {
+            get
+            {
+                return invalidateClip;
+            }
+            set
+            {
+                invalidateClip = value;
+
+                if (ObjectRender is BfresRender)
+                {
+                    ((BfresRender)ObjectRender).UseDrawDistance = !value;
+                }
+            }
+        }
+        private bool invalidateClip = true;
+
+        [BindGUI("Clipping Radius", Category = "Archive Properties")]
         public float ClippingDist { 
             get
             {
@@ -59,26 +81,28 @@ namespace RedStarLibrary.GameTypes
             set
             {
                 clipRadius = value;
-                if(ObjectRender is BfresRender)
+                if(ObjectRender is BfresRender render)
                 {
-                    ((BfresRender)ObjectRender).renderDistance = value;
-                    ((BfresRender)ObjectRender).renderDistanceSquared = value * 10;
+                    render.renderDistance = value * 10000;
+                    render.renderDistanceSquared = (value * 10) * 10000;
                 }
             }
         }
+        private float clipRadius = 10000.0f;
 
         private ActorRenderMode renderMode;
 
         public LiveActor(NodeBase parentNode, string actorName, string path)
         {
             parent = parentNode;
-            placement = new PlacementInfo();
+            Placement = new PlacementInfo();
 
-            placement.ModelName = actorName;
+            Placement.ModelName = actorName;
 
-            linkedObjs = new Dictionary<string, string>();
+            linkedObjs = new Dictionary<string, List<LiveActor>>();
+            destLinkObjs = new Dictionary<string, List<LiveActor>>();
 
-            ActorName = actorName;
+            ArchiveName = actorName;
 
             modelPath = path;
 
@@ -91,18 +115,20 @@ namespace RedStarLibrary.GameTypes
         public LiveActor(NodeBase parentNode, PlacementInfo info)
         {
             parent = parentNode;
-            placement = info;
+            Placement = info;
 
-            linkedObjs = new Dictionary<string, string>();
+            linkedObjs = new Dictionary<string, List<LiveActor>>();
+            destLinkObjs = new Dictionary<string, List<LiveActor>>();
 
-            ActorName = info.ModelName != null ? info.ModelName : info.UnitConifgName;
+            ArchiveName = info.ModelName != null ? info.ModelName : info.UnitConfigName;
 
-            modelPath = $"{PluginConfig.GamePath}\\ObjectData\\{ActorName}.szs";
+            modelPath = ResourceManager.FindResourcePath($"ObjectData\\{ArchiveName}.szs");
 
             if (File.Exists(modelPath))
             {
                 hasArchive = true;
             }
+
         }
 
         public void SetParentNode(NodeBase parentNode)
@@ -113,54 +139,50 @@ namespace RedStarLibrary.GameTypes
 
         public void CreateBasicRenderer()
         {
-            Console.WriteLine($"Creating Basic Render of Actor: {placement.ObjID} {placement.UnitConifgName}");
+            Console.WriteLine($"Creating Basic Render of Actor: {Placement.Id} {Placement.UnitConfigName}");
             ObjectRender = new TransformableObject(null);
-            renderMode = ActorRenderMode.Basic;
+            renderMode = ActorRenderMode.EditableObj;
             UpdateRenderer();
         }
 
         public void CreateBfresRenderer(Stream modelStream, Dictionary<string, GenericRenderer.TextureView> textureList = null)
         {
-            Console.WriteLine($"Creating BFRES Render of Actor: {placement.ObjID} {placement.UnitConifgName}");
+            Console.WriteLine($"Creating BFRES Render of Actor: {Placement.Id} {Placement.UnitConfigName}");
 
             ObjectRender = new BfresRender(modelStream, modelPath);
+
+            var bfresRender = (BfresRender)ObjectRender;
 
             if (textureList != null)
             {
                 // TODO: Find a way to only add textures that the BFRES needs instead of every texture in the archive
                 foreach (var texture in textureList)
                 {
-                    if (!((BfresRender)ObjectRender).Textures.ContainsKey(texture.Key))
+                    if (!bfresRender.Textures.ContainsKey(texture.Key))
                     {
-                        ((BfresRender)ObjectRender).Textures.Add(texture.Key, texture.Value);
+                        bfresRender.Textures.Add(texture.Key, texture.Value);
                     }
                 }
             }
 
-            ((BfresRender)ObjectRender).UseDrawDistance = !IsInvalidateClipping;
+            bfresRender.UseDrawDistance = !IsInvalidateClipping;
 
-            if(!IsInvalidateClipping)
-            {
-                ((BfresRender)ObjectRender).renderDistance = ClippingDist;
-                ((BfresRender)ObjectRender).renderDistanceSquared = ClippingDist * 10;
-            }
-
-            ((BfresRender)ObjectRender).FrustumCullingCallback = () => {
+            bfresRender.FrustumCullingCallback = () => {
                 return FrustumCullActor((BfresRender)ObjectRender);
             };
 
-            renderMode = ActorRenderMode.Model;
+            renderMode = ActorRenderMode.EditableObj;
             UpdateRenderer();
         }
 
         public void CreateAreaRenderer()
         {
 
-            Console.WriteLine($"Creating Area Render of Actor: {placement.ObjID} {placement.UnitConifgName}");
+            Console.WriteLine($"Creating Area Render of Actor: {Placement.Id} {Placement.UnitConfigName}");
 
             Color areaColor = Color.Blue;
 
-            switch (placement.ClassName)
+            switch (Placement.ClassName)
             {
                 case string a when a == "DeathArea":
                     areaColor = Color.Red;
@@ -174,7 +196,7 @@ namespace RedStarLibrary.GameTypes
 
             ObjectRender = new AreaRender(null, ColorUtility.ToVector4(areaColor));
 
-            switch (placement.ModelName)
+            switch (Placement.ModelName)
             {
                 case string a when a.Contains("Cube"):
                     ((AreaRender)ObjectRender).AreaShape = AreaRender.AreaType.CubeBase;
@@ -190,23 +212,144 @@ namespace RedStarLibrary.GameTypes
                     break;
             }
 
-            renderMode = ActorRenderMode.Area;
+            renderMode = ActorRenderMode.EditableObj;
             UpdateRenderer();
+        }
+
+        public void CreateRailRenderer()
+        {
+            Console.WriteLine($"Creating Rail Render of Actor: {Placement.Id} {Placement.UnitConfigName}");
+
+            var rail = new RenderablePath();
+
+            rail.UINode.Header = ArchiveName;
+            rail.UINode.Icon = IconManager.MESH_ICON.ToString();
+            rail.UINode.Tag = this;
+            if (Placement.ActorParams.Count > 0)
+            {
+                rail.UINode.TagUI.UIDrawer += delegate
+                {
+                    PropertyDrawer.Draw(Placement.ActorParams);
+                };
+            }
+            rail.Transform.Position = Placement.Translate;
+            rail.Transform.Scale = Placement.Scale;
+            rail.Transform.RotationEulerDegrees = Placement.Rotate;
+            rail.Transform.UpdateMatrix(true);
+
+            renderMode = ActorRenderMode.Drawable;
+
+            SetupRail(rail, Placement);
+
+            ObjectDrawer = rail;
+        }
+
+        public void ResetLinkedActors()
+        {
+            if(Placement.isUseLinks)
+            {
+                foreach (var linkList in linkedObjs)
+                {
+                    foreach (var actor in linkList.Value)
+                    {
+                        actor.isPlaced = false;
+
+                        if (renderMode == ActorRenderMode.EditableObj)
+                            ObjectRender.UINode.Children.Clear();
+                        else if (renderMode == ActorRenderMode.Drawable)
+                            ((RenderablePath)ObjectDrawer).UINode.Children.Clear();
+                    }
+                }
+            }
+        }
+
+        public void PlaceLinkedObjects(EditorLoader loader)
+        {
+
+            if(Placement.isUseLinks)
+            {
+                NodeBase rootLinkNode = new NodeBase("Linked Objects");
+                rootLinkNode.Icon = IconManager.LINK_ICON.ToString();
+
+                foreach (var linkList in linkedObjs)
+                {
+
+                    NodeBase linkNode = new NodeBase(linkList.Key);
+
+                    foreach (var linkedActor in linkList.Value)
+                    {
+                        if(linkedActor.ObjectDrawer != null)
+                        {
+                            if (linkedActor.ObjectDrawer is RenderablePath path)
+                                linkNode.AddChild(path.UINode);
+                        }
+                        else
+                        {
+                            linkNode.AddChild(linkedActor.ObjectRender.UINode);
+                        }
+
+                        if (!linkedActor.isPlaced)
+                        {
+                            if (linkedActor.ObjectDrawer != null)
+                                loader.AddRender(linkedActor.ObjectDrawer);
+                            else
+                                loader.AddRender(linkedActor.ObjectRender);
+                            
+                            linkedActor.isPlaced = true;
+                        }
+
+                        linkedActor.PlaceLinkedObjects(loader);
+
+                    }
+
+                    rootLinkNode.AddChild(linkNode);
+
+                }
+
+                if (renderMode == ActorRenderMode.EditableObj)
+                    ObjectRender.UINode.AddChild(rootLinkNode);
+                else if (renderMode == ActorRenderMode.Drawable)
+                    ((RenderablePath)ObjectDrawer).UINode.AddChild(rootLinkNode);
+                    
+            }
         }
 
         private void UpdateRenderer()
         {
             ObjectRender.ParentUINode = parent;
-            ObjectRender.UINode.Header = ActorName;
+            ObjectRender.UINode.Header = ArchiveName;
             ObjectRender.UINode.Icon = IconManager.MESH_ICON.ToString();
             ObjectRender.UINode.Tag = this;
-            ObjectRender.UINode.TagUI.UIDrawer += delegate
+
+            if(Placement.ActorParams.Count > 0)
             {
-                PropertyDrawer.Draw(placement.actorNode);
+                ObjectRender.UINode.TagUI.UIDrawer += delegate
+                {
+                    PropertyDrawer.Draw(Placement.ActorParams);
+                };
+            }
+
+            ObjectRender.RemoveCallback += (obj, args) =>
+            {
+                if (!Placement.IsLinkDest && Placement.Id != null && !EditorLoader.IsReloadingStage && LayerManager.IsInfoInAnyLayer(Placement))
+                {
+                    Console.WriteLine($"Removing {Placement.Id} from Layer {Placement.LayerConfigName}");
+                    LayerManager.RemoveObjectFromLayers(Placement);
+                }
             };
-            ObjectRender.Transform.Position = placement.translation;
-            ObjectRender.Transform.Scale = placement.scale;
-            ObjectRender.Transform.RotationEulerDegrees = placement.rotation;
+
+            ObjectRender.AddCallback += (obj, args) =>
+            {
+                if(!Placement.IsLinkDest && Placement.Id != null && !EditorLoader.IsReloadingStage && !LayerManager.IsInfoInAnyLayer(Placement, EditorLoader.MapScenarioNo))
+                {
+                    Console.WriteLine($"Adding {Placement.Id} to Layer {Placement.LayerConfigName} in Scenario {EditorLoader.MapScenarioNo}");
+                    LayerManager.AddObjectToLayers(Placement, EditorLoader.MapScenarioNo, Placement.UnitConfig.GenerateCategory, true);
+                }
+            };
+            
+            ObjectRender.Transform.Position = Placement.Translate;
+            ObjectRender.Transform.Scale = Placement.Scale;
+            ObjectRender.Transform.RotationEulerDegrees = Placement.Rotate;
             ObjectRender.Transform.UpdateMatrix(true);
         }
 
@@ -227,9 +370,35 @@ namespace RedStarLibrary.GameTypes
                 return true;
 
             if (render.UseDrawDistance)
-                return context.Camera.InRange(Transform.Position, ClippingDist * 10);
+                return context.Camera.InRange(Transform.Position, render.renderDistanceSquared);
 
             return true;
+        }
+
+        private void SetupRail(RenderablePath PathRender, PlacementInfo actorPlacement)
+        {
+            PathRender.InterpolationMode = Enum.Parse(typeof(RenderablePath.Interpolation), actorPlacement.ActorParams["RailType"]);
+
+            PathRender.Loop = actorPlacement.ActorParams["IsClosed"];
+
+            foreach (Dictionary<string, dynamic> railPoint in actorPlacement.ActorParams["RailPoints"])
+            {
+
+                var trans = Helpers.Placement.LoadVector(railPoint, "Translate");
+
+                var point = PathRender.CreatePoint(trans);
+
+                if (PathRender.InterpolationMode == RenderablePath.Interpolation.Bezier)
+                {
+                    point.ControlPoint1.Transform.Position = Helpers.Placement.LoadVector(railPoint["ControlPoints"][0]);
+                    point.ControlPoint2.Transform.Position = Helpers.Placement.LoadVector(railPoint["ControlPoints"][1]);
+                }
+
+                point.UpdateMatrices();
+
+                PathRender.AddPoint(point);
+
+            }
         }
     }
 }

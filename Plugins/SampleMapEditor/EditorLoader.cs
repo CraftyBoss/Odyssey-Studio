@@ -12,6 +12,7 @@ using RedStarLibrary.Rendering;
 using Toolbox.Core.IO;
 using RedStarLibrary.MapData;
 using ImGuiNET;
+using Toolbox.Core.ViewModels;
 
 namespace RedStarLibrary
 {
@@ -41,11 +42,6 @@ namespace RedStarLibrary
         /// </summary>
         public File_Info FileInfo { get; set; }
 
-        /// <summary>
-        /// All Placement Info used in the loaded Stage
-        /// </summary>
-        public Dictionary<string, Dictionary<string, List<PlacementInfo>>> MapPlacementList;
-
         public Dictionary<string, List<ActorList>> MapActorList;
 
         public Dictionary<string, dynamic> MapGraphicsPreset;
@@ -55,12 +51,17 @@ namespace RedStarLibrary
         /// <summary>
         /// The current Scenario selected for the loaded map.
         /// </summary>
-        public int MapScenarioNo = 0;
+        public static int MapScenarioNo { get; set; } = 0;
 
         /// <summary>
         /// Name of the currently loaded map without the Design/Map/Sound prefix
         /// </summary>
-        public string PlacementFileName;
+        public static string PlacementFileName { get; set; }
+
+        /// <summary>
+        /// Used to prevent LiveActors from removing/adding themselves from the layer config.
+        /// </summary>
+        public static bool IsReloadingStage { get; set; }
 
         /// <summary>
         /// SARC containing all data used in the map
@@ -78,7 +79,7 @@ namespace RedStarLibrary
             return fileInfo.Extension == ".szs";
         }
 
-        const bool USE_GAME_SHADERS = false;
+        const bool STAGE_TEST = false;
 
         /// <summary>
         /// Loads the given file data from a stream.
@@ -86,72 +87,99 @@ namespace RedStarLibrary
         public void Load(Stream stream)
         {
             //Set the game shader
-            if (USE_GAME_SHADERS)
+            CafeLibrary.Rendering.BfresLoader.AddShaderType(typeof(SMORenderer));
+
+            ObjectDatabaseGenerator.LoadDatabase();
+
+            // Workspace.AddAssetCategory(new AssetLoaderLiveActor());
+
+            // debug test every stage 
+
+            if (STAGE_TEST)
             {
-                CafeLibrary.Rendering.BfresLoader.AddShaderType(typeof(SMORenderer));
-                CafeLibrary.PluginConfig.UseGameShaders = true;
-            }
+                var stageDirectory = new List<string>(Directory.GetFiles($"{PluginConfig.GamePath}\\StageData"));
 
-            mapArc = new SARC();
-
-            mapArc.Load(stream);
-
-            ArchiveFileInfo mapData = mapArc.files.Find(e => e.FileName.Contains("StageMap.byml") || e.FileName.Contains("StageDesign.byml") || e.FileName.Contains("StageSound.byml"));
-
-            LayerManager.CreateNewList();
-
-            if(mapData != null)
-            {
-
-                BymlFileData mapByml = ByamlFile.LoadN(mapData.FileData, false);
-
-                int scenarioNo = 0;
-
-                foreach (Dictionary<string, dynamic> scenarioNode in mapByml.RootNode as List<dynamic>)
+                foreach (var stagePath in stageDirectory.FindAll(e => Path.GetFileNameWithoutExtension(e).Contains("StageMap") || Path.GetFileNameWithoutExtension(e).Contains("ZoneMap")))
                 {
 
-                    foreach (var actorListNode in scenarioNode)
+                    string fileName = Path.GetFileNameWithoutExtension(stagePath);
+
+                    mapArc = new SARC();
+
+                    mapArc.Load(new MemoryStream(YAZ0.Decompress(stagePath)));
+
+                    ArchiveFileInfo mapData = mapArc.files.Find(e => e.FileName.Contains($"{fileName}.byml"));
+
+                    LayerManager.CreateNewList();
+
+                    if (mapData != null)
                     {
+                        BymlFileData mapByml = ByamlFile.LoadN(mapData.FileData, false);
 
-                        foreach (Dictionary<string, dynamic> actorNode in actorListNode.Value)
+                        DeserializeMapData(mapByml.RootNode);
+
+                        string designPath = ResourceManager.FindResourcePath($"StageData\\{PlacementFileName}Design.szs");
+
+                        if (File.Exists(designPath))
+                            LoadGraphicsData(designPath);
+
+                        var tempCopy = LayerManager.GetAllObjectsInScenario(0);
+
+                        foreach (var layer in LayerManager.LayerList)
                         {
-                            PlacementInfo actorInfo = new PlacementInfo(actorNode);
+                            foreach (var objList in layer.LayerObjects)
+                            {
+                                if (objList.Key == "AreaList" || objList.Key == "ZoneList") continue; // we should probably handle area's a bit differently
 
-                            if (PlacementFileName == null)
-                            {
-                                PlacementFileName = actorNode["PlacementFileName"];
-                            }
-
-                            if (actorInfo.isUseLinks)
-                            {
-                                CreateAllActors(actorInfo, scenarioNo, actorListNode.Key);
-                            }
-                            else
-                            {
-                                LayerManager.AddObjectToLayers(actorInfo, scenarioNo, actorListNode.Key);
-                                MapActorCount++;
+                                ObjectDatabaseGenerator.RegisterActorsToDatabase(objList.Value);
                             }
                         }
+
+                        Console.WriteLine($"Stage {fileName} Loaded without Exception!");
+                    }
+                    else
+                    {
+                        throw new FileLoadException("Unable to Load Archive!");
                     }
 
-                    scenarioNo++;
                 }
 
-                string designPath = $"{PluginConfig.GamePath}\\StageData\\{PlacementFileName}Design.szs";
+                ObjectDatabaseGenerator.SerializeDatabase();
 
-                if(File.Exists(designPath))
-                {
-                    LoadGraphicsData(designPath);
-                }
-
-                CurrentMapScene = new MapScene();
-                CurrentMapScene.Setup(this);
-
+                Console.WriteLine("Every Stage Sucessfully Loaded!");
             }
             else
             {
-                throw new FileLoadException("Unable to Load Archive!");
+                mapArc = new SARC();
+
+                mapArc.Load(stream);
+
+                ArchiveFileInfo mapData = mapArc.files.Find(e => e.FileName.Contains("StageMap.byml") || e.FileName.Contains("StageDesign.byml") || e.FileName.Contains("StageSound.byml"));
+
+                LayerManager.CreateNewList();
+
+                if (mapData != null)
+                {
+
+                    BymlFileData mapByml = ByamlFile.LoadN(mapData.FileData, false);
+
+                    DeserializeMapData(mapByml.RootNode);
+
+                    string designPath = ResourceManager.FindResourcePath($"StageData\\{PlacementFileName}Design.szs");
+
+                    if (File.Exists(designPath))
+                        LoadGraphicsData(designPath);
+
+                    CurrentMapScene = new MapScene();
+                    CurrentMapScene.Setup(this);
+
+                }
+                else
+                {
+                    throw new FileLoadException("Unable to Load Archive!");
+                }
             }
+
         }
 
         /// <summary>
@@ -168,50 +196,46 @@ namespace RedStarLibrary
             };
             // List<Dictionary<string,List<Dictionary<string,dynamic>>>>
             List<dynamic> serializedDict = new List<dynamic>();
+            List<dynamic> otherserializedDict = new List<dynamic>();
+
+            for (int i = 0; i < 15; i++) serializedDict.Add(new Dictionary<string, dynamic>());
 
             ArchiveFileInfo mapData = mapArc.files.Find(e => e.FileName.Contains("StageMap.byml") || e.FileName.Contains("StageDesign.byml") || e.FileName.Contains("StageSound.byml"));
 
             BymlFileData origMapByml = ByamlFile.LoadN(mapData.FileData, false);
 
-            int scenarioNo = 0;
-
-            for(int i = 0; i < 15; i++)
+            foreach (var actorLists in MapActorList)
             {
-                var mapScenario = LayerManager.GetAllObjectsInScenario(i);
+                actorLists.Value.ForEach(e => e.UpdateAllActorPlacement());
+            }
 
-                Dictionary<string, dynamic> scenarioDict = new Dictionary<string, dynamic>();
+            foreach (var layerconfig in LayerManager.LayerList)
+            {
+                // Console.WriteLine($"Layer Name: {layerconfig.LayerName}");
 
-                foreach (var actorLists in MapActorList)
+                foreach (var scenario in layerconfig.ScenarioList)
                 {
-                    actorLists.Value.ForEach(e => e.UpdateAllActorPlacement());
-                }
+                    // Console.WriteLine($"Scenario: {scenario}");
 
-                foreach (var mapActorLists in mapScenario)
-                {
-
-                    if (mapActorLists.Key == "LinkedObjs") continue;
-
-                    List<dynamic> actorList = new List<dynamic>();
-
-                    foreach (var actorPlacementInfo in mapActorLists.Value)
+                    foreach (var objList in layerconfig.LayerObjects)
                     {
 
-                        actorPlacementInfo.SaveTransform();
+                        if (!serializedDict[scenario].ContainsKey(objList.Key))
+                            serializedDict[scenario].Add(objList.Key, new List<dynamic>());
 
-                        actorList.Add(actorPlacementInfo.actorNode);
+                        serializedDict[scenario][objList.Key].AddRange(Helpers.Placement.ConvertPlacementInfoList(objList.Value));
+
                     }
-
-                    scenarioDict.Add(mapActorLists.Key, actorList);
                 }
-
-                serializedDict.Add(scenarioDict);
-
-                scenarioNo++;
             }
 
             mapByml.RootNode = serializedDict;
 
-            mapArc.SetFileData(PlacementFileName, new MemoryStream(ByamlFile.SaveN(mapByml)));
+            // Console.WriteLine($"Saving File: {mapData.FileName}");
+
+            var bymlData = ByamlFile.SaveN(mapByml);
+            var memStream = new MemoryStream(bymlData);
+            mapArc.SetFileData(mapData.FileName, memStream);
 
             mapArc.Save(stream);
         }
@@ -223,10 +247,11 @@ namespace RedStarLibrary
 
             BymlFileData gfxParam = ByamlFile.LoadN(new MemoryStream(sarc.Files["GraphicsArea.byml"]), false);
 
-            var presetSarc = SARC_Parser.UnpackRamN(YAZ0.Decompress($"{PluginConfig.GamePath}\\SystemData\\GraphicsPreset.szs"));
+            var presetSarc = SARC_Parser.UnpackRamN(YAZ0.Decompress(ResourceManager.FindResourcePath("SystemData\\GraphicsPreset.szs")));
 
             foreach (Dictionary<string,dynamic> areaParam in gfxParam.RootNode["GraphicsAreaParamArray"])
             {
+                // TODO: we shouldnt only get the first default area as there are stages that use different graphics presets according to scenario.
                 if(areaParam["AreaName"] == "DefaultArea" && areaParam["PresetName"] != null)
                 {
                     byte[] paramBytes = null;
@@ -253,6 +278,15 @@ namespace RedStarLibrary
         public override void DrawViewportMenuBar()
         {
 
+        }
+
+        public override List<MenuItemModel> GetViewMenuItems()
+        {
+            List<MenuItemModel> menuItemModels = new List<MenuItemModel>();
+
+            menuItemModels.AddRange(new BFRES().GetViewMenuItems());
+
+            return menuItemModels;
         }
 
         private static bool isShowAddLayer = false;
@@ -300,7 +334,9 @@ namespace RedStarLibrary
 
             var usedLayers = LayerManager.GetNamesInScenario(MapScenarioNo);
 
-            ImGui.DragInt("Scenario", ref MapScenarioNo, 1, 0, 14);
+            var scenario = MapScenarioNo;
+            ImGui.DragInt("Scenario", ref scenario, 1, 0, 14);
+            MapScenarioNo = scenario;
 
             ImGuiHelper.BoldText("Scenario Layers:");
 
@@ -425,37 +461,74 @@ namespace RedStarLibrary
             return false;
         }
 
-        private void CreateAllActors(PlacementInfo actorInfo, int scenarioNo, string actorCategory)
+        private void DeserializeMapData(List<dynamic> rootNode)
         {
 
-            LayerConfig layer = LayerManager.AddObjectToLayers(actorInfo, scenarioNo, actorCategory);
-            MapActorCount++;
+            int scenarioNo = 0;
 
-            List<PlacementInfo> linkedObjList = layer.LayerObjects[actorCategory];
-
-            foreach (var linkList in actorInfo.Links)
+            foreach (Dictionary<string, dynamic> scenarioNode in rootNode)
             {
-                foreach (Dictionary<string, dynamic> objNode in linkList.Value)
+
+                List<PlacementInfo> linkedActorList = new List<PlacementInfo>();
+
+                foreach (var actorListNode in scenarioNode)
+                {
+                    foreach (Dictionary<string, dynamic> actorNode in actorListNode.Value)
+                    {
+                        PlacementInfo actorPlacement = new PlacementInfo(actorNode);
+
+                        if (!LayerManager.IsInfoInAnyLayer(actorPlacement))
+                        {
+                            if (PlacementFileName == null)
+                                PlacementFileName = actorPlacement.PlacementFileName;
+
+                            CreateAllActors(actorPlacement, linkedActorList, scenarioNo);
+
+                            LayerManager.AddObjectToLayers(actorPlacement, scenarioNo, actorListNode.Key);
+                        }
+                        else
+                        {
+                            LayerManager.AddScenarioToLayer(actorPlacement.LayerConfigName, scenarioNo);
+                        }
+                    }
+                }
+
+                LayerManager.SetLayersAsLoaded();
+
+                scenarioNo++;
+            }
+        }
+
+        private void CreateAllActors(PlacementInfo actorPlacement, List<PlacementInfo> linkedActorList, int scenarioNo)
+        {
+            if (actorPlacement.isUseLinks)
+            {
+                foreach (var actorLink in actorPlacement.Links)
                 {
 
-                    if (!linkedObjList.Exists(e => e.ObjID == objNode["Id"]))
-                    {
-                        PlacementInfo childActorPlacement = new PlacementInfo(objNode);
+                    actorPlacement.sourceLinks.Add(actorLink.Key, new List<PlacementInfo>());
 
-                        if (childActorPlacement.isUseLinks)
+                    foreach (Dictionary<string, dynamic> childActorNode in actorLink.Value)
+                    {
+                        PlacementInfo childPlacement = linkedActorList.Find(e => e.Id == childActorNode["Id"] && e.UnitConfigName == childActorNode["UnitConfigName"]);
+
+                        if (childPlacement == null)
                         {
-                            CreateAllActors(childActorPlacement, scenarioNo, "LinkedObjs"); // recursively call function
-                        }else
-                        {
-                            linkedObjList.Add(childActorPlacement);
+                            childPlacement = new PlacementInfo(childActorNode);
+                            linkedActorList.Add(childPlacement);
+
+                            CreateAllActors(childPlacement, linkedActorList, scenarioNo);
                         }
 
-                        linkedObjList.Add(childActorPlacement);
+                        if (!childPlacement.destLinks.ContainsKey(actorLink.Key)) childPlacement.destLinks.Add(actorLink.Key, new List<PlacementInfo>());
+
+                        childPlacement.destLinks[actorLink.Key].Add(actorPlacement);
+
+                        actorPlacement.sourceLinks[actorLink.Key].Add(childPlacement);
 
                     }
                 }
             }
-
         }
     }
 }

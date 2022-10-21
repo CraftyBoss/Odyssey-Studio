@@ -52,20 +52,24 @@ namespace RedStarLibrary.GameTypes
 
         public bool isContainActor(string objID)
         {
-            return _actorList.Any(e => e.placement.ObjID == objID);
+            return _actorList.Any(e => e.Placement.Id == objID);
+        }
+
+        public LiveActor GetActorByPlacement(PlacementInfo info)
+        {
+            return _actorList.FirstOrDefault(e => e.Placement == info);
         }
 
         public void UpdateAllActorPlacement()
         {
             foreach (var actor in _actorList)
             {
-                var placementInfo = actor.placement;
+                var placementInfo = actor.Placement;
 
-                placementInfo.translation = actor.Transform.Position;
-                placementInfo.rotation = actor.Transform.RotationEulerDegrees;
-                placementInfo.scale = actor.Transform.Scale;
+                placementInfo.Translate = actor.Transform.Position;
+                placementInfo.Rotate = actor.Transform.RotationEulerDegrees;
+                placementInfo.Scale = actor.Transform.Scale;
 
-                placementInfo.SaveTransform();
             }
         }
 

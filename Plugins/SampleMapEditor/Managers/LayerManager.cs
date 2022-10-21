@@ -27,17 +27,33 @@ namespace RedStarLibrary
             return true;
         }
 
-        public static LayerConfig AddObjectToLayers(PlacementInfo actorPlacement, int scenario, string actorCategory)
+        public static LayerConfig AddObjectToLayers(PlacementInfo actorPlacement, int scenario, string actorCategory, bool isIgnoreLoaded = false)
         {
 
             if (LayerList == null) 
                 return new LayerConfig(actorPlacement, scenario, actorCategory);
 
-            LayerConfig info = LayerList.Find(e => e.LayerName == actorPlacement.LayerName);
+            LayerConfig info = LayerList.Find(e => e.LayerName == actorPlacement.LayerConfigName);
 
             if (info != null)
             {
-                if (!info.ScenarioList.Contains(scenario)) 
+
+                if (info.IsLayerLoaded && !isIgnoreLoaded)
+                {
+                    if(IsInfoInLayer(info, actorPlacement))
+                        return info;
+
+                    info = LayerList.Find(e => e.LayerName == actorPlacement.LayerConfigName + $"_Scenario{scenario}");
+
+                    if (info == null)
+                    {
+                        info = new LayerConfig(scenario, actorPlacement.LayerConfigName + $"_Scenario{scenario}");
+                        LayerList.Add(info);
+                    }
+                    
+                }
+
+                if (!info.ScenarioList.Contains(scenario))
                     info.ScenarioList.Add(scenario);
 
                 if (!info.LayerObjects.ContainsKey(actorCategory))
@@ -55,6 +71,21 @@ namespace RedStarLibrary
             return info;
         }
 
+        public static void RemoveObjectFromLayers(PlacementInfo placement)
+        {
+            LayerConfig info = LayerList.Find(e => e.LayerName == placement.LayerConfigName);
+            string actorCategory = placement.UnitConfig.GenerateCategory;
+
+            if (info != null)
+                if (info.LayerObjects.ContainsKey(actorCategory))
+                    if (info.LayerObjects[actorCategory].Contains(placement)) 
+                        info.LayerObjects[actorCategory].Remove(placement);
+
+        }
+        public static void SetLayersAsLoaded()
+        {
+            LayerList.ForEach(e => e.IsLayerLoaded = true);
+        }
         public static bool AddScenarioToLayer(string layerName, int scenario)
         {
             LayerConfig layer = LayerList.Find(e => e.LayerName == layerName);
@@ -134,6 +165,39 @@ namespace RedStarLibrary
         public static List<string> GetNamesNotInScenario(int scenarioNo)
         {
             return LayerList.Where(e => !e.ScenarioList.Contains(scenarioNo)).Select(e => e.LayerName).ToList();
+        }
+
+        public static bool IsInfoInAnyLayer(PlacementInfo info)
+        {
+            var config = LayerList.Find(e => e.LayerName == info.LayerConfigName);
+
+            if(config != null)
+                if (config.LayerObjects.TryGetValue(info.UnitConfig.GenerateCategory, out List<PlacementInfo> list))
+                    return list.Any(e => e == info);
+
+            return false;
+        }
+
+        public static bool IsInfoInAnyLayer(PlacementInfo info, int scenario)
+        {
+            var config = LayerList.Find(e => e.LayerName == info.LayerConfigName);
+
+            if (config == null) 
+                LayerList.Find(e => e.LayerName == info.LayerConfigName + $"_Scenario{scenario}");
+
+            if (config != null)
+                if (config.LayerObjects.TryGetValue(info.UnitConfig.GenerateCategory, out List<PlacementInfo> list))
+                    return list.Any(e => e == info);
+
+            return false;
+        }
+
+        public static bool IsInfoInLayer(LayerConfig config, PlacementInfo info)
+        {
+            if (config != null && config.LayerObjects.TryGetValue(info.UnitConfig.GenerateCategory, out List<PlacementInfo> list))
+                return list.Any(e => e == info);
+
+            return false;
         }
     }
 }

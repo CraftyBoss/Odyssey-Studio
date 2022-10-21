@@ -7,139 +7,276 @@ using CafeLibrary;
 using ByamlExt.Byaml;
 using OpenTK;
 using RedStarLibrary.MapData;
+using Toolbox.Core;
 
 namespace RedStarLibrary.GameTypes
 {
-    public class PlacementInfo
+    public class PlacementInfo : IEquatable<PlacementInfo>
     {
+        public class PlacementUnitConfig
+        {
+            // (next 4 fields) Data used for display models an actor uses
+            // (if an actor uses a display actor instead of directly being a model, most of the time these are used for transform info)
+            [BindGUI("Display Name", Category = "Unit Config")]
+            public string DisplayName { get; set; }
+            [BindGUI("Display Rotate", Category = "Unit Config")]
+            public Vector3 DisplayRotate { get; set; } = Vector3.Zero;
+            [BindGUI("Display Scale", Category = "Unit Config")]
+            public Vector3 DisplayScale { get; set; } = Vector3.One;
+            /// <summary>
+            /// Offset from the root actor's Translate
+            /// </summary>
+            [BindGUI("Display Offset", Category = "Unit Config")]
+            public Vector3 DisplayTranslate { get; set; } = Vector3.Zero;
+            /// <summary>
+            /// placement category this info is found in.
+            /// </summary>
+            [BindGUI("Placement Category", Category = "Unit Config")]
+            public string GenerateCategory { get; set; }
+            /// <summary>
+            /// string used for constructing LiveActor using the game's ProjectActorFactory
+            /// </summary>
+            [BindGUI("Class Name", Category = "Unit Config")]
+            public string ParameterConfigName { get; set; }
+            /// <summary>
+            /// suffix of stage file (used for saving placement info to the correct Map/Design/Sound file possibly?)
+            /// </summary>
+            public string PlacementTargetFile { get; set; }
+        }
 
         // byaml dictionary data obtained from stage byml
-        public Dictionary<string, dynamic> actorNode;
-        // string used in SMO's object factory to create the LiveActor 
-        public string ClassName
-        {
-            get { return actorNode["UnitConfig"]["ParameterConfigName"]; }
-            set { actorNode["UnitConfig"]["ParameterConfigName"] = value; }
-        }
-        // name of actor's model
-        public string ModelName
-        {
-            get { return actorNode["ModelName"]; }
-            set { actorNode["ModelName"] = value; }
-        }
-        public string UnitConifgName
-        {
-            get { return actorNode["UnitConfigName"]; }
-            set { actorNode["UnitConfigName"] = value; }
-        }
-        // object ID used to differentiate actors
-        public string ObjID
-        {
-            get { return actorNode["Id"]; }
-            set { actorNode["Id"] = value; }
-        }
-        // metadata leftover from official level editor used to handle cross-scenario objects
-        public string LayerName
-        {
-            get { return actorNode["LayerConfigName"]; }
-            set { actorNode["LayerConfigName"] = value; }
-        }
-        // List of all Linked objects used by actor, separated by list categories
-        public Dictionary<string,dynamic> Links
-        {
-            get { return actorNode["Links"]; }
-            set { actorNode["Links"] = value; }
-        }
-        // The Category that the actor's placement info is found in
-        public string ActorCategory
-        {
-            get { return actorNode["UnitConfig"]["GenerateCategory"]; }
-            set { actorNode["UnitConfig"]["GenerateCategory"] = value; }
-        }
-        // Bool used to describe whether or not placement info is the destination of a link
-        public bool IsLinkDest
-        {
-            get { return actorNode["IsLinkDest"]; }
-            set { actorNode["IsLinkDest"] = value; }
-        }
+        // public Dictionary<string, dynamic> actorNode;
 
-        // object position
-        public Vector3 translation;
-        // object rotation
-        public Vector3 rotation;
-        // object scale
-        public Vector3 scale;
+        /// <summary>
+        /// object ID used to differentiate actors
+        /// </summary>
+        [BindGUI("Object ID", Category = "Placement Info")]
+        public string Id { get; set; }
+        /// <summary>
+        /// Bool used to describe whether or not placement info is the destination of a link
+        /// </summary>
+        [BindGUI("Is Link Destination", Category = "Placement Info")]
+        public bool IsLinkDest { get; set; }
+        /// <summary>
+        /// metadata leftover from official level editor used to handle cross-scenario objects
+        /// </summary>
+        [BindGUI("Object Layer", Category = "Placement Info")]
+        public string LayerConfigName { get; set; }
+        /// <summary>
+        /// List of all Linked objects used by actor, separated by list categories
+        /// </summary>
+        public Dictionary<string,dynamic> Links { get; set; }
+        /// <summary>
+        /// name of actor's model
+        /// </summary>
+        [BindGUI("Object Model", Category = "Placement Info")]
+        public string ModelName { get; set; }
+        /// <summary>
+        /// name of stage this placement info is found in
+        /// </summary>
+        [BindGUI("Placement Stage", Category = "Placement Info")]
+        public string PlacementFileName { get; set; }
+        /// <summary>
+        /// object rotation
+        /// </summary>
+        public Vector3 Rotate { get; set; } = Vector3.Zero;
+        /// <summary>
+        /// object scale
+        /// </summary>
+        public Vector3 Scale { get; set; } = Vector3.One;
+        /// <summary>
+        /// object position
+        /// </summary>
+        public Vector3 Translate { get; set; } = Vector3.Zero;
+        /// <summary>
+        /// general data used for additonal info relating to the actor/placement info.
+        /// </summary>
+        [BindGUI("Unit Config", Category = "Unit Config")]
+        public PlacementUnitConfig UnitConfig { get; set; }
+        /// <summary>
+        /// name used for the LiveActor's constructor.
+        /// </summary>
+        [BindGUI("Actor Name", Category = "Placement Info")]
+        public string UnitConfigName { get; set; }
+
+        /// <summary>
+        /// Optional string used for commenting about this placement info (god why did it have to be lowercase)
+        /// </summary>
+        [BindGUI("Comment", Category = "Placement Info")]
+        public string Comment { get; set; }
+
+        // helper properties (these are essentially the games al::tryGetX(value, al::PlacementInfo))
+        public string ClassName { get { return UnitConfig.ParameterConfigName; } set { UnitConfig.ParameterConfigName = value; } }
+        public string DisplayName { get { return UnitConfig.DisplayName; } set { UnitConfig.DisplayName = value; } }
+        public string PlacementTargetFile { get { return UnitConfig.PlacementTargetFile; } set { UnitConfig.PlacementTargetFile = value; } }
+        public Vector3 DisplayOffset { get { return UnitConfig.DisplayTranslate; } set { UnitConfig.DisplayTranslate = value; } }
+        public Vector3 DisplayRotate { get { return UnitConfig.DisplayRotate; } set { UnitConfig.DisplayRotate = value; } }
+        public Vector3 DisplayScale { get { return UnitConfig.DisplayScale; } set { UnitConfig.DisplayScale = value; } }
+
+        public Dictionary<string, dynamic> ActorParams;
+
+        /// <summary>
+        /// List of every link that the Placement links to.
+        /// </summary>
+        public Dictionary<string, List<PlacementInfo>> sourceLinks;
+
+        /// <summary>
+        /// List of every link that the Placement is a destination of.
+        /// </summary>
+        public Dictionary<string, List<PlacementInfo>> destLinks;
+
+        public bool isActorLoaded = false;
 
         public bool isUseLinks = false;
         public PlacementInfo()
         {
-            actorNode = new Dictionary<string, dynamic>()
-            {
-                {"Id", "" },
-                {"IsLinkDest", false },
-                {"LayerConfigName", "Common" },
-                {"ModelName",""},
-                {"PlacementFileName",""},
-                {"UnitConfigName", "" },
-                {"Links", new Dictionary<string,dynamic>() },
-                {"Rotate", new Dictionary<string,dynamic>(){ { "X", 0.0f }, { "Y", 0.0f }, { "Z", 0.0f } } },
-                {"Scale", new Dictionary<string,dynamic>(){ { "X", 1.0f }, { "Y", 1.0f }, { "Z", 1.0f } } },
-                {"Translate", new Dictionary<string,dynamic>(){ { "X", 0.0f }, { "Y", 0.0f }, { "Z", 0.0f } } },
-                {"UnitConfig", new Dictionary<string,dynamic>(){ 
-                    { "DisplayName", "" },
-                    { "GenerateCategory", "" },
-                    { "ParameterConfigName", "" }, 
-                    { "ParameterTargetFile", "" },
-                    {"DisplayRotate", new Dictionary<string,dynamic>(){ { "X", 0.0f }, { "Y", 0.0f }, { "Z", 0.0f } } },
-                    {"DisplayScale", new Dictionary<string,dynamic>(){ { "X", 1.0f }, { "Y", 1.0f }, { "Z", 1.0f } } },
-                    {"DisplayTranslate", new Dictionary<string,dynamic>(){ { "X", 0.0f }, { "Y", 0.0f }, { "Z", 0.0f } } },
-                } },
-            };
 
-            translation = LoadVector("Translate");
-            rotation = LoadVector("Rotate");
-            scale = LoadVector("Scale");
+            UnitConfig = new PlacementUnitConfig();
+
+            ActorParams = new Dictionary<string, dynamic>();
 
             isUseLinks = false;
+
+            sourceLinks = new Dictionary<string, List<PlacementInfo>>();
+
+            destLinks = new Dictionary<string, List<PlacementInfo>>();
         }
 
         public PlacementInfo(Dictionary<string, dynamic> rootActorNode)
         {
-            actorNode = rootActorNode;
 
-            translation = LoadVector("Translate");
-            rotation = LoadVector("Rotate");
-            scale = LoadVector("Scale");
+            UnitConfig = new PlacementUnitConfig();
 
-            if (rootActorNode["Links"].Count > 0)
+            var duplicateNode = Helpers.Placement.CopyNode(rootActorNode);
+
+            LoadValues(this, duplicateNode);
+
+            ActorParams = duplicateNode; // everything left in this node should be object parameters
+
+            if (Links.Count > 0)
             {
                 isUseLinks = true;
             }
 
+            sourceLinks = new Dictionary<string, List<PlacementInfo>>();
+
+            destLinks = new Dictionary<string, List<PlacementInfo>>();
+
         }
-        public void SaveTransform()
+
+        public Dictionary<string,dynamic> SerializePlacement()
         {
-            SaveVector("Translate", translation);
-            SaveVector("Rotate", rotation);
-            SaveVector("Scale", scale);
+
+            Dictionary<string, dynamic> serializedDefaults = SaveValues(this);
+
+            foreach (var kvp in ActorParams)
+            {
+                serializedDefaults.Add(kvp.Key, kvp.Value);
+            }
+
+            return serializedDefaults;
         }
-        private Vector3 LoadVector(string key)
+
+        private static Dictionary<string,dynamic> SaveValues(object obj)
+        {
+
+            Dictionary<string, dynamic> serializedNode = new Dictionary<string, dynamic>();
+
+            var properties = obj.GetType().GetProperties();
+
+            foreach (var property in properties)
+            {
+
+                var value = property.GetValue(obj);
+
+                if (property.Name != "Comment" && value == null) 
+                    continue; // null values in the info most likely means the loader didnt find the value.
+
+                if (property.PropertyType == typeof(Vector3))
+                    serializedNode.Add(property.Name, SaveVector((Vector3)value));
+                else if (property.PropertyType == typeof(PlacementUnitConfig))
+                    serializedNode.Add(property.Name, SaveValues(value));
+                else if (property.Name == "Comment") // this is the last param in the node, so terminate the properties loop
+                {
+                    serializedNode.Add(property.Name.ToLower(), value);
+                    break;
+                }
+                else
+                    serializedNode.Add(property.Name, value);
+            }
+
+            return serializedNode;
+        }
+        private Vector3 LoadVector(Dictionary<string, dynamic> actorNode, string key)
         {
             return new Vector3(actorNode[key]["X"], actorNode[key]["Y"], actorNode[key]["Z"]);
         }
-        private void SaveVector(string key, Vector3 vec)
+
+        private static Dictionary<string, dynamic> SaveVector(Vector3 vec)
         {
-            actorNode[key]["X"] = vec.X;
-            actorNode[key]["Y"] = vec.Y;
-            actorNode[key]["Z"] = vec.Z;
+            return new Dictionary<string, dynamic>() {
+                {"X", vec.X },
+                {"Y", vec.Y },
+                {"Z", vec.Z }
+            };
         }
 
-        public override bool Equals(object obj)
+        private static void LoadValues(object obj, Dictionary<string,dynamic> node)
         {
-            if(obj is PlacementInfo)
-                return this.ObjID == ((PlacementInfo)obj).ObjID;
-            return false;
+            var properties = obj.GetType().GetProperties();
+
+            foreach (var property in properties)
+            {
+
+                if (property.Name != "Comment" && !node.ContainsKey(property.Name))
+                {
+                    Console.WriteLine($"Property {property.Name} was not found in Placement.");
+                    continue;
+                }
+
+                if (property.PropertyType == typeof(Vector3))
+                    property.SetValue(obj, Helpers.Placement.LoadVector(node, property.Name));
+                else if (property.PropertyType == typeof(PlacementUnitConfig))
+                    LoadValues(property.GetValue(obj), node[property.Name]);
+                else if (property.Name == "Comment") // this is the last param in the node, so terminate the properties loop
+                {
+                    
+                    if(!node.ContainsKey(property.Name.ToLower()))
+                    {
+                        Console.WriteLine($"Property {property.Name} was not found in Placement.");
+                        break;
+                    }
+
+                    property.SetValue(obj, node[property.Name.ToLower()]); // dumb
+                    node.Remove(property.Name.ToLower());
+                    break;
+                }   
+                else
+                    property.SetValue(obj, node[property.Name]);
+
+                node.Remove(property.Name);
+            }
         }
 
+        public static bool operator ==(PlacementInfo obj1, PlacementInfo obj2)
+        {
+            if (ReferenceEquals(obj1, obj2))
+                return true;
+            if (ReferenceEquals(obj1, null))
+                return false;
+            if (ReferenceEquals(obj2, null))
+                return false;
+            return obj1.Equals(obj2);
+        }
+        public static bool operator !=(PlacementInfo obj1, PlacementInfo obj2) => !(obj1 == obj2);
+        public bool Equals(PlacementInfo other)
+        {
+            return Id == other.Id && UnitConfigName == other.UnitConfigName && LayerConfigName == other.LayerConfigName;
+        }
+        public override bool Equals(object obj) => Equals(obj as PlacementInfo);
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(Id, UnitConfigName, LayerConfigName);
+        }
     }
 }

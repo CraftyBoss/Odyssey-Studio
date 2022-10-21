@@ -163,9 +163,9 @@ namespace RedStarLibrary.Rendering.Area
                     break;
                 case AreaType.CylinderBase:
                     if (CylinderOutlineRender == null)
-                        CylinderOutlineRender = new CylinderRenderer(1, 1);
+                        CylinderOutlineRender = new CylinderRenderer(1, -1, PrimitiveType.LineLoop);
                     if (CylinderFilledRenderer == null)
-                        CylinderFilledRenderer = new CylinderRenderer(1, 1);
+                        CylinderFilledRenderer = new CylinderRenderer(1, -1, PrimitiveType.LineLoop);
                     break;
                 default:
                     break;

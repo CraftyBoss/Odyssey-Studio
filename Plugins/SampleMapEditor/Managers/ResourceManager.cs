@@ -21,8 +21,13 @@ namespace RedStarLibrary
         {
             LoadedTextures = new Dictionary<string, Dictionary<string, GenericRenderer.TextureView>>();
         }
-        public static Dictionary<string, GenericRenderer.TextureView> FindOrLoadTextureList(string arcPath)
+        public static Dictionary<string, GenericRenderer.TextureView> FindOrLoadTextureList(string relativePath)
         {
+
+            string arcPath = FindResourcePath(relativePath);
+
+            if (arcPath == null) return null;
+
 
             string texListName = Path.GetFileNameWithoutExtension(arcPath);
 
@@ -66,6 +71,20 @@ namespace RedStarLibrary
                 }
 
                 return LoadedSARCS[arcName];
+            }else
+            {
+                return null;
+            }
+        }
+
+        public static string FindResourcePath(string relativePath)
+        {
+            if(File.Exists($"{PluginConfig.ModPath}\\{relativePath}"))
+            {
+                return $"{PluginConfig.ModPath}\\{relativePath}";
+            } else if (File.Exists($"{PluginConfig.GamePath}\\{relativePath}"))
+            {
+                return $"{PluginConfig.GamePath}\\{relativePath}";
             }else
             {
                 return null;

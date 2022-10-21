@@ -169,6 +169,11 @@ namespace RedStarLibrary
             "Float", "Int", "String", "Bool", "Float3", "Uint", "Double", "ULong", "Long", "<NULL>"
         };
 
+        static readonly List<string> ExcludedProperties = new List<string>
+        {
+            "!Parameters", "Scale", "Translate", "Rotate"
+        };
+
         public static void LoadPropertyUI(IDictionary<string, dynamic> properties, string category = "PROPERTIES")
         {
             if (ImGui.CollapsingHeader(TranslationSource.GetText(category), ImGuiTreeNodeFlags.DefaultOpen))
@@ -183,8 +188,8 @@ namespace RedStarLibrary
         {
             foreach (var pair in properties.ToList())
             {
-                //Skip lists, scale, and rotate properties as they are loaded in the UI in other places
-                if (pair.Key == "!Parameters" || pair.Key == "Scale" || pair.Key == "Translate" || pair.Key == "Rotate")
+                //Skip lists, scale, rotate, etc properties as they are loaded in the UI in other places
+                if (ExcludedProperties.Contains(pair.Key))
                     continue;
 
                 if (pair.Value is IList<dynamic> || pair.Value is IDictionary<string, dynamic> || pair.Value == null)
@@ -194,7 +199,6 @@ namespace RedStarLibrary
                 ImGui.NextColumn();
 
                 DrawPropertiesDynamic(properties, pair.Key, pair.Value, callback);
-
 
                 ImGui.NextColumn();
             }
@@ -231,9 +235,9 @@ namespace RedStarLibrary
             }
             else
             {
-                //if (key == "comment")
-                //    DrawNullString(properties, key, callback);
-                //else
+                if (key == "comment")
+                    DrawNullString(properties, key, callback);
+                else
                     ImGui.Text("<NULL>");
             }
 
