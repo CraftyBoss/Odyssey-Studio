@@ -37,8 +37,6 @@ namespace MapStudio
         //Menus
         private MenuItem SaveMenu;
         private MenuItem SaveAsMenu;
-        private MenuItem SaveProjectMenu;
-        private MenuItem SaveAsProjectMenu;
         //Debug
         private bool showStyleEditor = false;
         private bool showDemoWindow = false;
@@ -64,8 +62,14 @@ namespace MapStudio
             GlobalSettings = GlobalSettings.Load();
             GlobalSettings.ReloadLanguage();
             GlobalSettings.ReloadTheme();
+            GlobalSettings.ReloadInput();
+
+            if (!Directory.Exists(GlobalSettings.Program.ProjectDirectory))
+                Directory.CreateDirectory(GlobalSettings.Program.ProjectDirectory);
 
             SettingsWindow = new SettingsWindow(GlobalSettings);
+
+
             AboutWindow = new AboutWindow();
             Windows.Add(SettingsWindow);
             Windows.Add(AboutWindow);
@@ -79,15 +83,16 @@ namespace MapStudio
             //Load outlier icons to cache
             IconManager.LoadTextureFile("Node", Properties.Resources.Object, 32, 32);
             //Load icons for map objects
-            if (Directory.Exists($"{Runtime.ExecutableDir}\\Lib\\Images\\MapObjects"))
+            if (Directory.Exists(Path.Combine(Runtime.ExecutableDir, "Lib", "Images", "MapObjects")))
             {
-                foreach (var imageFile in Directory.GetFiles($"{Runtime.ExecutableDir}\\Lib\\Images\\MapObjects")) {
+                foreach (var imageFile in Directory.GetFiles(Path.Combine(Runtime.ExecutableDir, "Lib", "Images", "MapObjects")))
+                {
                     IconManager.LoadTextureFile(imageFile, 64, 64);
                 }
             }
             //Load recent file lists
-            RecentFileHandler.LoadRecentList($"{Runtime.ExecutableDir}\\Recent.txt", RecentFiles);
-            RecentFileHandler.LoadRecentList($"{Runtime.ExecutableDir}\\RecentProjects.txt", RecentProjects);
+            RecentFileHandler.LoadRecentList(Path.Combine(Runtime.ExecutableDir, "Recent.txt"), RecentFiles);
+            RecentFileHandler.LoadRecentList(Path.Combine(Runtime.ExecutableDir, "RecentProjects.txt"), RecentProjects);
 
             foreach (var file in _arguments.FileInput)
                 LoadFileFormat(file);
@@ -115,6 +120,8 @@ namespace MapStudio
                 ImGui.End();
             }
 
+            SetupDocks();
+
             List<Workspace> removedWindows = new List<Workspace>();
             foreach (var workspace in Workspaces)
             {
@@ -126,6 +133,9 @@ namespace MapStudio
                     //Set the window size on load
                     ImGui.SetNextWindowSize(contentSize, ImGuiCond.Once);
                 }
+
+                if (workspace.IsFocused && Workspace.ActiveWorkspace != workspace)
+                    Workspace.UpdateActive(workspace);
 
                 workspace.Show();
 
@@ -157,6 +167,13 @@ namespace MapStudio
                 ProcessLoading.Instance.Draw(_window.Width, _window.Height);
         }
 
+        private void SetupDocks()
+        {
+            var dock_id = ImGui.GetID("##DockspaceRoot");
+
+            SetupParentDock(dock_id, Workspaces);
+        }
+
         #region MainMenuBar
 
         public override void MainMenuDraw()
@@ -168,6 +185,8 @@ namespace MapStudio
             if (Workspace.ActiveWorkspace != null)
             {
                 var workspace = Workspace.ActiveWorkspace;
+                workspace.ActiveEditor.DrawMainMenuBar();
+
                 //A full screen menu for going back to the previous non full screen state
                 if (workspace.IsFullScreen)
                 {
@@ -192,7 +211,8 @@ namespace MapStudio
                             ImGui.PopStyleColor();
                         }
 
-                        if (ImGui.IsItemHovered() && ImGui.IsMouseClicked(0)) {
+                        if (ImGui.IsItemHovered() && ImGui.IsMouseClicked(0))
+                        {
                             workspace.ActiveWorkspaceTool = menu;
                         }
                     }
@@ -219,29 +239,21 @@ namespace MapStudio
             SaveMenu = new MenuItem($"SAVE", IconManager.SAVE_ICON, () =>
             {
                 Workspace.ActiveWorkspace.SaveFileData();
-            }) { Shortcut = "Ctrl+S" };
+            })
+            { Shortcut = "Ctrl+S" };
             SaveAsMenu = new MenuItem($"SAVE_AS", IconManager.SAVE_ICON, () =>
             {
                 Workspace.ActiveWorkspace.SaveFileWithDialog();
-            }) { Shortcut = "Ctrl+Alt+S" };
+            })
+            { Shortcut = "Ctrl+Alt+S" };
             fileMenu.MenuItems.Add(SaveMenu);
             fileMenu.MenuItems.Add(SaveAsMenu);
-            fileMenu.MenuItems.Add(new MenuItem("")); //splitter
-            fileMenu.MenuItems.Add(new MenuItem($"OPEN_PROJECT", IconManager.PROJECT_ICON, OpenProject));
-            fileMenu.MenuItems.Add(new MenuItem($"RECENT_PROJECTS", ' ') { RenderItems = LoadRecentProjects });
-            SaveProjectMenu = new MenuItem($"SAVE_PROJECT", ' ', SaveProject);
-            fileMenu.MenuItems.Add(SaveProjectMenu);
-            SaveAsProjectMenu = new MenuItem($"SAVE_PROJECT_AS", ' ', SaveProjectWithDialog);
-            fileMenu.MenuItems.Add(SaveAsProjectMenu);
-
             fileMenu.MenuItems.Add(new MenuItem("")); //splitter
 
             fileMenu.MenuItems.Add(new MenuItem($"CLEAR_WORKSPACE", IconManager.DELETE_ICON, ClearWorkspace));
             fileMenu.MenuItems.Add(new MenuItem($"EXIT", ' ', () => { _window.Exit(); }));
 
             var saveConfigMenu = new MenuItem("SAVE_CONFIG") { RenderItems = LoadFileConfigMenu };
-            var editMenu = new MenuItem("EDIT") { RenderItems = LoadEditMenu };
-            var pathMenu = new MenuItem("PATHS") { RenderItems = LoadPluginsMenu };
             var settingsMenu = new MenuItem("SETTINGS", LoadSettingsWindow);
             var windowsMenu = new MenuItem("WINDOWS") { RenderItems = LoadWindowMenu };
             var pluginsMenu = new MenuItem("PLUGINS") { RenderItems = LoadPluginMenus };
@@ -256,11 +268,9 @@ namespace MapStudio
             helpMenu.MenuItems.Add(new MenuItem("DONATE", WebUtil.OpenDonation));
 
 
-            
+
             MenuItems.Add(fileMenu);
             MenuItems.Add(saveConfigMenu);
-            MenuItems.Add(editMenu);
-            MenuItems.Add(pathMenu);
             MenuItems.Add(settingsMenu);
             MenuItems.Add(windowsMenu);
             MenuItems.Add(pluginsMenu);
@@ -268,15 +278,13 @@ namespace MapStudio
 
             SaveMenu.Enabled = false;
             SaveAsMenu.Enabled = false;
-            SaveProjectMenu.Enabled = false;
-            SaveAsProjectMenu.Enabled = false;
         }
 
         private void CheckUpdates()
         {
             try
             {
-                UpdaterHelper.Setup("MapStudioProject", "Track-Studio", "Version.txt", "TrackStudio.exe");
+                UpdaterHelper.Setup("MapStudioProject", "CTR-Studio", "Version.txt", "CTRStudio.exe");
 
                 var release = UpdaterHelper.TryGetLatest(Runtime.ExecutableDir, 0);
                 if (release == null)
@@ -310,7 +318,7 @@ namespace MapStudio
             }
         }
 
-        private void OpenDocsOnline() => WebUtil.OpenURL("https://mapstudioproject.github.io/TrackStudioDocs/index.html");
+        private void OpenDocsOnline() => WebUtil.OpenURL("https://github.com/MapStudioProject/CTR-Studio/wiki");
 
         private void OpenDocsOffline()
         {
@@ -328,7 +336,7 @@ namespace MapStudio
                 ImGui.Text(plugin.PluginHandler.Name);
             }
         }
-            
+
         private void LoadRecentFiles()
         {
             foreach (var file in RecentFiles)
@@ -358,7 +366,7 @@ namespace MapStudio
             var workspace = Workspace.ActiveWorkspace;
 
             var settings = GlobalSettings.Current;
-            string dir = $"{settings.Program.ProjectDirectory}\\{workspace.Name}";
+            string dir = Path.Combine(settings.Program.ProjectDirectory, workspace.Name);
 
             workspace.SaveProject(dir);
 
@@ -402,7 +410,8 @@ namespace MapStudio
             //Docked windows
             if (Workspace.ActiveWorkspace != null)
             {
-                foreach (var window in Workspace.ActiveWorkspace.DockedWindows) {
+                foreach (var window in Workspace.ActiveWorkspace.DockedWindows)
+                {
                     if (ImGui.MenuItem(TranslationSource.GetText(window.Name), "", window.Opened))
                         window.Opened = window.Opened ? false : true;
                 }
@@ -444,7 +453,7 @@ namespace MapStudio
                 if (e)
                 {
                     UIManager.ActionExecBeforeUIDraw = () => {
-                        LoadFileFormat($"{projectList.SelectedProject}\\Project.json");
+                        LoadFileFormat(Path.Combine(projectList.SelectedProject, "Project.json"));
                     };
                 }
             });
@@ -460,8 +469,8 @@ namespace MapStudio
 
         private void DisplayRecentProject(string folder)
         {
-            string thumbFile = $"{folder}\\Thumbnail.png";
-            string projectFile = $"{folder}\\Project.json";
+            string thumbFile = Path.Combine(folder, "Thumbnail.png");
+            string projectFile = Path.Combine(folder, "Project.json");
             string projectName = new DirectoryInfo(folder).Name;
 
             if (!File.Exists(projectFile))
@@ -537,7 +546,8 @@ namespace MapStudio
 
         #endregion
 
-        private string GetWorkspaceID() {
+        private string GetWorkspaceID()
+        {
             return Utils.RenameDuplicateString("Space", Workspaces.Select(x => x.ID).ToList());
         }
 
@@ -549,11 +559,11 @@ namespace MapStudio
             string ext = Path.GetExtension(filePath);
             bool isProject = ext == ".json";
             ProcessLoading.Instance.IsLoading = true;
+            bool createNew = !GlobalSettings.Current.Program.UseSameWorkspace;
 
             //Load asset based format
             if (!isProject)
             {
-                bool createNew = true;
 
                 Workspace workspace = Workspace.ActiveWorkspace;
                 if (createNew || workspace == null)
@@ -594,7 +604,8 @@ namespace MapStudio
             ProcessLoading.Instance.IsLoading = false;
             ForceFocus = true;
 
-            OnWorkspaceChanged();
+            if (createNew)
+                OnWorkspaceChanged();
         }
 
         private void OnWorkspaceChanged()
@@ -602,8 +613,9 @@ namespace MapStudio
             bool canSave = Workspace.ActiveWorkspace != null;
             SaveMenu.Enabled = canSave;
             SaveAsMenu.Enabled = canSave;
-           // SaveProjectMenu.Enabled = canSave;
-          //  SaveAsProjectMenu.Enabled = canSave;
+            // SaveProjectMenu.Enabled = canSave;
+            //  SaveAsProjectMenu.Enabled = canSave;
+            UpdateDockLayout = true;
         }
 
         private void ClearWorkspace()
@@ -642,7 +654,13 @@ namespace MapStudio
             OnWorkspaceChanged();
         }
 
-        public override void OnFileDrop(string filePath) => LoadFileFormat(filePath);
+        public override void OnFileDrop(string filePath)
+        {
+            if (Workspace.ActiveWorkspace != null && Workspace.ActiveWorkspace.ActiveEditor.OnFileDrop(filePath))
+                return;
+
+            LoadFileFormat(filePath);
+        }
 
         public override void OnKeyDown(KeyboardKeyEventArgs e)
         {
