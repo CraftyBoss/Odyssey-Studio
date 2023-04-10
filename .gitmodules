@@ -8,3 +8,6 @@
 	path = Toolbox.Core
 	url = https://github.com/KillzXGaming/Toolbox.Core
 	branch = map-studio
+[submodule "HakoniwaByml"]
+	path = HakoniwaByml
+	url = https://github.com/Sanae6/HakoniwaByml

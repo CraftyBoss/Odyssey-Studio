@@ -14,13 +14,9 @@ namespace RedStarLibrary.MapData
         /// </summary>
         public string LayerName { get;}
         /// <summary>
-        /// List of every scenario this config appears in.
-        /// </summary>
-        public List<int> ScenarioList { get;}
-        /// <summary>
         /// Dictionary containing lists of placement infos labeled by List type (AreaList, ObjectList, etc)
         /// </summary>
-        public Dictionary<string, List<PlacementInfo>> LayerObjects { get; }
+        public List<PlacementInfo> LayerObjects { get; }
         /// <summary>
         /// Specifies whether or not Layer is currently active in the scene.
         /// </summary>
@@ -30,19 +26,17 @@ namespace RedStarLibrary.MapData
         /// Specifies whether a layer has finished loading all objects.
         /// </summary>
         public bool IsLayerLoaded;
-        public LayerConfig(PlacementInfo actorPlacement, int scenario, string category)
+        public LayerConfig(PlacementInfo actorPlacement)
         {
             LayerName = actorPlacement.LayerConfigName;
-            ScenarioList = new List<int>() { scenario };
-            LayerObjects = new Dictionary<string, List<PlacementInfo>>() { { category, new List<PlacementInfo>() { actorPlacement } } };
+            LayerObjects = new List<PlacementInfo>() { actorPlacement };
             IsEnabled = true;
         }
 
-        public LayerConfig(int scenario, string layerName)
+        public LayerConfig(string layerName)
         {
             LayerName = layerName;
-            ScenarioList = new List<int>() { scenario };
-            LayerObjects = new Dictionary<string, List<PlacementInfo>>();
+            LayerObjects = new List<PlacementInfo>();
             IsEnabled = true;
         }
     }

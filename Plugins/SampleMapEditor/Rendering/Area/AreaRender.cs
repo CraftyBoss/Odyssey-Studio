@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using GLFrameworkEngine;
 using OpenTK;
 using OpenTK.Graphics.OpenGL;
+using RedStarLibrary.Rendering.Area.Shapes;
 using Toolbox.Core.ViewModels;
 
 namespace RedStarLibrary.Rendering.Area
@@ -38,8 +39,8 @@ namespace RedStarLibrary.Rendering.Area
         SphereRender SphereOutlineRender = null;
         SphereRender SphereFilledRenderer = null;
 
-        CylinderRenderer CylinderOutlineRender = null;
-        CylinderRenderer CylinderFilledRenderer = null;
+        CylinderShape CylinderOutlineRender = null;
+        CylinderShape CylinderFilledRenderer = null;
 
         //Area boxes have an inital transform
         static Matrix4 InitalTransform => new Matrix4(
@@ -163,9 +164,9 @@ namespace RedStarLibrary.Rendering.Area
                     break;
                 case AreaType.CylinderBase:
                     if (CylinderOutlineRender == null)
-                        CylinderOutlineRender = new CylinderRenderer(1, -1, PrimitiveType.LineLoop);
+                        CylinderOutlineRender = new CylinderShape(1, -1, PrimitiveType.LineStrip);
                     if (CylinderFilledRenderer == null)
-                        CylinderFilledRenderer = new CylinderRenderer(1, -1, PrimitiveType.LineLoop);
+                        CylinderFilledRenderer = new CylinderShape(1, -1, PrimitiveType.LineStrip);
                     break;
                 default:
                     break;

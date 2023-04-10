@@ -14,6 +14,7 @@ using System.Drawing;
 using Toolbox.Core;
 using ImGuiNET;
 using RedStarLibrary.Rendering;
+using RedStarLibrary.MapData;
 
 namespace RedStarLibrary.GameTypes
 {
@@ -134,7 +135,26 @@ namespace RedStarLibrary.GameTypes
         public void SetParentNode(NodeBase parentNode)
         {
             parent = parentNode;
-            ObjectRender.ParentUINode = parent;
+
+            if (renderMode == ActorRenderMode.EditableObj)
+                ObjectRender.ParentUINode = parent;
+            else if (renderMode == ActorRenderMode.Drawable)
+                parent.AddChild(((RenderablePath)ObjectDrawer).UINode);
+
+            
+        }
+
+        public void SetActorIcon(char icon)
+        {
+            if (ObjectDrawer != null)
+            {
+                if (ObjectDrawer is RenderablePath path)
+                    path.UINode.Icon = icon.ToString();
+            }
+            else
+            {
+                ObjectRender.UINode.Icon = icon.ToString();
+            }
         }
 
         public void CreateBasicRenderer()
@@ -331,20 +351,20 @@ namespace RedStarLibrary.GameTypes
 
             ObjectRender.RemoveCallback += (obj, args) =>
             {
-                if (!Placement.IsLinkDest && Placement.Id != null && !EditorLoader.IsReloadingStage && LayerManager.IsInfoInAnyLayer(Placement))
-                {
-                    Console.WriteLine($"Removing {Placement.Id} from Layer {Placement.LayerConfigName}");
-                    LayerManager.RemoveObjectFromLayers(Placement);
-                }
+                //if (!Placement.IsLinkDest && Placement.Id != null && !EditorLoader.IsReloadingStage && LayerList.IsInfoInAnyLayer(Placement))
+                //{
+                //    Console.WriteLine($"Removing {Placement.Id} from Layer {Placement.LayerConfigName}");
+                //    LayerList.RemoveObjectFromLayers(Placement);
+                //}
             };
 
             ObjectRender.AddCallback += (obj, args) =>
             {
-                if(!Placement.IsLinkDest && Placement.Id != null && !EditorLoader.IsReloadingStage && !LayerManager.IsInfoInAnyLayer(Placement, EditorLoader.MapScenarioNo))
-                {
-                    Console.WriteLine($"Adding {Placement.Id} to Layer {Placement.LayerConfigName} in Scenario {EditorLoader.MapScenarioNo}");
-                    LayerManager.AddObjectToLayers(Placement, EditorLoader.MapScenarioNo, Placement.UnitConfig.GenerateCategory, true);
-                }
+                //if(!Placement.IsLinkDest && Placement.Id != null && !EditorLoader.IsReloadingStage && !LayerList.IsInfoInAnyLayer(Placement, EditorLoader.MapScenarioNo))
+                //{
+                //    Console.WriteLine($"Adding {Placement.Id} to Layer {Placement.LayerConfigName} in Scenario {EditorLoader.MapScenarioNo}");
+                //    LayerList.AddObjectToLayers(Placement, EditorLoader.MapScenarioNo, Placement.UnitConfig.GenerateCategory, true);
+                //}
             };
             
             ObjectRender.Transform.Position = Placement.Translate;

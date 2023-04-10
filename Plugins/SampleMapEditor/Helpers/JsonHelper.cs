@@ -10,14 +10,14 @@ namespace RedStarLibrary.Helpers
 {
     public class JsonHelper
     {
-        public static void WriteToJSON(dynamic value, string filename, JsonConverter converter = null)
+        public static void WriteToJSON(dynamic value, string filename, Formatting format = Formatting.None, JsonConverter converter = null)
         {
             string json;
 
             if (converter != null)
-                json = JsonConvert.SerializeObject(value, Formatting.Indented, converter);
+                json = JsonConvert.SerializeObject(value, format, converter);
             else
-                json = JsonConvert.SerializeObject(value, Formatting.Indented);
+                json = JsonConvert.SerializeObject(value, format);
 
             if (File.Exists(filename))
                 File.Delete(filename);

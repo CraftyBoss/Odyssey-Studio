@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.31729.503
+# Visual Studio Version 17
+VisualStudioVersion = 17.2.32602.215
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Updater", "Updater\Updater.csproj", "{A1D830E8-2A3B-4FE3-AF15-38FF2900446F}"
 EndProject
@@ -18,6 +18,8 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MapStudio", "Track Studio\MapStudio.csproj", "{91C216DD-9F43-4B8A-B955-01A43EE2E582}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CafeLibrary", "Plugins\CafeLibrary\CafeLibrary.csproj", "{5D3EEEEA-917B-47EE-B264-EBB044211D6E}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HakoniwaByml", "HakoniwaByml\HakoniwaByml\HakoniwaByml.csproj", "{A6A33AC6-CFC1-4BD4-9910-C042D41D5B4E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -113,6 +115,18 @@ Global
 		{5D3EEEEA-917B-47EE-B264-EBB044211D6E}.Release|x64.Build.0 = Release|Any CPU
 		{5D3EEEEA-917B-47EE-B264-EBB044211D6E}.Release|x86.ActiveCfg = Release|Any CPU
 		{5D3EEEEA-917B-47EE-B264-EBB044211D6E}.Release|x86.Build.0 = Release|Any CPU
+		{A6A33AC6-CFC1-4BD4-9910-C042D41D5B4E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A6A33AC6-CFC1-4BD4-9910-C042D41D5B4E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A6A33AC6-CFC1-4BD4-9910-C042D41D5B4E}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{A6A33AC6-CFC1-4BD4-9910-C042D41D5B4E}.Debug|x64.Build.0 = Debug|Any CPU
+		{A6A33AC6-CFC1-4BD4-9910-C042D41D5B4E}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{A6A33AC6-CFC1-4BD4-9910-C042D41D5B4E}.Debug|x86.Build.0 = Debug|Any CPU
+		{A6A33AC6-CFC1-4BD4-9910-C042D41D5B4E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A6A33AC6-CFC1-4BD4-9910-C042D41D5B4E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A6A33AC6-CFC1-4BD4-9910-C042D41D5B4E}.Release|x64.ActiveCfg = Release|Any CPU
+		{A6A33AC6-CFC1-4BD4-9910-C042D41D5B4E}.Release|x64.Build.0 = Release|Any CPU
+		{A6A33AC6-CFC1-4BD4-9910-C042D41D5B4E}.Release|x86.ActiveCfg = Release|Any CPU
+		{A6A33AC6-CFC1-4BD4-9910-C042D41D5B4E}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

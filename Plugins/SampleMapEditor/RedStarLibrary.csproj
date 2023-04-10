@@ -13,6 +13,7 @@
 	</PropertyGroup>	
   <ItemGroup>
     <ProjectReference Include="..\..\GLFrameworkEngine\GLFrameworkEngine.csproj" />
+    <ProjectReference Include="..\..\HakoniwaByml\HakoniwaByml\HakoniwaByml.csproj" />
     <ProjectReference Include="..\..\MapStudio.UI\MapStudio.UI.csproj" />
     <ProjectReference Include="..\..\Toolbox.Core\Toolbox.Core.csproj" />
     <ProjectReference Include="..\CafeLibrary\CafeLibrary.csproj" />

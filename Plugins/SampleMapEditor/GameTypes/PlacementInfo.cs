@@ -8,10 +8,12 @@ using ByamlExt.Byaml;
 using OpenTK;
 using RedStarLibrary.MapData;
 using Toolbox.Core;
+using HakoniwaByml.Iter;
+using HakoniwaByml.Writer;
 
 namespace RedStarLibrary.GameTypes
 {
-    public class PlacementInfo : IEquatable<PlacementInfo>
+    public class PlacementInfo : IEquatable<PlacementInfo>, Interfaces.IBymlSerializable
     {
         public class PlacementUnitConfig
         {
@@ -108,6 +110,7 @@ namespace RedStarLibrary.GameTypes
         // helper properties (these are essentially the games al::tryGetX(value, al::PlacementInfo))
         public string ClassName { get { return UnitConfig.ParameterConfigName; } set { UnitConfig.ParameterConfigName = value; } }
         public string DisplayName { get { return UnitConfig.DisplayName; } set { UnitConfig.DisplayName = value; } }
+        public string ObjectName { get { return UnitConfigName; } set { UnitConfigName = value; } }
         public string PlacementTargetFile { get { return UnitConfig.PlacementTargetFile; } set { UnitConfig.PlacementTargetFile = value; } }
         public Vector3 DisplayOffset { get { return UnitConfig.DisplayTranslate; } set { UnitConfig.DisplayTranslate = value; } }
         public Vector3 DisplayRotate { get { return UnitConfig.DisplayRotate; } set { UnitConfig.DisplayRotate = value; } }
@@ -128,7 +131,42 @@ namespace RedStarLibrary.GameTypes
         public bool isActorLoaded = false;
 
         public bool isUseLinks = false;
+
+        public bool isLinkedInfo = false; // determines whether or not the placement is an object created from a parent info
+
+        private List<string> loadedParams;
         public PlacementInfo()
+        {
+
+            UnitConfig = new PlacementUnitConfig();
+
+            loadedParams = new List<string>();
+
+            ActorParams = new Dictionary<string, dynamic>();
+
+            isUseLinks = false;
+
+            sourceLinks = new Dictionary<string, List<PlacementInfo>>();
+
+            destLinks = new Dictionary<string, List<PlacementInfo>>();
+        }
+
+        public PlacementInfo(BymlIter actorIter)
+        {
+
+            UnitConfig = new PlacementUnitConfig();
+
+            loadedParams = new List<string>();
+
+            DeserializeByml(actorIter);
+
+            sourceLinks = new Dictionary<string, List<PlacementInfo>>();
+
+            destLinks = new Dictionary<string, List<PlacementInfo>>();
+
+        }
+
+        public PlacementInfo(ObjectDatabaseEntry objEntry)
         {
 
             UnitConfig = new PlacementUnitConfig();
@@ -140,43 +178,60 @@ namespace RedStarLibrary.GameTypes
             sourceLinks = new Dictionary<string, List<PlacementInfo>>();
 
             destLinks = new Dictionary<string, List<PlacementInfo>>();
-        }
 
-        public PlacementInfo(Dictionary<string, dynamic> rootActorNode)
-        {
-
-            UnitConfig = new PlacementUnitConfig();
-
-            var duplicateNode = Helpers.Placement.CopyNode(rootActorNode);
-
-            LoadValues(this, duplicateNode);
-
-            ActorParams = duplicateNode; // everything left in this node should be object parameters
-
-            if (Links.Count > 0)
+            // load params
+            foreach (var param in objEntry.ActorParams)
             {
-                isUseLinks = true;
+
+                dynamic value;
+                if(param.Value.First().GetType() == typeof(long))
+                {
+                    value = (int)param.Value.First();
+                }else
+                {
+                    value = param.Value.First();
+                }
+
+                ActorParams.Add(param.Key, value);
             }
 
-            sourceLinks = new Dictionary<string, List<PlacementInfo>>();
+            // load default placement info data
 
-            destLinks = new Dictionary<string, List<PlacementInfo>>();
+            ClassName = objEntry.ClassName;
+
+            ObjectName = objEntry.ClassName;
+
+            UnitConfig.PlacementTargetFile = objEntry.PlacementCategory;
+
+            UnitConfig.GenerateCategory = objEntry.ActorCategory + "List";
+
+            ModelName = objEntry.Models.FirstOrDefault();
 
         }
-
-        public Dictionary<string,dynamic> SerializePlacement()
+        private Dictionary<string, dynamic> GetActorParams(BymlIter iter)
         {
+            Dictionary<string, dynamic> dict = new Dictionary<string, dynamic>();
 
-            Dictionary<string, dynamic> serializedDefaults = SaveValues(this);
-
-            foreach (var kvp in ActorParams)
+            foreach ((string key, object? value) in iter)
             {
-                serializedDefaults.Add(kvp.Key, kvp.Value);
+                if (!loadedParams.Contains(key))
+                {
+                    if (value is BymlIter subIter)
+                    {
+                        if (subIter.Type == BymlDataType.Array)
+                            dict.Add(key, Helpers.Placement.ConvertToList(subIter));
+                        else
+                            dict.Add(key, Helpers.Placement.ConvertToDict(subIter));
+                    }
+                    else
+                    {
+                        dict.Add(key, value);
+                    }
+                }
             }
 
-            return serializedDefaults;
+            return dict;
         }
-
         private static Dictionary<string,dynamic> SaveValues(object obj)
         {
 
@@ -189,8 +244,8 @@ namespace RedStarLibrary.GameTypes
 
                 var value = property.GetValue(obj);
 
-                if (property.Name != "Comment" && value == null) 
-                    continue; // null values in the info most likely means the loader didnt find the value.
+                //if (property.Name != "Comment" && value == null) 
+                //    continue; // null values in the info most likely means the loader didnt find the value.
 
                 if (property.PropertyType == typeof(Vector3))
                     serializedNode.Add(property.Name, SaveVector((Vector3)value));
@@ -207,10 +262,6 @@ namespace RedStarLibrary.GameTypes
 
             return serializedNode;
         }
-        private Vector3 LoadVector(Dictionary<string, dynamic> actorNode, string key)
-        {
-            return new Vector3(actorNode[key]["X"], actorNode[key]["Y"], actorNode[key]["Z"]);
-        }
 
         private static Dictionary<string, dynamic> SaveVector(Vector3 vec)
         {
@@ -219,6 +270,48 @@ namespace RedStarLibrary.GameTypes
                 {"Y", vec.Y },
                 {"Z", vec.Z }
             };
+        }
+
+        private static void LoadValues(object obj, BymlIter iter)
+        {
+            var properties = obj.GetType().GetProperties();
+
+            foreach (var property in properties)
+            {
+                if (property.Name != "Comment" && !iter.ContainsKey(property.Name))
+                {
+                    Console.WriteLine($"Property {property.Name} was not found in Placement.");
+                    continue;
+                }
+
+                if (!iter.TryGetValue(property.Name, out object value))
+                {
+                    iter.TryGetValue(property.Name.ToLower(), out value);
+
+                    if (obj is PlacementInfo info)
+                        info.loadedParams.Add(property.Name.ToLower());
+                }else
+                {
+                    if (obj is PlacementInfo info)
+                        info.loadedParams.Add(property.Name);
+                }
+
+                if (property.PropertyType == typeof(Vector3))
+                    property.SetValue(obj, Helpers.Placement.LoadVector((BymlIter)value));
+                else if (property.PropertyType == typeof(PlacementUnitConfig))
+                    LoadValues(property.GetValue(obj), (BymlIter)value);
+                else if (property.Name == "Comment") // this is the last param in the node, so terminate the properties loop
+                {
+                    property.SetValue(obj, value); // dumb
+                    break;
+                }
+                else if(value is BymlIter subIter)
+                {
+                    property.SetValue(obj, Helpers.Placement.ConvertToDict(subIter));
+                }
+                else
+                    property.SetValue(obj, value);
+            }
         }
 
         private static void LoadValues(object obj, Dictionary<string,dynamic> node)
@@ -240,8 +333,8 @@ namespace RedStarLibrary.GameTypes
                     LoadValues(property.GetValue(obj), node[property.Name]);
                 else if (property.Name == "Comment") // this is the last param in the node, so terminate the properties loop
                 {
-                    
-                    if(!node.ContainsKey(property.Name.ToLower()))
+
+                    if (!node.ContainsKey(property.Name.ToLower()))
                     {
                         Console.WriteLine($"Property {property.Name} was not found in Placement.");
                         break;
@@ -250,14 +343,13 @@ namespace RedStarLibrary.GameTypes
                     property.SetValue(obj, node[property.Name.ToLower()]); // dumb
                     node.Remove(property.Name.ToLower());
                     break;
-                }   
+                }
                 else
                     property.SetValue(obj, node[property.Name]);
 
                 node.Remove(property.Name);
             }
         }
-
         public static bool operator ==(PlacementInfo obj1, PlacementInfo obj2)
         {
             if (ReferenceEquals(obj1, obj2))
@@ -277,6 +369,32 @@ namespace RedStarLibrary.GameTypes
         public override int GetHashCode()
         {
             return HashCode.Combine(Id, UnitConfigName, LayerConfigName);
+        }
+
+        public void DeserializeByml(BymlIter rootNode)
+        {
+
+            LoadValues(this, rootNode);
+
+            ActorParams = GetActorParams(rootNode);
+
+            if (Links.Count > 0)
+            {
+                isUseLinks = true;
+            }
+
+        }
+
+        public BymlContainer SerializeByml()
+        {
+            Dictionary<string, dynamic> serializedDefaults = SaveValues(this);
+
+            foreach (var kvp in ActorParams)
+            {
+                serializedDefaults.Add(kvp.Key, kvp.Value);
+            }
+
+            return Helpers.Placement.ConvertToHash(serializedDefaults);
         }
     }
 }
