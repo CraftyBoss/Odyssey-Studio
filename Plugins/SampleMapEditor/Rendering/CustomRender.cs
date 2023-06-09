@@ -13,6 +13,8 @@ namespace RedStarLibrary
     /// </summary>
     public class CustomRender : EditableObject, IColorPickable
     {
+        public static OpenTK.Vector4 AnimatedColor = new OpenTK.Vector4(1);
+
         UVSphereRender SphereDrawer;
         StandardMaterial Material;
 
@@ -44,6 +46,11 @@ namespace RedStarLibrary
         {
             //Apply material
             Material.ModelMatrix = this.Transform.TransformMatrix;
+            Material.Color = AnimatedColor;
+            //Disable textures for animated colors if used
+            if (AnimatedColor != OpenTK.Vector4.One)
+                Material.DiffuseTextureID = -1;
+
             Material.Render(context);
             //Draw with a selection visual. 
             SphereDrawer.DrawWithSelection(context, this.IsSelected || this.IsHovered);
