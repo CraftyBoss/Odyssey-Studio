@@ -41,6 +41,8 @@ namespace RedStarLibrary
         // List Name -> List of Actors in Layers (Layer Common) -> List of Actors
         private Dictionary<string, Dictionary<string,List<LiveActor>>> SceneActors { get; set; }
 
+        private Dictionary<string, List<ActorList>> newSceneActors;
+
         public void Setup(EditorLoader loader)
         {
             ProcessLoading.Instance.IsLoading = true;
@@ -52,10 +54,11 @@ namespace RedStarLibrary
 
             ProcessLoading.Instance.IsLoading = false;
         }
+
         public void RestartScene(EditorLoader loader)
         {
 
-            EditorLoader.IsReloadingStage = true;
+            EditorLoader.IsLoadingStage = true;
 
             for (int i = loader.Scene.Objects.Count - 1; i >= 0; i--)
             {
@@ -73,14 +76,19 @@ namespace RedStarLibrary
 
             AddSceneRenders(loader);
 
-            EditorLoader.IsReloadingStage = false;
+            TryLoadGraphicsData(loader);
+
+            EditorLoader.IsLoadingStage = false;
 
         }
+
         public void AddSceneRenders(EditorLoader loader)
         {
             StageScenario curScenarioPlacement = StageScenarios.Find(e => e.ScenarioIdx == MapScenarioNo);
 
             SceneActors = new Dictionary<string, Dictionary<string, List<LiveActor>>>();
+
+            newSceneActors = new Dictionary<string, List<ActorList>>();
 
             //if(loader.MapActorList.TryGetValue("Graphics Objects", out List<ActorList> objLists))
             //    foreach (var objList in objLists) combinedList.Add(objList);
@@ -114,6 +122,95 @@ namespace RedStarLibrary
 
             // Load Skybox
 
+            TryLoadGraphicsData(loader);
+
+        }
+
+        private void LoadRendersFromList(EditorLoader loader, Dictionary<string, LayerList> stageLayers, string nodePrefix = "")
+        {
+            foreach (var objList in CreateActorsFromList(stageLayers))
+            {
+                NodeBase actorList = loader.Root.GetChild(objList.Key);
+
+                if (actorList == null)
+                {
+                    actorList = new NodeBase(objList.Key);
+                    actorList.HasCheckBox = true;
+                    loader.Root.AddChild(actorList);
+                    actorList.Icon = IconManager.FOLDER_ICON.ToString();
+
+                    SceneActors.Add(objList.Key, new Dictionary<string, List<LiveActor>>());
+
+                }
+
+                foreach (var mapActors in objList.Value)
+                {
+
+                    string nodeName = nodePrefix + mapActors.ActorListName;
+
+                    NodeBase layerActors = actorList.GetChild(nodeName);
+
+                    if (layerActors == null)
+                    {
+                        layerActors = new NodeBase(nodeName);
+                        layerActors.HasCheckBox = true;
+                        actorList.AddChild(layerActors);
+                        layerActors.Icon = IconManager.FOLDER_ICON.ToString();
+
+                        SceneActors[objList.Key].Add(mapActors.ActorListName, new List<LiveActor>());
+                    }
+
+                    foreach (var actor in mapActors)
+                    {
+                        actor.ResetLinkedActors();
+
+                        actor.SetParentNode(layerActors);
+
+                        if (actor.ObjectDrawer != null)
+                            loader.AddRender(actor.ObjectDrawer);
+                        else
+                            loader.AddRender(actor.ObjectRender);
+
+                        actor.isPlaced = true;
+
+                        SceneActors[objList.Key][mapActors.ActorListName].Add(actor);
+
+                        // actor.PlaceLinkedObjects(loader);
+
+                    }
+                }
+
+            }
+        }
+
+        private void LoadActorsFromList(EditorLoader loader, Dictionary<string, LayerList> stageLayers, string nodePrefix = "")
+        {
+            foreach (var objList in CreateActorsFromList(stageLayers))
+            {
+                NodeBase actorList = loader.Root.GetChild(objList.Key);
+
+                if (actorList == null)
+                    SceneActors.Add(objList.Key, new Dictionary<string, List<LiveActor>>());
+
+                foreach (var mapActors in objList.Value)
+                {
+
+                    string nodeName = nodePrefix + mapActors.ActorListName;
+
+                    NodeBase layerActors = actorList.GetChild(nodeName);
+
+                    if (layerActors == null)
+                        SceneActors[objList.Key].Add(mapActors.ActorListName, new List<LiveActor>());
+
+                    foreach (var actor in mapActors)
+                        SceneActors[objList.Key][mapActors.ActorListName].Add(actor);
+                }
+
+            }
+        }
+
+        private void TryLoadGraphicsData(EditorLoader loader)
+        {
             if (loader.MapGraphicsPreset != null)
             {
                 string arcName = loader.MapGraphicsPreset["Sky"]["Name"];
@@ -149,65 +246,6 @@ namespace RedStarLibrary
 
                 loader.AddRender(skyActor.ObjectRender);
             }
-
-        }
-        private void LoadRendersFromList(EditorLoader loader, Dictionary<string, LayerList> stageLayers, string nodePrefix = "")
-        {
-            foreach (var objList in CreateActorsFromList(stageLayers))
-            {
-
-
-                NodeBase actorList = loader.Root.GetChild(objList.Key);
-
-                if(actorList == null)
-                {
-                    actorList = new NodeBase(objList.Key);
-                    actorList.HasCheckBox = true;
-                    loader.Root.AddChild(actorList);
-                    actorList.Icon = IconManager.FOLDER_ICON.ToString();
-
-                    SceneActors.Add(objList.Key, new Dictionary<string, List<LiveActor>>());
-
-                }
-
-                foreach (var mapActors in objList.Value)
-                {
-
-                    string nodeName = nodePrefix + mapActors.ActorListName;
-
-                    NodeBase layerActors = actorList.GetChild(nodeName);
-
-                    if(layerActors == null)
-                    {
-                        layerActors = new NodeBase(nodeName);
-                        layerActors.HasCheckBox = true;
-                        actorList.AddChild(layerActors);
-                        layerActors.Icon = IconManager.FOLDER_ICON.ToString();
-
-                        SceneActors[objList.Key].Add(mapActors.ActorListName, new List<LiveActor>());
-                    }
-
-                    foreach (var actor in mapActors)
-                    {
-                        actor.ResetLinkedActors();
-
-                        actor.SetParentNode(layerActors);
-
-                        if (actor.ObjectDrawer != null)
-                            loader.AddRender(actor.ObjectDrawer);
-                        else
-                            loader.AddRender(actor.ObjectRender);
-
-                        actor.isPlaced = true;
-
-                        SceneActors[objList.Key][mapActors.ActorListName].Add(actor);
-
-                        // actor.PlaceLinkedObjects(loader);
-
-                    }
-                }
-
-            }
         }
 
         private Dictionary<string, List<ActorList>> CreateActorsFromList(Dictionary<string, LayerList> actorList)
@@ -218,15 +256,17 @@ namespace RedStarLibrary
 
             foreach (var placementList in actorList)
             {
-
                 if(!curScenarioPlacement.LoadedLayerNames.ContainsKey(placementList.Key))
                     continue;
 
-                List<ActorList> layerActors = new List<ActorList>();
+                if(!scenarioList.TryGetValue(placementList.Key, out List<ActorList> layerActors))
+                {
+                    layerActors = new List<ActorList>();
+                    scenarioList.Add(placementList.Key, layerActors);
+                }
 
                 foreach (var config in placementList.Value)
                 {
-
                     if (!curScenarioPlacement.LoadedLayerNames[placementList.Key].Contains(config.LayerName))
                         continue;
 
@@ -234,21 +274,21 @@ namespace RedStarLibrary
 
                     foreach (var placement in config.LayerObjects)
                     {
-                        actors.Add(LoadActorFromPlacement(placement));
+                        actors.Add(LoadActorFromPlacement(placement, config));
                     }
 
                     layerActors.Add(actors);
-
                 }
-
-                scenarioList.Add(placementList.Key, layerActors);
             }
 
             return scenarioList;
         }
-        private LiveActor LoadActorFromPlacement(PlacementInfo placement)
+
+        private LiveActor LoadActorFromPlacement(PlacementInfo placement, LayerConfig list = null)
         {
             LiveActor actor = new LiveActor(null, placement);
+
+            actor.actorLayer = list;
 
             if (actor.hasArchive)
             {

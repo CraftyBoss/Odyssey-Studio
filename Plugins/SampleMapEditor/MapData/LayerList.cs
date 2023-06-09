@@ -11,6 +11,7 @@ namespace RedStarLibrary.MapData
     public class LayerList : IEnumerable<LayerConfig>
     {
         private List<LayerConfig> _layerList;
+
         public LayerList()
         {
             _layerList = new List<LayerConfig>();
@@ -19,37 +20,37 @@ namespace RedStarLibrary.MapData
         public LayerConfig AddObjectToLayers(PlacementInfo actorPlacement, bool isIgnoreLoaded = false)
         {
 
-            LayerConfig info = _layerList.Find(e => e.LayerName == actorPlacement.LayerConfigName);
+            LayerConfig config = _layerList.Find(e => e.LayerName == actorPlacement.LayerConfigName);
 
-            if (info != null)
+            if (config != null)
             {
 
-                if (info.IsLayerLoaded && !isIgnoreLoaded)
+                if (config.IsLayerLoaded && !isIgnoreLoaded)
                 {
-                    if (IsInfoInLayer(info, actorPlacement))
-                        return info;
+                    if (config.IsInfoInLayer(actorPlacement))
+                        return config;
 
-                    info = _layerList.Find(e => e.LayerName == actorPlacement.LayerConfigName + $"_ScenarioWhack");
+                    config = _layerList.Find(e => e.LayerName == actorPlacement.LayerConfigName + $"_ScenarioWhack");
 
-                    if (info == null)
+                    if (config == null)
                     {
-                        info = new LayerConfig(actorPlacement.LayerConfigName + $"_ScenarioWhack");
-                        _layerList.Add(info);
+                        config = new LayerConfig(actorPlacement.LayerConfigName + $"_ScenarioWhack");
+                        _layerList.Add(config);
                     }
 
                 }
 
-                if (!info.LayerObjects.Contains(actorPlacement)) 
-                    info.LayerObjects.Add(actorPlacement);
+                if (!config.LayerObjects.Contains(actorPlacement)) 
+                    config.LayerObjects.Add(actorPlacement);
 
-                return info;
+                return config;
             }
 
-            info = new LayerConfig(actorPlacement);
+            config = new LayerConfig(actorPlacement);
 
-            _layerList.Add(info);
+            _layerList.Add(config);
 
-            return info;
+            return config;
         }
 
         public void RemoveObjectFromLayers(PlacementInfo placement)
@@ -61,6 +62,7 @@ namespace RedStarLibrary.MapData
                     info.LayerObjects.Remove(placement);
 
         }
+
         public void SetLayersAsLoaded()
         {
             _layerList.ForEach(e => e.IsLayerLoaded = true);
@@ -87,17 +89,12 @@ namespace RedStarLibrary.MapData
             var config = _layerList.Find(e => e.LayerName == info.LayerConfigName);
 
             if (config == null)
-                _layerList.Find(e => e.LayerName == info.LayerConfigName + $"_Scenario{scenario}");
+                config = _layerList.Find(e => e.LayerName == info.LayerConfigName + $"_Scenario{scenario}");
 
             if (config != null)
-                return config.LayerObjects.Any(e => e == info);
+                return config.IsInfoInLayer(info);
 
             return false;
-        }
-
-        public static bool IsInfoInLayer(LayerConfig config, PlacementInfo info)
-        {
-            return config != null && config.LayerObjects.Any(e => e == info);
         }
 
         public IEnumerator<LayerConfig> GetEnumerator()

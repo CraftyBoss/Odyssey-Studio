@@ -1,0 +1,15 @@
+﻿NOTE: This document is meant to be a rough outline of the systems described within. A more concrete version should be created for public use.
+
+When a stage is first loaded with the RedStarLibrary, the byml loaded will get parsed and reconstructed in the form of the (work in progress) stage layer system.
+   * Each node within the root of the byml is considered a "Scenario" for the game to load. This system appears to be almost entirely for the games loading, and, 
+     based on left over metadata from the in house stage editor, was not the main method of categorization for objects placed within the stage file.
+   * So, in order to better organize stage objects within the editor, we use the metadata provided to construct "Layers", which are groups of stage objects that
+     can be shared across certain scenarios, or just a single one.
+   * It appears that layers can be either categorized as "global" or "local", as there are a number of stages within SMO that have layers that exist in multiple scenarios,
+     but will sometimes have small changes done to them to suit the scenario.
+   * This distinction has made it a bit more difficult to implement a proper way of importing finished stage files, since treating layers with the same name across different
+     scenarios would mean that if a scenario has changes to any object, then that change would end up applying to all scenarios with the same layer.
+   * In order to resolve this issue, whenever a layer begins being processed during byml deserialization, we check to see if the layer has already been "loaded" in a previous scenario.
+     If it is, then if an objects placement is different/new within the layer, a seperate "local" layer is created, which will only get saved to the scenario the object is found in.
+   * The problem with this approach, for now, is that if the first processed version of a layer is actually locally changed, then every other scenario with that layer will have the layer marked
+     as locally changed. A solution could be to instead treat changes to objects as the "local" change, and keep loaded layers as the sum of all repeated objects in each scenario.

@@ -14,7 +14,7 @@ namespace RedStarLibrary.MapData
         /// </summary>
         public string LayerName { get;}
         /// <summary>
-        /// Dictionary containing lists of placement infos labeled by List type (AreaList, ObjectList, etc)
+        /// List of every PlacementInfo found within a certain layer.
         /// </summary>
         public List<PlacementInfo> LayerObjects { get; }
         /// <summary>
@@ -38,6 +38,11 @@ namespace RedStarLibrary.MapData
             LayerName = layerName;
             LayerObjects = new List<PlacementInfo>();
             IsEnabled = true;
+        }
+
+        public bool IsInfoInLayer(PlacementInfo info)
+        {
+            return LayerObjects.Any(e => e == info);
         }
     }
 }

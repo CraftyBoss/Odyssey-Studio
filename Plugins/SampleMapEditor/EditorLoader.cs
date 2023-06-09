@@ -55,9 +55,9 @@ namespace RedStarLibrary
         public static string PlacementFileName { get; set; }
 
         /// <summary>
-        /// Used to prevent LiveActors from removing/adding themselves from the layer config.
+        /// Used to prevent LiveActors from removing/adding themselves from the layer config during stage loading.
         /// </summary>
-        public static bool IsReloadingStage { get; set; }
+        public static bool IsLoadingStage { get; set; }
         /// <summary>
         /// Currently selected Layer used for placing new objects into the scene.
         /// </summary>
@@ -174,16 +174,20 @@ namespace RedStarLibrary
 
                     BymlIter iter = new BymlIter(mapData.AsBytes());
 
-                    //string designPath = ResourceManager.FindResourcePath($"StageData\\{PlacementFileName}Design.szs");
+                    string designPath = ResourceManager.FindResourcePath($"StageData\\{PlacementFileName}Design.szs");
 
-                    //if (File.Exists(designPath))
-                    //    LoadGraphicsData(designPath);
+                    if (File.Exists(designPath))
+                        LoadGraphicsData(designPath);
+
+                    IsLoadingStage = true;
 
                     CurrentMapScene = new StageScene();
 
                     CurrentMapScene.DeserializeByml(iter);
 
                     CurrentMapScene.Setup(this);
+
+                    IsLoadingStage = false;
 
                 }
                 else
@@ -275,28 +279,49 @@ namespace RedStarLibrary
 
             var sarc = SARC_Parser.UnpackRamN(YAZ0.Decompress(path));
 
-            BymlFileData gfxParam = ByamlFile.LoadN(new MemoryStream(sarc.Files["GraphicsArea.byml"]), false);
+            //BymlFileData gfxParam = ByamlFile.LoadN(new MemoryStream(sarc.Files["GraphicsArea.byml"]), false);
+
+            BymlIter gfxParam = new BymlIter(sarc.Files["GraphicsArea.byml"]);
 
             var presetSarc = SARC_Parser.UnpackRamN(YAZ0.Decompress(ResourceManager.FindResourcePath("SystemData\\GraphicsPreset.szs")));
 
-            foreach (Dictionary<string,dynamic> areaParam in gfxParam.RootNode["GraphicsAreaParamArray"])
+            if(gfxParam.TryGetValue("GraphicsAreaParamArray", out BymlIter paramArray))
             {
-                // TODO: we shouldnt only get the first default area as there are stages that use different graphics presets according to scenario.
-                if(areaParam["AreaName"] == "DefaultArea" && areaParam["PresetName"] != null)
+                foreach(var graphicsIter in paramArray.AsArray<BymlIter>())
                 {
-                    byte[] paramBytes = null;
-                    presetSarc.Files.TryGetValue($"{areaParam["PresetName"]}.byml", out paramBytes);
-
-                    if(paramBytes != null)
+                    // TODO: we shouldnt only get the first default area as there are stages that use different graphics presets according to scenario.
+                    graphicsIter.TryGetValue("AreaName", out string areaName);
+                    if (areaName == "DefaultArea" && graphicsIter.TryGetValue("PresetName", out string presetName))
                     {
-                        BymlFileData gfxPreset = ByamlFile.LoadN(new MemoryStream(paramBytes), false);
-
-                        MapGraphicsPreset = gfxPreset.RootNode;
-
-                        break;
+                        byte[] paramBytes = null;
+                        if (presetSarc.Files.TryGetValue($"{presetName}.byml", out paramBytes))
+                        {
+                            BymlFileData gfxPreset = ByamlFile.LoadN(new MemoryStream(paramBytes), false);
+                            MapGraphicsPreset = gfxPreset.RootNode;
+                            break;
+                        }
                     }
                 }
             }
+
+            //foreach (Dictionary<string,dynamic> areaParam in gfxParam.RootNode["GraphicsAreaParamArray"])
+            //{
+            //    // TODO: we shouldnt only get the first default area as there are stages that use different graphics presets according to scenario.
+            //    if(areaParam["AreaName"] == "DefaultArea" && areaParam["PresetName"] != null)
+            //    {
+            //        byte[] paramBytes = null;
+            //        presetSarc.Files.TryGetValue($"{areaParam["PresetName"]}.byml", out paramBytes);
+
+            //        if(paramBytes != null)
+            //        {
+            //            BymlFileData gfxPreset = ByamlFile.LoadN(new MemoryStream(paramBytes), false);
+
+            //            MapGraphicsPreset = gfxPreset.RootNode;
+
+            //            break;
+            //        }
+            //    }
+            //}
 
         }
 

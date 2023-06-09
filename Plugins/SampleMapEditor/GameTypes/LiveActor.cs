@@ -31,6 +31,10 @@ namespace RedStarLibrary.GameTypes
 
         [BindGUI()]
         public PlacementInfo Placement { get; set; }
+        /// <summary>
+        /// Reference to layer actor is found in.
+        /// </summary>
+        public LayerConfig actorLayer;
 
         public bool hasArchive = false;
 
@@ -111,7 +115,6 @@ namespace RedStarLibrary.GameTypes
             {
                 hasArchive = true;
             }
-
         }
         public LiveActor(NodeBase parentNode, PlacementInfo info)
         {
@@ -341,7 +344,12 @@ namespace RedStarLibrary.GameTypes
             ObjectRender.UINode.Icon = IconManager.MESH_ICON.ToString();
             ObjectRender.UINode.Tag = this;
 
-            if(Placement.ActorParams.Count > 0)
+            ObjectRender.Transform.Position = Placement.Translate;
+            ObjectRender.Transform.Scale = Placement.Scale;
+            ObjectRender.Transform.RotationEulerDegrees = Placement.Rotate;
+            ObjectRender.Transform.UpdateMatrix(true);
+
+            if (Placement.ActorParams.Count > 0)
             {
                 ObjectRender.UINode.TagUI.UIDrawer += delegate
                 {
@@ -349,8 +357,21 @@ namespace RedStarLibrary.GameTypes
                 };
             }
 
+            ObjectRender.Transform.TransformUpdated += delegate
+            {
+                Placement.Translate = ObjectRender.Transform.Position;
+                Placement.Scale = ObjectRender.Transform.Scale;
+                Placement.Rotate = ObjectRender.Transform.RotationEulerDegrees;
+            };
+
             ObjectRender.RemoveCallback += (obj, args) =>
             {
+
+                if(actorLayer != null && !EditorLoader.IsLoadingStage && actorLayer.LayerObjects.Remove(Placement))
+                {
+                    Console.WriteLine("Successfully removed Actor from Layer: " + actorLayer.LayerName);
+                }
+
                 //if (!Placement.IsLinkDest && Placement.Id != null && !EditorLoader.IsReloadingStage && LayerList.IsInfoInAnyLayer(Placement))
                 //{
                 //    Console.WriteLine($"Removing {Placement.Id} from Layer {Placement.LayerConfigName}");
@@ -360,17 +381,18 @@ namespace RedStarLibrary.GameTypes
 
             ObjectRender.AddCallback += (obj, args) =>
             {
+                if (actorLayer != null && !EditorLoader.IsLoadingStage && !actorLayer.IsInfoInLayer(Placement))
+                {
+                    actorLayer.LayerObjects.Add(Placement);
+                    Console.WriteLine("Successfully added Actor to Layer: " + actorLayer.LayerName);
+                }
+
                 //if(!Placement.IsLinkDest && Placement.Id != null && !EditorLoader.IsReloadingStage && !LayerList.IsInfoInAnyLayer(Placement, EditorLoader.MapScenarioNo))
                 //{
                 //    Console.WriteLine($"Adding {Placement.Id} to Layer {Placement.LayerConfigName} in Scenario {EditorLoader.MapScenarioNo}");
                 //    LayerList.AddObjectToLayers(Placement, EditorLoader.MapScenarioNo, Placement.UnitConfig.GenerateCategory, true);
                 //}
             };
-            
-            ObjectRender.Transform.Position = Placement.Translate;
-            ObjectRender.Transform.Scale = Placement.Scale;
-            ObjectRender.Transform.RotationEulerDegrees = Placement.Rotate;
-            ObjectRender.Transform.UpdateMatrix(true);
         }
 
         private bool FrustumCullActor(BfresRender render)
