@@ -8,6 +8,7 @@ uniform sampler2D NormalMapTexture;
 uniform sampler2D AmbientOccusionBakeTexture;
 uniform sampler2D ShadowBakeTexture;
 uniform sampler2D IndirectLightBakeTexture;
+uniform sampler2DArray IndirectLightBakeTextureArray;
 
 uniform int debugShading;
 uniform vec4 highlight_color;
@@ -19,6 +20,8 @@ uniform int AreaIndex;
 uniform int isSelected;
 uniform int hasProbes;
 uniform int isNormalMapBC1;
+uniform int isLightmapArray;
+uniform int hasLightmap;
 
 in vec2 texCoord0;
 in vec3 normal;
@@ -32,7 +35,6 @@ in vec2 texCoordBake1;
 in vec3 probeLight;
 
 out vec4 fragOutput;
-out vec4 selectionMask;
 
 const int DISPLAY_NORMALS = 1;
 const int DISPLAY_LIGHTING = 2;
@@ -65,9 +67,6 @@ vec3 ReconstructNormal(in vec2 t_NormalXY) {
 void main(){
     vec4 outputColor = vec4(1);
     vec2 displayTexCoord = texCoord0;
-    selectionMask = vec4(0);
-    if (isSelected == 1)
-        selectionMask = vec4(1.0);
 
     vec3 N = normal;
 
@@ -127,7 +126,12 @@ void main(){
         outputColor.rgb = texture(ShadowBakeTexture,texCoordBake0).ggg;
     if (debugShading == DISPLAY_LIGHTMAP)
     {
-        vec4 light_tex = texture(IndirectLightBakeTexture,texCoordBake1);
+        vec4 light_tex = vec4(0);
+        if (isLightmapArray == 1)
+             light_tex = texture(IndirectLightBakeTextureArray, vec3(texCoordBake1, 0));
+        else if (hasLightmap == 1)
+             light_tex = texture(IndirectLightBakeTexture,texCoordBake1);
+
         outputColor.rgb = light_bake_scale * light_tex.rgb * light_tex.a;
 
         if (hasProbes == 1)

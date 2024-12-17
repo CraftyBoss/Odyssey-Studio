@@ -57,6 +57,7 @@ namespace CafeLibrary.Rendering
         public List<BfresSkeletalAnim> SkeletalAnimations = new List<BfresSkeletalAnim>();
         public List<BfresMaterialAnim> MaterialAnimations = new List<BfresMaterialAnim>();
         public List<BfresCameraAnim> CameraAnimations = new List<BfresCameraAnim>();
+        public List<BfresVisibilityAnim> VisAnimations = new List<BfresVisibilityAnim>();
 
         public List<BfshaLibrary.BfshaFile> ShaderFiles = new List<BfshaLibrary.BfshaFile>();
 
@@ -271,11 +272,7 @@ namespace CafeLibrary.Rendering
                 if (model.IsVisible)
                     model.Draw(control, pass, this);
 
-            //Draw debug boundings
             if (Runtime.RenderBoundingBoxes)
-                this.BoundingNode.Box.DrawSolid(control, this.Transform.TransformMatrix, Vector4.One);
-
-           // if (Runtime.RenderBoundingBoxes)
                 DrawBoundings(control);
 
             GL.Enable(EnableCap.CullFace);
@@ -375,7 +372,7 @@ namespace CafeLibrary.Rendering
                             }
                             else
                             {
-                                //   BoundingBoxRender.Draw(control, bb.Box.Min, bb.Box.Max);
+                                BoundingBoxRender.Draw(control, bb.Box.Min, bb.Box.Max);
                             }
                         }
                     }

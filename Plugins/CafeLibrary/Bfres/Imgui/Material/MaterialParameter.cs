@@ -60,7 +60,11 @@ namespace CafeLibrary
                     foreach (var param in mat.ShaderParams)
                     {
                         if (material.Material.ShaderParams.ContainsKey(param.Key))
-                            material.Material.ShaderParams[param.Key].DataValue = param.Value.DataValue;
+                        {
+                            //Ensure param data types match incase other param types change between files.
+                            if (material.Material.ShaderParams[param.Key].Type == param.Value.Type)
+                                material.Material.ShaderParams[param.Key].DataValue = param.Value.DataValue;
+                        }
                     }
                     material.UpdateMaterialBlock();
                     GLContext.ActiveContext.UpdateViewport = true;
@@ -89,7 +93,8 @@ namespace CafeLibrary
                 {
                     if (limitUniformsUsedByShaderCode && shaderInfo != null &&
                         !shaderInfo.UsedVertexStageUniforms.Contains(param.Name) &&
-                        !shaderInfo.UsedPixelStageUniforms.Contains(param.Name))
+                        !shaderInfo.UsedPixelStageUniforms.Contains(param.Name) &&
+                        param.Name != "gsys_area_env_index_diffuse")
                         continue;
 
                     if (material.AnimatedParams.ContainsKey(param.Name))
@@ -281,6 +286,7 @@ namespace CafeLibrary
                                 Rotation = rot,
                             };
                             GLContext.ActiveContext.UpdateViewport = true;
+                            material.BatchEditParams(param);
                             material.OnParamUpdated(param, true);
                         });
                         bool edited0 = ImGui.DragFloat2("Scale", ref scale);
@@ -302,6 +308,7 @@ namespace CafeLibrary
             }
             if (updated) {
                 GLContext.ActiveContext.UpdateViewport = true;
+                material.BatchEditParams(param);
                 material.OnParamUpdated(param, true);
             }
         }

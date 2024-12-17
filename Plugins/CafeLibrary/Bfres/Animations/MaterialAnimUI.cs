@@ -65,6 +65,19 @@ namespace CafeLibrary
             matNode.CanRename = true;
             matNode.OnHeaderRenamed += delegate
             {
+                //not changed
+                if (group.Name == matNode.Header)
+                    return;
+
+                //Dupe name
+                if (anim.MaterialAnim.MaterialAnimDataList.Any(x => x.Name == matNode.Header))
+                {
+                    TinyFileDialog.MessageBoxErrorOk($"Name {matNode.Header} already exists!");
+                    //revert
+                    matNode.Header = group.Name;
+                    return;
+                }
+
                 //Update bfres data
                 foreach (var mat in anim.MaterialAnim.MaterialAnimDataList)
                 {
@@ -232,6 +245,10 @@ namespace CafeLibrary
                 parent.Children.Remove(trackNode);
                 anim.IsEdited = true;
             }));
+            trackNode.OnHeaderRenamed += delegate
+            {
+                track.Name = trackNode.Header;
+            };
 
             return trackNode;
         }
@@ -411,8 +428,39 @@ namespace CafeLibrary
                 {
                     dialogOpened = true;
 
-                    var render = GLFrameworkEngine.DataCache.ModelCache.Values.FirstOrDefault();
-                    TextureSelectionDialog.Textures = render.Textures;
+                    TextureSelectionDialog.Textures.Clear();
+
+                    var anim = Anim as BfresMaterialAnim;
+
+                    //Get the parent bfres render and load textures from there
+                    var render = anim.GetParentRender();
+                    if (render != null && render.Textures.Count > 0)
+                    {
+                        foreach (var tex in render.Textures)
+                        {
+                            if (!TextureSelectionDialog.Textures.ContainsKey(tex.Key))
+                                TextureSelectionDialog.Textures.Add(tex.Key, tex.Value);
+                        }
+                    }
+                    else //Load any textures currently cached in tool 
+                    {
+                        foreach (var model in GLFrameworkEngine.DataCache.ModelCache.Values)
+                        {
+                            foreach (var tex in model.Textures)
+                            {
+                                if (!TextureSelectionDialog.Textures.ContainsKey(tex.Key))
+                                    TextureSelectionDialog.Textures.Add(tex.Key, tex.Value);
+                            }
+                        }
+                    }
+
+                    //if none are present, use existing texture list
+                    if (TextureSelectionDialog.Textures.Count == 0)
+                    {
+                        foreach (var tex in this.TextureList)
+                            if  (!TextureSelectionDialog.Textures.ContainsKey(tex))
+                                TextureSelectionDialog.Textures.Add(tex, null);
+                    }
                 }
                 ImGui.SameLine();
 

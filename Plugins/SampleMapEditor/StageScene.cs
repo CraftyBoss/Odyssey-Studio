@@ -188,15 +188,11 @@ namespace RedStarLibrary
 
         private void SetupObjects(EditorLoader loader)
         {
-
             // Load Actor Models used in Current Scenario
-
             AddSceneRenders(loader);
 
             // Load Skybox
-
             TryLoadGraphicsData(loader);
-
         }
 
 
@@ -214,7 +210,6 @@ namespace RedStarLibrary
                     actorList.Icon = IconManager.FOLDER_ICON.ToString();
 
                     SceneActors.Add(objCategory, new Dictionary<string, List<LiveActor>>());
-
                 }
 
                 foreach (var mapActors in actorLists)

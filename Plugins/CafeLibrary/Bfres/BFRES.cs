@@ -48,8 +48,31 @@ namespace CafeLibrary
 
         public bool UpdateTransformedVertices = false;
 
+        private MeshCodec MeshCodec;
+
         public void Load(Stream stream)
         {
+            //External string check for V10 bfres
+            var externalFlags = MeshCodec.GetExternalFlags(stream);
+            //External flags used
+            if (externalFlags.HasFlag(MeshCodec.ExternalFlags.HasExternalGPU) || this.FileInfo.FileName.EndsWith(".mc"))
+            {
+                //Ensure it uses mc compressor for save
+                if (this.FileInfo.Compression == null)
+                {
+                    this.FileInfo.Compression = new MeshCodecFormat();
+
+                    //add on .mc extension for save
+                    if (!this.FileInfo.FileName.EndsWith(".mc"))
+                        this.FileInfo.FileName += ".mc";
+                    if (!this.FileInfo.FilePath.EndsWith(".mc"))
+                        this.FileInfo.FilePath += ".mc";
+                }
+            }
+            //External strings used. Check for external binary file in mesh codec prepare
+            if (externalFlags.HasFlag(MeshCodec.ExternalFlags.HasExternalString))
+                MeshCodec.Prepare();
+
             ResFile = new ResFile(stream);
             Reload();
         }
@@ -81,9 +104,16 @@ namespace CafeLibrary
                 TinyFileDialog.MessageBoxInfoOk($"A texture pattern animation must be active to insert keys! Select one to activate.");
         }
 
-        public override bool CreateNew()
+        public override bool CreateNew(string menu_name = "WiiU")
         {
-            ResFile = new ResFile();
+            ResFile = new ResFile() { ByteOrder = Syroot.BinaryData.ByteOrder.BigEndian };
+            if (!menu_name.Contains("WiiU"))
+            {
+                ResFile.ByteOrder = Syroot.BinaryData.ByteOrder.LittleEndian;
+
+                ResFile.ChangePlatform(true, 4096, 0, 5, 0, 3,
+                  new BfresLibrary.PlatformConverters.ConverterHandle());
+            }
 
             FileInfo = new File_Info();
             FileInfo.FilePath = "NewFile";
@@ -100,31 +130,7 @@ namespace CafeLibrary
 
         public override void RenderSaveFileSettings()
         {
-            var comp = FileInfo.Compression == null ? "None" : FileInfo.Compression.ToString();
-            if (ImGui.BeginCombo("Compression", comp))
-            {
-                bool select = comp == "None";
-                if (ImGui.Selectable("None", select)) {
-                    FileInfo.Compression = null;
-                }
-                if (select)
-                    ImGui.SetItemDefaultFocus();
-
-                foreach (var compTypes in Toolbox.Core.FileManager.GetCompressionFormats())
-                {
-                    select = comp == compTypes.ToString();
-                    if (ImGui.Selectable(compTypes.ToString(), select)) {
-                        FileInfo.Compression = compTypes;
-                    }
-
-                    if (select)
-                        ImGui.SetItemDefaultFocus();
-                }
-                ImGui.EndCombo();
-            }
-            if (ImGui.DragInt("Yaz0 Level (1 fast, 9 slow)", ref Runtime.Yaz0CompressionLevel, 1, 1, 9)) {
-
-            }
+            base.RenderSaveFileSettings();
         }
 
         private void Reload()

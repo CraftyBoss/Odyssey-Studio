@@ -29,7 +29,7 @@ namespace CafeLibrary
             Root.IsExpanded = true;
             Root.ContextMenus.Add(new MenuItem("Add Bone", () =>
             {
-                var boneGroup = new BfresSkeletalAnim.BoneAnimGroup();
+                var boneGroup = new BfresSkeletalAnim.BoneAnimGroup(new BoneAnim());
                 boneGroup.Name = "NewBone";
                 anim.AnimGroups.Add(boneGroup);
                 //Add to ui
@@ -38,6 +38,7 @@ namespace CafeLibrary
             }));
             Root.ContextMenus.Add(new MenuItem("Rename", () => Root.ActivateRename = true));
 
+            Root.Children.Clear();
             foreach (BfresSkeletalAnim.BoneAnimGroup group in anim.AnimGroups)
                 Root.AddChild(GetGroupNode(anim, group));
 
@@ -53,6 +54,20 @@ namespace CafeLibrary
             boneNode.CanRename = true;
             boneNode.OnHeaderRenamed += delegate
             {
+                //not changed
+                if (group.BoneAnimData.Name == boneNode.Header)
+                    return;
+
+                //Dupe name
+                if (anim.AnimGroups.Any(x => x.Name == boneNode.Header))
+                {
+                    TinyFileDialog.MessageBoxErrorOk($"Name {boneNode.Header} already exists!");
+                    //revert
+                    boneNode.Header = group.BoneAnimData.Name;
+                    return;
+                }
+
+                group.BoneAnimData.Name = boneNode.Header;
                 group.Name = boneNode.Header;
             };
             boneNode.ContextMenus.Add(new MenuItem("Rename", () => boneNode.ActivateRename = true));

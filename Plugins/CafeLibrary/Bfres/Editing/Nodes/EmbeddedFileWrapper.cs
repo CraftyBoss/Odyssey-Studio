@@ -38,7 +38,7 @@ namespace CafeLibrary
             if (dlg.ShowDialog())
             {
                 foreach (var file in ResFile.ExternalFiles)
-                    File.WriteAllBytes($"{dlg.SelectedPath}\\{file.Key}", file.Value.Data);
+                    File.WriteAllBytes(Path.Combine(dlg.SelectedPath,file.Key), file.Value.Data);
             }
         }
 
@@ -92,6 +92,9 @@ namespace CafeLibrary
             MemoryEditor mem = new MemoryEditor();
             this.TagUI.UIDrawer += delegate
             {
+                //Make sure the data is not null
+                if (file.Data == null) file.Data = new byte[0];
+
                 mem.Draw(file.Data, file.Data.Length);
             };
 

@@ -1,15 +1,15 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
   </PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-		<OutputPath>..\..\Track Studio\bin\Debug\net6.0\plugins\</OutputPath>
+		<OutputPath>..\..\Track Studio\bin\Debug\net8.0\plugins\</OutputPath>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-		<OutputPath>..\..\Track Studio\bin\Release\net6.0\plugins\</OutputPath>
+		<OutputPath>..\..\Track Studio\bin\Release\net8.0\plugins\</OutputPath>
 	</PropertyGroup>	
   <ItemGroup>
     <ProjectReference Include="..\..\GLFrameworkEngine\GLFrameworkEngine.csproj" />

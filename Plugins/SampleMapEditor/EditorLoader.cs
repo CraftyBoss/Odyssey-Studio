@@ -48,6 +48,8 @@ namespace RedStarLibrary
         /// </summary>
         public File_Info FileInfo { get; set; }
 
+        public int Priority => -1;
+
         public Dictionary<string, dynamic> MapGraphicsPreset;
 
         public int MapActorCount;
@@ -88,9 +90,8 @@ namespace RedStarLibrary
         /// </summary>
         public void Load(Stream stream)
         {
-
             //Set the game shader
-            CafeLibrary.Rendering.BfresLoader.AddShaderType(typeof(SMORenderer));
+            BfresLoader.TargetShader = typeof(SMORenderer);
 
             // add custom viewport item event
 
@@ -277,8 +278,6 @@ namespace RedStarLibrary
 
             var sarc = SARC_Parser.UnpackRamN(YAZ0.Decompress(path));
 
-            //BymlFileData gfxParam = ByamlFile.LoadN(new MemoryStream(sarc.Files["GraphicsArea.byml"]), false);
-
             BymlIter gfxParam = new BymlIter(sarc.Files["GraphicsArea.byml"]);
 
             var presetSarc = SARC_Parser.UnpackRamN(YAZ0.Decompress(ResourceManager.FindResourcePath("SystemData\\GraphicsPreset.szs")));
@@ -301,25 +300,6 @@ namespace RedStarLibrary
                     }
                 }
             }
-
-            //foreach (Dictionary<string,dynamic> areaParam in gfxParam.RootNode["GraphicsAreaParamArray"])
-            //{
-            //    // TODO: we shouldnt only get the first default area as there are stages that use different graphics presets according to scenario.
-            //    if(areaParam["AreaName"] == "DefaultArea" && areaParam["PresetName"] != null)
-            //    {
-            //        byte[] paramBytes = null;
-            //        presetSarc.Files.TryGetValue($"{areaParam["PresetName"]}.byml", out paramBytes);
-
-            //        if(paramBytes != null)
-            //        {
-            //            BymlFileData gfxPreset = ByamlFile.LoadN(new MemoryStream(paramBytes), false);
-
-            //            MapGraphicsPreset = gfxPreset.RootNode;
-
-            //            break;
-            //        }
-            //    }
-            //}
 
         }
 

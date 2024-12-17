@@ -15,7 +15,7 @@ namespace RedStarLibrary
     /// </summary>
     public class Plugin : IPlugin
     {
-        public string Name => "Sample Map Editor";
+        public string Name => "SMO Map Editor";
 
         public Plugin()
         {

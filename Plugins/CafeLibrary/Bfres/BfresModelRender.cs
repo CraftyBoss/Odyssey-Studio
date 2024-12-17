@@ -73,7 +73,12 @@ namespace CafeLibrary.Rendering
         public void UpdateFrustum(GLContext context, BfresRender render)
         {
             for (int i = 0; i < Meshes.Count; i++)
-                MeshInFrustum[i] = IsMeshInFustrum(context, render, Meshes[i]);
+            {
+                if (Meshes[i].VertexSkinCount == 0 && Meshes[i].BoneIndex == 0) //only check static meshes atm as rigged boudnings are not checked
+                    MeshInFrustum[i] = IsMeshInFustrum(context, render, Meshes[i]);
+                else
+                    MeshInFrustum[i] = true;
+            }
         }
 
         public void Draw(GLContext context, Pass pass, BfresRender parentRender)
@@ -207,6 +212,7 @@ namespace CafeLibrary.Rendering
                         context.UseSRBFrameBuffer = true;
 
                     context.CurrentShader = BfresRender.DebugShader;
+                    BfresRender.DebugShader.Enable();
 
                     ((BfresMaterialRender)mesh.MaterialAsset).SetRenderState();
                     ((BfresMaterialRender)mesh.MaterialAsset).RenderDebugMaterials(context,
@@ -216,22 +222,22 @@ namespace CafeLibrary.Rendering
                     context.CurrentShader.SetInt("AreaIndex", ((BfresMaterialRender)mesh.MaterialAsset).AreaIndex);
                     context.CurrentShader.SetBoolToInt("isSelected", parentRender.IsSelected || mesh.IsSelected);
 
-                    
+
                     //Selection clear color
-                    /* if (parentRender.MeshPicking)
-                     {
-                         if (mesh.IsSelected)
-                             context.EnableSelectionMask();
-                         else
-                             context.DisableSelectionMask();
-                     }
-                     else
-                     {
-                         if (parentRender.IsSelected)
-                             context.EnableSelectionMask();
-                         else
-                             context.DisableSelectionMask();
-                     }*/
+                    if (parentRender.MeshPicking)
+                    {
+                        if (mesh.IsSelected)
+                            context.EnableSelectionMask();
+                        else
+                            context.DisableSelectionMask();
+                    }
+                    else
+                    {
+                        if (parentRender.IsSelected)
+                            context.EnableSelectionMask();
+                        else
+                            context.DisableSelectionMask();
+                    }
 
                     DrawMesh(context.CurrentShader, parentRender, mesh);
                 }
@@ -320,6 +326,10 @@ namespace CafeLibrary.Rendering
         private void DrawMesh(ShaderProgram shader, BfresRender parentRender, BfresMeshRender mesh, bool usePolygonOffset = false)
         {
             if (!MeshInFrustum[mesh.Index])
+                return;
+
+            //hidden by bone vis
+            if (!this.ModelData.Skeleton.Bones[mesh.BoneIndex].Visible)
                 return;
 
             bool enableSkinning = true;

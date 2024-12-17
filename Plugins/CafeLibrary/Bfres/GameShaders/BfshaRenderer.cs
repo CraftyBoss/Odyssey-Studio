@@ -211,15 +211,14 @@ namespace CafeLibrary.Rendering
                 var shaderBlock = GetBlock(name + "vs", false);
 
                 //If a block is not cached, update it in the render loop.
-                { 
-
+                {
                     shaderBlock.Buffer.Clear();
-                    LoadUniformBlock(control, shader,  i, parentModel, transform, shaderBlock, name, mesh);
+                    LoadUniformBlock(control, shader, i, parentModel, transform, shaderBlock, name, mesh);
                 }
 
                 RenderBlock(shaderBlock, programID, vertLocation, fragLocation, binding++);
             }
-             UpdateMaterialBlock = false;
+            UpdateMaterialBlock = false;
         }
 
         /// <summary>
@@ -229,14 +228,15 @@ namespace CafeLibrary.Rendering
         public virtual void LoadUniformBlock(GLContext control, ShaderProgram shader, int index,
          BfresModelRender parentModel, GLTransform transform, UniformBlock block, string name, GenericPickableMesh mesh)
         {
-         
-        }   
+
+        }
 
         /// <summary>
         /// A helper method to auto map commonly used render info settings to options.
         /// Not all games use the same render info settings so this only works for certain games!
         /// </summary>
-        public virtual void LoadRenderStateOptions(Dictionary<string, string> options) {
+        public virtual void LoadRenderStateOptions(Dictionary<string, string> options)
+        {
             ShaderOptionHelper.LoadRenderStateOptions(options, this);
         }
 
@@ -275,8 +275,10 @@ namespace CafeLibrary.Rendering
         public virtual BfshaLibrary.BfshaFile TryLoadShaderArchive(BfresRender bfres, string shaderFile, string shaderModel)
         {
             //Check external files.
-            foreach (var file in bfres.ShaderFiles) {
-                if (file is BfshaLibrary.BfshaFile && ((BfshaLibrary.BfshaFile)file).Name == shaderFile) {
+            foreach (var file in bfres.ShaderFiles)
+            {
+                if (file is BfshaLibrary.BfshaFile && ((BfshaLibrary.BfshaFile)file).Name == shaderFile)
+                {
                     return (BfshaLibrary.BfshaFile)file;
                 }
             }
@@ -308,12 +310,14 @@ namespace CafeLibrary.Rendering
         /// </summary>
         public void CheckProgram(GLContext control, BfresMeshRender mesh, int pass = 0)
         {
-            if (ProgramPasses.Count <= pass) {
+            if (ProgramPasses.Count <= pass)
+            {
                 return;
             }
 
             ShaderIndex = pass;
-            if (GLShaders[pass] == null || UpdateShader) {
+            if (GLShaders[pass] == null || UpdateShader)
+            {
                 var watch = System.Diagnostics.Stopwatch.StartNew();
 
                 ReloadGLSLShaderFile(ProgramPasses[pass]);
@@ -327,7 +331,8 @@ namespace CafeLibrary.Rendering
         /// <summary>
         /// Reloads the glsl shader file from the shader cache or saves a translated one if does not exist.
         /// </summary>
-        public void ReloadGLSLShaderFile(BfshaLibrary.ResShaderProgram program) {
+        public void ReloadGLSLShaderFile(BfshaLibrary.ResShaderProgram program)
+        {
             if (IsSwitch)
                 DecodeSwitchBinary(program);
             else
@@ -570,14 +575,47 @@ namespace CafeLibrary.Rendering
                 if (this.Material.AnimatedSamplers.ContainsKey(texMap.Sampler))
                     name = this.Material.AnimatedSamplers[texMap.Sampler];
 
-                BindTexture(shader, sampler, GetTextures(), texMap, name, id);
-                SetTexture(shader, locationInfo.VertexLocation, locationInfo.FragmentLocation, ref id);
+                var tex = BindTexture(shader, sampler, GetTextures(), texMap, name, id);
+                if (tex != null)
+                {
+                    tex = CheckTargetType(tex, shader, locationInfo.FragmentLocation);
+
+                    GL.ActiveTexture(TextureUnit.Texture0 + id);
+                    tex.Bind();
+                    SetTexture(shader, locationInfo.VertexLocation, locationInfo.FragmentLocation, ref id);
+
+                    GL.ActiveTexture(TextureUnit.Texture0);
+                }
             }
 
             GL.ActiveTexture(TextureUnit.Texture0);
             GL.BindTexture(TextureTarget.Texture2D, 0);
             GL.BindTexture(TextureTarget.TextureCubeMap, 0);
             GL.BindTexture(TextureTarget.Texture2DArray, 0);
+        }
+
+        private GLTexture CheckTargetType(GLTexture tex, ShaderProgram shader, int location)
+        {
+            string uniform_name = ConvertSamplerID(location, false);
+            if (!shader.UniformTypeInfo.ContainsKey(uniform_name))
+                return tex;
+
+            var type = shader.UniformTypeInfo[uniform_name];
+            //Check if type is correct
+            if (tex.Target == TextureTarget.Texture2D && type == ActiveUniformType.Sampler2DArray)
+            {
+                //Type is wrong, find or create a sub texture with the correct type usage
+                foreach (var t in tex.SubTextures)
+                {
+                    if (t.Target == TextureTarget.Texture2DArray)
+                        return t;
+                }
+                var copy = GLTexture2D.ToArrayCopy(tex);
+                tex.SubTextures.Add(copy);
+
+                return copy;
+            }
+            return tex;
         }
 
         public virtual GLTexture GetExternalTexture(GLContext control, string sampler)
@@ -613,7 +651,8 @@ namespace CafeLibrary.Rendering
 
         private UniformBlock GetBlock(string name, bool reset = true)
         {
-            if (!UniformBlocks.ContainsKey(name))  {
+            if (!UniformBlocks.ContainsKey(name))
+            {
                 UniformBlocks.Add(name, new UniformBlock());
             }
 

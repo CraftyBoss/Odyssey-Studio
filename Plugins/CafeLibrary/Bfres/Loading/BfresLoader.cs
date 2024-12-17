@@ -159,8 +159,17 @@ namespace CafeLibrary.Rendering
                 for (int i = 0; i < resFile.ExternalFiles.Count; i++)
                 {
                     string fileName = resFile.ExternalFiles.Keys.ToList()[i];
-                    if (fileName.EndsWith(".bfsha")) {
-                        renderer.ShaderFiles.Add(new BfshaLibrary.BfshaFile(new System.IO.MemoryStream(resFile.ExternalFiles[i].Data)));
+                    if (fileName.EndsWith(".bfsha"))
+                    {
+                        //catch as certain bfsha versions (latest wii u) do not load correctly atm)
+                        try
+                        {
+                            renderer.ShaderFiles.Add(new BfshaLibrary.BfshaFile(new System.IO.MemoryStream(resFile.ExternalFiles[i].Data)));
+                        }
+                        catch
+                        {
+
+                        }
                     }
                 }
             }
@@ -272,15 +281,15 @@ namespace CafeLibrary.Rendering
                 matRender.Dispose();
 
             matRender = new BfresMaterialRender(render, model);
-            if (render.ShaderFiles.Any(x => x.Name == mat.ShaderAssign.ShaderArchiveName))
+            if (render.ShaderFiles.Any(x => x.Name == mat.ShaderAssign?.ShaderArchiveName))
             {
                 if (TargetShader != null)
                     matRender = (BfresMaterialRender)Activator.CreateInstance(TargetShader, render, model);
             }
 
-            foreach (var type in CustomShaders)
+            if(TargetShader != null)
             {
-                var shaderMat = (ShaderRenderBase)Activator.CreateInstance(type, render, model);
+                var shaderMat = (ShaderRenderBase)Activator.CreateInstance(TargetShader, render, model);
                 if (shaderMat.UseRenderer(mat, mat.ShaderAssign.ShaderArchiveName, mat.ShaderAssign.ShadingModelName))
                     matRender = shaderMat;
             }
@@ -308,13 +317,6 @@ namespace CafeLibrary.Rendering
                 if (TargetShader != null)
                     matRender = (BfresMaterialRender)Activator.CreateInstance(TargetShader, render, model);
             }
-            foreach (var type in CustomShaders)
-            {
-                var shaderMat = (ShaderRenderBase)Activator.CreateInstance(type, render, model);
-                if (shaderMat.UseRenderer(mat, mat.ShaderAssign.ShaderArchiveName, mat.ShaderAssign.ShadingModelName))
-                    matRender = shaderMat;
-            }
-
             matRender.Material = new FMAT();
             matRender.Name = mat.Name;
             matRender.Material.ReloadMaterial(mat);

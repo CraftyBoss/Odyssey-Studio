@@ -14,6 +14,9 @@ using Toolbox.Core.ViewModels;
 using Toolbox.Core.IO;
 using CafeLibrary.Rendering;
 using GLFrameworkEngine;
+using IONET.Core.Model;
+using IONET.Core;
+using static GLFrameworkEngine.SkeletonRenderer;
 
 namespace CafeLibrary
 {
@@ -59,7 +62,9 @@ namespace CafeLibrary
 
             foreach (FMDL fmdl in Models) {
                 ResFile.Models.Add(fmdl.Name, fmdl.Model);
-
+                foreach (FMAT mat in fmdl.Materials) {
+                    mat.OnSave();
+                }
                 foreach (FSHP fshp in fmdl.Meshes) {
                     fshp.Shape.VertexBufferIndex = (ushort)fmdl.Model.VertexBuffers.IndexOf(fshp.VertexBuffer);
                     if (!fmdl.Model.Materials.ContainsValue(fshp.Material.Material))
@@ -203,10 +208,6 @@ namespace CafeLibrary
             UINode.AddChild(MaterialFolder);
             UINode.AddChild(SkeletonFolder);
 
-            SkeletonFolder.TagUI.UIDrawer += delegate
-            {
-            };
-
             MaterialFolder.ContextMenus.Add(new MenuItemModel("Add Material", AddMaterialDialog));
 
             if (ModelRenderer == null) {
@@ -264,13 +265,12 @@ namespace CafeLibrary
             if (Model.Name == "CausticsArea")
                 ModelRenderer.IsVisible = false;
 
+            if (ModelRenderer.SkeletonRenderer == null)
+                ModelRenderer.SkeletonRenderer = new SkeletonRenderer(this.Skeleton);
+
             //Skeletons, materials and meshes
-            this.Skeleton = new FSKL(this, Model.Skeleton);
+            this.Skeleton = new FSKL(this, Model.Skeleton, SkeletonFolder, ModelRenderer.SkeletonRenderer);
 
-            if (ModelRenderer.SkeletonRenderer != null)
-                ModelRenderer.SkeletonRenderer.Dispose();
-
-            ModelRenderer.SkeletonRenderer = new SkeletonRenderer(this.Skeleton);
 
             foreach (var mat in Model.Materials.Values) {
                 var fmat = new FMAT(BfresWrapper, this, ResFile, mat);
@@ -289,11 +289,6 @@ namespace CafeLibrary
                 fshp.MeshAsset = BfresLoader.AddMesh(ResFile, BfresWrapper.Renderer, ModelRenderer, Model, shape);
                 fshp.SetupRender(fshp.MeshAsset);
             }
-
-            SkeletonFolder.Children.Clear();
-            foreach (var bone in ModelRenderer.SkeletonRenderer.Bones)
-                if (bone.Parent == null)
-                    SkeletonFolder.AddChild(bone.UINode);
         }
 
         public MenuItemModel[] GetContextMenuItems()
@@ -302,6 +297,8 @@ namespace CafeLibrary
             {
                 new MenuItemModel("Export", ExportDialog),
                 new MenuItemModel("Replace", ReplaceDialog),
+                new MenuItemModel(""),
+                new MenuItemModel("Replace (MK8 Sub Division)", ReplaceDialogWithSubMeshCalc),
                 new MenuItemModel(""),
                 new MenuItemModel("Rename", () => UINode.ActivateRename = true),
                 new MenuItemModel(""),
@@ -379,6 +376,46 @@ namespace CafeLibrary
             }
         }
 
+        internal void ExportSelectedMeshesDialog()
+        {
+            //Get selected meshes
+            var meshes = this.MeshFolder.Children.Where(x => x.IsSelected).ToList();
+            if (meshes.Count == 0) return;
+
+            var dlg = new ImguiFileDialog();
+            dlg.SaveDialog = true;
+            dlg.FileName = $"{this.Model.Name}.dae";
+            dlg.AddFilter(".dae", ".dae");
+
+            if (meshes.Count == 1) //Set export name as the selected mesh if only one is selected
+                dlg.FileName = meshes[0].Header;
+
+            if (dlg.ShowDialog())
+            {
+                var scene = BfresModelExporter.FromGeneric(ResFile, Model);
+                //Setup a scene with just the selected meshes
+                var meshScene = new IOScene();
+                var daeModel = new IOModel();
+                meshScene.Models.Add(daeModel);
+
+                //Load the scene with only selected meshes and attached materials
+                foreach (var mesh in scene.Models[0].Meshes)
+                {
+                    if (!meshes.Any(x => x.Header == mesh.Name))
+                        continue;
+
+                    daeModel.Meshes.Add(mesh);
+
+                    var mat = scene.Materials.FirstOrDefault(x => x.Name == mesh.Polygons[0].MaterialName);
+                    if (!meshScene.Materials.Contains(mat))
+                        meshScene.Materials.Add(mat);
+                }
+                //Export
+                IONET.IOManager.ExportScene(meshScene, dlg.FilePath, new IONET.ExportSettings() { });
+                //  BfresWrapper.ExportTextures(Path.GetDirectoryName(dlg.FilePath));
+            }
+        }
+
         public void ReplaceDialog()
         {
             var dlg = new ImguiFileDialog();
@@ -400,12 +437,34 @@ namespace CafeLibrary
             }
         }
 
-        public void ImportModel(string filePath, bool replacing = false, Action onImported = null)
+        public void ReplaceDialogWithSubMeshCalc()
+        {
+            var dlg = new ImguiFileDialog();
+            dlg.SaveDialog = false;
+            dlg.AddFilter(".bfmdl", ".bfmdl");
+            dlg.AddFilter(".dae", ".dae");
+            dlg.AddFilter(".fbx", ".fbx");
+
+            if (dlg.ShowDialog())
+            {
+                try
+                {
+                    ImportModel(dlg.FilePath, true, null, true);
+                }
+                catch (Exception ex)
+                {
+                    DialogHandler.ShowException(ex);
+                }
+            }
+        }
+
+        public void ImportModel(string filePath, bool replacing = false, Action onImported = null, bool use_sub_mesh = false)
         {
             ProcessLoading.Instance.IsLoading = true;
             var materials = this.Model.Materials.Values.ToList();
             var settings = BfresWrapper.ImportSettings;
             settings.Replacing = replacing;
+            settings.EnableSubMesh = use_sub_mesh;
 
             if (!filePath.EndsWith(".bfmdl"))
             {
@@ -420,22 +479,41 @@ namespace CafeLibrary
                 ModelImportDialog modelDlg = new ModelImportDialog();
                 modelDlg.Setup(this, ioscene, settings);
 
-                //Import the bfres model data
-                Model = BfresModelImporter.ImportModel(ResFile, Model, ioscene, filePath, settings);
-                ImportModel(Model, materials, settings);
-                onImported?.Invoke();
+                bool useDialog = true;
 
-                /*
-                DialogHandler.Show(modelDlg.Name, 700, 600, () =>
+                //Disable dialog for custom tracks, just to make the process for those easier
+                //Dialog is typically not necessary for those.
+                if (ResFile.Name.StartsWith("course_model"))
                 {
-                    modelDlg.Render();
-                }, (ok) =>
-                {
-                    if (!ok)
-                        return;
+                    useDialog = false;
+                    settings.ImportBones = true;
+                }
 
-               
-                });*/
+                if (useDialog)
+                {
+                    DialogHandler.Show(modelDlg.Name, 700, 600, () =>
+                    {
+                        modelDlg.Render();
+                    }, (ok) =>
+                    {
+                        if (!ok)
+                            return;
+
+                        modelDlg.OnApply(materials);
+                        //Import the bfres model data
+                        Model = BfresModelImporter.ImportModel(ResFile, Model, ioscene, filePath, settings);
+                        ImportModel(Model, materials, settings);
+                        onImported?.Invoke();
+                    });
+                }
+                else
+                {
+                    modelDlg.OnApply(materials);
+                    //Import the bfres model data
+                    Model = BfresModelImporter.ImportModel(ResFile, Model, ioscene, filePath, settings);
+                    ImportModel(Model, materials, settings);
+                    onImported?.Invoke();
+                }
             }
             else
             {
@@ -470,9 +548,11 @@ namespace CafeLibrary
             model.Materials.Clear();
             foreach (var meshSetting in settings.Meshes)
             {
+                //Original target material from the current material list
                 var mat = materials.FirstOrDefault(x => x.Name == meshSetting.MaterialName);
                 var shape = model.Shapes[meshSetting.Name];
                 var importedMat = importedMaterials[shape.MaterialIndex];
+                var name = importedMat.Name;
 
                 //Import material.
                 if (File.Exists(meshSetting.MaterialRawFile))
@@ -482,9 +562,12 @@ namespace CafeLibrary
                     {
                         mat = new Material();
                         mat.Import(meshSetting.MaterialRawFile, ResFile);
-                        mat.Name = importedMat.Name;
+                        mat.Name = name;
                     }
                 }
+                //Assign the material to the current mesh settings
+                meshSetting.MaterialInstance = mat;
+                //Mat is the original default material. Use an imported material if none is found
                 if (mat == null)
                     mat = importedMat;
 
@@ -495,7 +578,7 @@ namespace CafeLibrary
 
                     model.Materials.Add(mat.Name, mat);
                 }
-
+                //Assign the material to the mesh settings
                 if (mat != null && model.Materials.ContainsValue(mat))
                     model.Shapes[meshSetting.Name].MaterialIndex = (ushort)model.Materials.IndexOf(mat);
             }
@@ -503,9 +586,13 @@ namespace CafeLibrary
             //Reload with the new model data
             ReloadModel();
 
-            //Import material presets
+            //Import material presets after the model is reloaded
             foreach (var meshSetting in settings.Meshes)
             {
+                //Don't assign a preset if a material is already present
+                if (meshSetting.MaterialInstance != null)
+                    continue;
+
                 var mesh = (FSHP)this.Meshes.FirstOrDefault(x => x.Name == meshSetting.Name);
                 if (meshSetting.MaterialRawFile != null && meshSetting.MaterialRawFile.EndsWith(".zip"))
                 {
@@ -736,9 +823,8 @@ namespace CafeLibrary
 
         /// <summary>
         /// Checks if the material is valid or not. 
-        /// Determines based on having empty render data or not.
         /// </summary>
-        public bool IsMaterialInvalid => Material != null && Material.RenderInfos.Count == 0;
+        public bool IsMaterialInvalid = false;
 
         public string ShaderArchiveName { get; set; }
         public string ShaderModelName { get; set; }
@@ -817,6 +903,37 @@ namespace CafeLibrary
             ReloadMaterial(mat);
         }
 
+        public void OnSave()
+        {
+            //Check for present textures
+            if (BfresWrapper.Renderer.Textures.Count > 0)
+            {
+                //Check for placeholders missing incase the user deletes them
+                for (int i = 0; i < TextureMaps.Count; i++)
+                {
+                    string textureName = TextureMaps[i].Name;
+                    //Texture is present so skip
+                    if (BfresWrapper.Renderer.Textures.ContainsKey(textureName))
+                        continue;
+
+                    //Check for what texture type to add as a placeholder
+                    switch (textureName)
+                    {
+                        case "Basic_Alb":
+                        case "Basic_Spm":
+                        case "Basic_Emm":
+                        case "Basic_Trm":
+                        case "Basic_BC1_Nrm":
+                        case "Basic_Nrm":
+                        case "Basic_Bake_st0":
+                        case "Basic_Bake_st1":
+                            AddPlaceholderTextures(Material, Samplers[i], i);
+                            break;
+                    }
+                }
+            }
+        }
+
         public void TryInsertParamAnimKey(ShaderParam param) {
             BfresWrapper.TryInsertParamKey(Material.Name, param);
         }
@@ -834,7 +951,7 @@ namespace CafeLibrary
         public void CheckErrors()
         {
             //Check for valid normal map format
-            if (Material.ShaderAssign.ShaderOptions.ContainsKey("gsys_normalmap_BC1"))
+            if (Material.ShaderAssign != null && Material.ShaderAssign.ShaderOptions.ContainsKey("gsys_normalmap_BC1"))
             {
                 //Option for shader encoding as BC1. If 0 the shader expects BC5 SNORM, if 1 it uses BC1 UNORM
                 string value = Material.ShaderAssign.ShaderOptions["gsys_normalmap_BC1"];
@@ -860,9 +977,54 @@ namespace CafeLibrary
             }
         }
 
+        public void BatchTextureName(string name, string sampler)
+        {
+            var index = this.Material.Samplers.IndexOf(sampler);
+            if (index == -1)
+                return;
+
+            foreach (var mat in ModelWrapper.GetSelectedMaterials())
+            {
+                mat.TextureMaps[index].Name = name;
+                mat.ReloadTextureMap(index);
+                mat.OnTextureUpdated(mat.Material.Samplers[index].Name, name, false);
+            }
+            OnTextureUpdated(Material.Samplers[index].Name, name, true);
+        }
+
+        public void BatchEditRenderInfo(RenderInfo renderInfo)
+        {
+            //Batch edit material render info
+            foreach (var mat in ModelWrapper.GetSelectedMaterials())
+            {
+                if (mat.Material.RenderInfos.ContainsKey(renderInfo.Name))
+                {
+                    if (renderInfo.Data is string[])
+                        mat.Material.RenderInfos[renderInfo.Name].SetValue((string[])renderInfo.Data);
+                    else if (renderInfo.Data is float[])
+                        mat.Material.RenderInfos[renderInfo.Name].SetValue((float[])renderInfo.Data);
+                    else if (renderInfo.Data is int[])
+                        mat.Material.RenderInfos[renderInfo.Name].SetValue((int[])renderInfo.Data);
+                }
+                mat.UpdateRenderState();
+            }
+        }
+
+        public void BatchEditParams(ShaderParam param)
+        {
+            //Batch edit material params
+            foreach (var mat in ModelWrapper.GetSelectedMaterials())
+            {
+                if (mat.ShaderParams.ContainsKey(param.Name) && mat.ShaderParams[param.Name].Type == param.Type)
+                    mat.ShaderParams[param.Name].DataValue = param.DataValue;
+                mat.OnParamUpdated(param);
+            }
+        }
+
         public void OnParamUpdated(ShaderParam param, bool captureKeys = false)
         {
             var fmdl = UINode.Parent.Parent.Tag as FMDL;
+
             //Update renderer
             foreach (FSHP mesh in fmdl.Meshes)
             {
@@ -946,6 +1108,25 @@ namespace CafeLibrary
                 GLTexture tex = MaterialAsset.RenderIcon(64);
                 IconManager.TryAddIcon(UINode.Icon, tex);
             }
+
+            var iconColor = ThemeHandler.Theme.Text;
+
+            if (BlendState.State == GLMaterialBlendState.BlendState.Translucent)
+                IconManager.DrawIcon('\uf0c5', new System.Numerics.Vector4(iconColor.X, iconColor.Y, iconColor.Z, 0.2f));
+            else if (BlendState.State == GLMaterialBlendState.BlendState.Mask)
+            {
+                ImGuiNET.ImGui.PushFont(ImGuiController.FontIconRegular);
+                ImGuiNET.ImGui.TextUnformatted('\uf0c8'.ToString());
+
+                //IconManager.DrawIcon('\uf0c8', iconColor);
+                ImGuiNET.ImGui.PopFont();
+            }
+            else
+                IconManager.DrawIcon('\uf0c5', iconColor);
+
+            ImGuiNET.ImGui.SameLine();
+
+            ImGuiHelper.IncrementCursorPosX(5);
         }
 
         public void ReloadTextureMap(int index)
@@ -1001,6 +1182,9 @@ namespace CafeLibrary
             //mk8d cull state
             if (Material.RenderInfos.ContainsKey("gsys_render_state_display_face"))
                 revertedRenderInfos.Add("gsys_render_state_display_face", Material.RenderInfos["gsys_render_state_display_face"]);
+
+            //temp hack, only add placeholders for MK8
+            bool usePlaceholders = Material.ShaderParams.ContainsKey("gsys_area_env_index_diffuse");
 
             string dir = Path.GetDirectoryName(filePath);
             string presetName = Path.GetFileNameWithoutExtension(filePath);
@@ -1112,7 +1296,7 @@ namespace CafeLibrary
                     int index = previousSamplers.FindIndex(x => x.Name == Material.Samplers[i].Name);
                     if (index != -1) //Use the matching index to match up the texture replaced
                         Material.TextureRefs[i].Name = previousTextures[index].Name;
-                    else //else swap it out with a placeholder texture
+                    else if  (usePlaceholders) //else swap it out with a placeholder texture
                         AddPlaceholderTextures(Material, Material.Samplers[i].Name, i);
                 }
             }
@@ -1168,7 +1352,7 @@ namespace CafeLibrary
                     Material.RenderInfos[info.Name] = info;
             }
 
-            if (!keepTextures)
+            if (!keepTextures && usePlaceholders)
             {
                 for (int i = 0; i < Material.Samplers.Count; i++)
                     AddPlaceholderTextures(Material, Material.Samplers[i].Name, i);
@@ -1520,12 +1704,15 @@ namespace CafeLibrary
             {
                 try
                 {
-                    if (dlg.FilePath.EndsWith(".zip"))
-                        LoadPreset(dlg.FilePath, true);
-                    else
+                    foreach (var mat in ModelWrapper.GetSelectedMaterials())
                     {
-                        Material.Import(dlg.FilePath, ResFile);
-                        Replace(Material);
+                        if (dlg.FilePath.EndsWith(".zip"))
+                            mat.LoadPreset(dlg.FilePath, true);
+                        else
+                        {
+                            mat.Material.Import(dlg.FilePath, ResFile);
+                            mat.Replace(mat.Material);
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -1608,14 +1795,18 @@ namespace CafeLibrary
             ShaderOptions = new Dictionary<string, string>();
             TextureMaps = new List<STGenericTextureMap>();
 
-            SamplerAssign = material.ShaderAssign.SamplerAssigns;
-            ShaderArchiveName = material.ShaderAssign.ShaderArchiveName;
-            ShaderModelName = material.ShaderAssign.ShadingModelName;
+            if (material.ShaderAssign != null)
+            {
+                SamplerAssign = material.ShaderAssign.SamplerAssigns;
+                ShaderArchiveName = material.ShaderAssign.ShaderArchiveName;
+                ShaderModelName = material.ShaderAssign.ShadingModelName;
+
+                foreach (var option in material.ShaderAssign.ShaderOptions)
+                    ShaderOptions.Add(option.Key, option.Value);
+            }
 
             foreach (var param in material.ShaderParams)
                 ShaderParams.Add(param.Key, param.Value);
-            foreach (var option in material.ShaderAssign.ShaderOptions)
-                ShaderOptions.Add(option.Key, option.Value);
 
             for (int i = 0; i < material.TextureRefs.Count; i++)
             {
@@ -1746,18 +1937,34 @@ namespace CafeLibrary
 
         public void UpdateTransformedVertices(Matrix4 matrix)
         {
+            if (matrix == Matrix4.Identity)
+                return;
+
             Syroot.Maths.Vector4F[] position = new Syroot.Maths.Vector4F[Vertices.Count];
             Syroot.Maths.Vector4F[] normals = new Syroot.Maths.Vector4F[Vertices.Count];
 
             for (int i = 0; i < Vertices.Count; i++)
             {
                 Vertices[i].Position = Vector3.TransformPosition(Vertices[i].Position, matrix);
-                Vertices[i].Normal = Vector3.TransformPosition(Vertices[i].Normal, matrix);
+                Vertices[i].Normal = Vector3.TransformNormal(Vertices[i].Normal, matrix);
 
-                position[i] = new Syroot.Maths.Vector4F(
-                     Vertices[i].Position.X, Vertices[i].Position.Y, Vertices[i].Position.Z, 0);
-                normals[i] = new Syroot.Maths.Vector4F(
-                   Vertices[i].Normal.X, Vertices[i].Normal.Y, Vertices[i].Normal.Z, 0);
+                Vector3 pos = Vertices[i].Position;
+                Vector3 nrm = Vertices[i].Normal;
+
+                if (VertexSkinCount == 1 || VertexSkinCount == 0)
+                {
+                    var boneId = (int)this.Shape.BoneIndex;
+                    if (VertexSkinCount == 1)
+                        boneId = this.ParentModel.Skeleton.MatrixToBoneList[Vertices[i].BoneIndices[0]];
+
+                    var transform = ModelWrapper.Skeleton.Bones[boneId].Transform;
+                    Matrix4.Invert(ref transform, out Matrix4 invert);
+                    pos = Vector3.TransformPosition(pos, invert);
+                    nrm = Vector3.TransformNormal(nrm, invert);
+                }
+
+                position[i] = new Syroot.Maths.Vector4F(pos.X, pos.Y, pos.Z, 0);
+                normals[i] = new Syroot.Maths.Vector4F(nrm.X, nrm.Y, nrm.Z, 0);
             }
 
             VertexBufferHelper helper = new VertexBufferHelper(VertexBuffer, ParentFile.ByteOrder);
@@ -1896,6 +2103,8 @@ namespace CafeLibrary
         /// </summary>
         public void UpdateAttributeBuffers()
         {
+            return;
+
             var attributeMapping = Material.Material.ShaderAssign.AttribAssigns;
             bool updateBuffer = false;
             foreach (var att in attributeMapping)
@@ -1914,8 +2123,23 @@ namespace CafeLibrary
                         case "_u1":
                         case "_u2":
                         case "_u3":
-                            //Remap to uv0 if no other layer is present.
-                            attributeMapping[att.Key] = "_u0";
+                            int channelID = int.Parse(att.Key.Replace("_u", ""));
+                            int layer = channelID + 1;
+
+                            //Add extra UV layers
+                            for (int i = 0; i < this.Vertices.Count; i++)
+                            {
+                                var texCoords = this.Vertices[i].TexCoords.ToList();
+                                //Fill in missing slots
+                                for (int u = 0; u < layer; u++)
+                                    if (texCoords.Count < layer) //Add UV layers until it reaches the target layer count
+                                    {
+                                        texCoords.Add(texCoords.Count > 0 ? texCoords[0] : new Vector2());
+                                    }
+                                this.Vertices[i].TexCoords = texCoords.ToArray();
+                            }
+                            AddAttributeData(att.Key, GX2AttribFormat.Format_16_16_Single);
+                            updateBuffer = true;
                             break;
                         case "_t0":
                             this.CalculateTangentBitangent(0);
@@ -1960,6 +2184,9 @@ namespace CafeLibrary
             };
             UINode.Tag = this;
             UINode.ContextMenus.Add(new MenuItemModel("Rename", () => UINode.ActivateRename = true));
+            UINode.ContextMenus.Add(new MenuItemModel(""));
+
+            UINode.ContextMenus.Add(new MenuItemModel("Export", () => ModelWrapper.ExportSelectedMeshesDialog()));
             UINode.ContextMenus.Add(new MenuItemModel(""));
 
             UINode.ContextMenus.Add(new MenuItemModel("Recalculate Tangent/Bitangent", RecalculateTanBitanAction));
@@ -2302,8 +2529,40 @@ namespace CafeLibrary
                         var bone = ParentSkeleton.Bones[index];
                         vertex.Position = Vector3.TransformPosition(vertex.Position, bone.Transform);
                         vertex.Normal = Vector3.TransformNormal(vertex.Normal, bone.Transform);
+                        vertex.Tangent = new Vector4(Vector3.TransformNormal(vertex.Tangent.Xyz, bone.Transform), vertex.Tangent.W);
+                        vertex.Bitangent = new Vector4(Vector3.TransformNormal(vertex.Bitangent.Xyz, bone.Transform), vertex.Tangent.W);
                     }
                 }
+            }
+        }
+
+        public Vector3 GetLocalVertexPosition(int index, Vector3 position)
+        {
+            if (VertexSkinCount != 1)
+            {
+                return position;
+            }
+            else
+            {
+                //Get rigid bone
+                var bone = ParentSkeleton.Bones[Vertices[index].BoneIndices[0]];
+                var inverted = bone.Transform.Inverted();
+                return Vector3.TransformPosition(position, inverted); ;
+            }
+        }
+
+        public Vector3 GetLocalVertexNormal(int index, Vector3 normal)
+        {
+            if (VertexSkinCount != 1)
+            {
+                return normal;
+            }
+            else
+            {
+                //Get rigid bone
+                var bone = ParentSkeleton.Bones[Vertices[index].BoneIndices[0]];
+                var inverted = bone.Transform.Inverted();
+                return Vector3.TransformNormal(normal, inverted); ;
             }
         }
 
@@ -2349,20 +2608,22 @@ namespace CafeLibrary
                 switch (att.Name)
                 {
                     case "_p0":
-                        data[v] = new Syroot.Maths.Vector4F(
-                            vertex.Position.X, vertex.Position.Y, vertex.Position.Z, 0);
+                        var pos = GetLocalVertexPosition(v, vertex.Position);
+                        data[v] = new Syroot.Maths.Vector4F(pos.X, pos.Y, pos.Z, 0);
                         break;
                     case "_n0":
-                        data[v] = new Syroot.Maths.Vector4F(
-                            vertex.Normal.X, vertex.Normal.Y, vertex.Normal.Z, 0);
+                        var nrm = GetLocalVertexNormal(v, vertex.Normal);
+                        data[v] = new Syroot.Maths.Vector4F(nrm.X, nrm.Y, nrm.Z, 0);
                         break;
                     case "_t0":
+                        var tan = GetLocalVertexNormal(v, vertex.Tangent.Xyz);
                         data[v] = new Syroot.Maths.Vector4F(
-                            vertex.Tangent.X, vertex.Tangent.Y, vertex.Tangent.Z, vertex.Tangent.W);
+                            tan.X, tan.Y, tan.Z, vertex.Tangent.W);
                         break;
                     case "_b0":
+                        var btan = GetLocalVertexNormal(v, vertex.Tangent.Xyz);
                         data[v] = new Syroot.Maths.Vector4F(
-                            vertex.Bitangent.X, vertex.Bitangent.Y, vertex.Bitangent.Z, vertex.Bitangent.W);
+                            btan.X, btan.Y, btan.Z, vertex.Bitangent.W);
                         break;
                     case "_u0":
                         data[v] = new Syroot.Maths.Vector4F(
@@ -2465,12 +2726,180 @@ namespace CafeLibrary
         public Skeleton Skeleton { get; set; }
         public FMDL Model { get; set; }
 
-        public FSKL(FMDL fmdl, Skeleton skeleton)
+        private NodeBase FolderUI;
+
+        private SkeletonRenderer Renderer;
+
+        public FSKL(FMDL fmdl, Skeleton skeleton, NodeBase folder, SkeletonRenderer render)
         {
             Model = fmdl;
             Skeleton = skeleton;
+            FolderUI = folder;
+            Renderer = render;
 
             Reload();
+
+            FolderUI.ContextMenus.Add(new MenuItemModel("Add Bone", () =>
+            {
+                AddNewBoneAction(FolderUI, null);
+            }));
+
+            //Add nodes attached from renderer instances
+            FolderUI.Children.Clear();
+            foreach (var bone in Renderer.Bones)
+                if (bone.Parent == null)
+                    FolderUI.AddChild(bone.UINode);
+
+            foreach (var bone in Renderer.Bones)
+            {
+                PrepareBoneUI(bone.UINode, bone.BoneData);
+            }
+        }
+
+        private void PrepareBoneUI(NodeBase node, STBone bone)
+        {
+            node.ContextMenus.Clear();
+            node.ContextMenus.Add(new MenuItemModel("Rename", () => { node.ActivateRename = true; }));
+            node.ContextMenus.Add(new MenuItemModel(""));
+            node.ContextMenus.Add(new MenuItemModel("Add", () =>
+            {
+                AddNewBoneAction(node, bone);
+            }));
+            node.ContextMenus.Add(new MenuItemModel("Remove", () =>
+            {
+                RemoveBoneAction(node, bone);
+            }));
+
+            node.CanRename = true;
+            node.OnHeaderRenamed += delegate
+            {
+                //Rename wrapper
+                bone.Name = node.Header;
+                //Rename raw bfres bone data
+                ((FSKL.BfresBone)bone).BoneData.Name = node.Header;
+            };
+        }
+
+        private void RemoveBoneAction(NodeBase node, STBone removedBone)
+        {
+            List<STBone> bonesToRemove = GetAllChildren(removedBone);
+            bonesToRemove.Add(removedBone);
+            if (this.Bones.Count == bonesToRemove.Count)
+            {
+                TinyFileDialog.MessageBoxErrorOk($"Atleast 1 bone is needed to be present!");
+                return;
+            }
+
+            var result = TinyFileDialog.MessageBoxInfoYesNo(
+                string.Format("Are you sure you want to remove {0}? This cannot be undone!", removedBone.Name));
+
+            if (result != 1)
+                return;
+
+            //Remove from gui
+            if (node.Parent != null)
+                node.Parent.Children.Remove(node);
+
+            foreach (var bone in bonesToRemove)
+            {
+                //Remove from parent
+                var parent = bone.Parent;
+                if (parent != null)
+                    parent.Children.Remove(parent);
+
+                //Remove from bone render
+                RemoveBoneRender(bone);
+
+                //Remove from generic skeleton
+                this.Bones.Remove(bone);
+
+                //Remove from bfres skeleton data
+                if (Skeleton.Bones.ContainsKey(bone.Name))
+                    Skeleton.Bones.RemoveKey(bone.Name);
+            }
+        }
+
+        private void AddNewBoneAction(NodeBase parentNode, STBone parent)
+        {
+            var nameList = this.Bones.Select(x => x.Name).ToList();
+            string name = Utils.RenameDuplicateString("NewBone", nameList);
+
+            Vector3 position = new Vector3();
+
+            var genericBone = this.AddBone(new Bone()
+            {
+                Name = name,
+                Position = new Syroot.Maths.Vector3F(position.X, position.Y, position.Z),
+                ParentIndex = parent != null ? (short)parent.Index : (short)-1,
+            });
+            var render = AddBoneRender(genericBone);
+            PrepareBoneUI(render.UINode, genericBone);
+        }
+
+        //Todo these will be ported to glframework when library is updated to latest
+        public BoneRender AddBoneRender(STBone bone)
+        {
+            var render = new BoneRender(bone);
+            Renderer.Bones.Add(render);
+
+            var parent = Renderer.Bones.FirstOrDefault(x => x.BoneData == bone.Parent);
+            render.SetParent(parent);
+            if (parent == null) //add rooot bones to folder
+            {
+                this.FolderUI.AddChild(render.UINode);
+            }
+
+            return render;
+        }
+
+        public void RemoveBoneRender(STBone bone)
+        {
+            var render = Renderer.Bones.FirstOrDefault(x => x.BoneData == bone);
+            if (render != null)
+            {
+                Renderer.Bones.Remove(render);
+            }
+        }
+
+        private List<STBone> GetAllChildren(STBone bone)
+        {
+            List<STBone> bones = new List<STBone>();
+            foreach (var child in bone.Children)
+                bones.AddRange(GetAllChildren(child));
+            return bones;
+        }
+
+        public BfresBone AddBone(Bone bone)
+        {
+            var genericBone = new BfresBone(this, Skeleton, bone)
+            {
+                Name = bone.Name,
+                ParentIndex = bone.ParentIndex,
+                Position = new OpenTK.Vector3(
+                        bone.Position.X,
+                        bone.Position.Y,
+                        bone.Position.Z),
+                Scale = new OpenTK.Vector3(
+                        bone.Scale.X,
+                        bone.Scale.Y,
+                        bone.Scale.Z),
+            };
+
+            if (bone.FlagsRotation == BoneFlagsRotation.EulerXYZ)
+            {
+                genericBone.EulerRotation = new OpenTK.Vector3(
+                    bone.Rotation.X, bone.Rotation.Y, bone.Rotation.Z);
+            }
+            else
+                genericBone.Rotation = new OpenTK.Quaternion(
+                     bone.Rotation.X, bone.Rotation.Y,
+                     bone.Rotation.Z, bone.Rotation.W);
+
+            Bones.Add(genericBone);
+
+            this.Reset();
+
+            return genericBone;
         }
 
         public void Reload()
@@ -2505,6 +2934,8 @@ namespace CafeLibrary
             }
 
             Reset();
+
+            Renderer.Reload(this);
         }
 
         public class BfresBone : STBone, IPropertyUI

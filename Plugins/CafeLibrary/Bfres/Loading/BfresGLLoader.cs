@@ -21,19 +21,20 @@ namespace CafeLibrary.Rendering
             int offset = 0;
             foreach (VertexAttrib att in vertexBuffer.Attributes.Values)
             {
-                if (!ElementCountLookup.ContainsKey(att.Name.Remove(2)))
-                    continue;
-
                 bool assigned = false;
                 int stride = 0;
 
                 var assign = material.ShaderAssign;
-                if (assign.AttribAssigns.Count == 0)
+                if (assign == null || assign.AttribAssigns.Count == 0)
                 {
                     VaoAttribute vaoAtt = new VaoAttribute();
                     vaoAtt.vertexAttributeName = att.Name;
                     vaoAtt.name = att.Name;
-                    vaoAtt.ElementCount = ElementCountLookup[att.Name.Remove(2)];
+                    if (ElementCountLookup.ContainsKey(att.Name.Remove(2)))
+                        vaoAtt.ElementCount = ElementCountLookup[att.Name.Remove(2)];
+                    else
+                        vaoAtt.ElementCount = 4;
+
                     vaoAtt.Assigned = assigned;
                     vaoAtt.Offset = offset;
 
@@ -41,6 +42,9 @@ namespace CafeLibrary.Rendering
                         vaoAtt.Type = VertexAttribPointerType.Int;
                     else
                         vaoAtt.Type = VertexAttribPointerType.Float;
+
+                    if (shape.VertexSkinCount != 0 && (att.Name.Contains("_i") || att.Name.Contains("_w")))
+                        vaoAtt.ElementCount = (int)MathF.Min(shape.VertexSkinCount, 4);
 
                     attributes.Add(vaoAtt);
 
@@ -63,7 +67,12 @@ namespace CafeLibrary.Rendering
                             VaoAttribute vaoAtt = new VaoAttribute();
                             vaoAtt.vertexAttributeName = att.Name;
                             vaoAtt.name = translated;
-                            vaoAtt.ElementCount = ElementCountLookup[att.Name.Remove(2)];
+
+                            if (ElementCountLookup.ContainsKey(att.Name.Remove(2)))
+                                vaoAtt.ElementCount = ElementCountLookup[att.Name.Remove(2)];
+                            else
+                                vaoAtt.ElementCount = 4;
+
                             vaoAtt.Assigned = assigned;
                             vaoAtt.Offset = offset;
 
@@ -71,6 +80,9 @@ namespace CafeLibrary.Rendering
                                 vaoAtt.Type = VertexAttribPointerType.Int;
                             else
                                 vaoAtt.Type = VertexAttribPointerType.Float;
+
+                            if (shape.VertexSkinCount != 0 && (att.Name.Contains("_i") || att.Name.Contains("_w")))
+                                vaoAtt.ElementCount = (int)MathF.Min(shape.VertexSkinCount, 4);
 
                             attributes.Add(vaoAtt);
 
@@ -94,7 +106,8 @@ namespace CafeLibrary.Rendering
             var mem = new System.IO.MemoryStream();
             using (var writer = new Toolbox.Core.IO.FileWriter(mem))
             {
-                foreach (var mesh in shape.Meshes) {
+                foreach (var mesh in shape.Meshes)
+                {
                     var lodFaces = mesh.GetIndices().ToArray();
                     for (int i = 0; i < lodFaces.Length; i++)
                     {
@@ -132,19 +145,29 @@ namespace CafeLibrary.Rendering
                 {
                     foreach (var attribute in attributes)
                     {
-                        var att = helper.Attributes.FirstOrDefault(x => x.Name == attribute.vertexAttributeName);
-                        if (att == null)
-                            continue;
-
                         writer.SeekBegin(attribute.Offset + (i * strideTotal));
-                        for (int j = 0; j < attribute.ElementCount; j++)
+
+                        switch (attribute.vertexAttributeName)
                         {
-                            if (attribute.vertexAttributeName == "_i0" && mdl.Skeleton.MatrixToBoneList?.Count > (int)att.Data[i][j])
-                                writer.Write((int)mdl.Skeleton.MatrixToBoneList[(int)att.Data[i][j]]);
-                            else if (attribute.vertexAttributeName == "_p0")
-                                writer.Write(att.Data[i][j] * GLContext.PreviewScale);
-                            else
-                                writer.Write(att.Data[i][j]);
+                            //Hardcoded extras from certain games (instancing matrices)
+                            case "inst0": writer.Write(new Vector4(1, 0, 0, 0)); break;
+                            case "inst1": writer.Write(new Vector4(0, 1, 0, 0)); break;
+                            case "inst2": writer.Write(new Vector4(0, 0, 1, 0)); break;
+                            default:
+                                var att = helper.Attributes.FirstOrDefault(x => x.Name == attribute.vertexAttributeName);
+                                if (att == null)
+                                    continue;
+
+                                for (int j = 0; j < attribute.ElementCount; j++)
+                                {
+                                    if (attribute.vertexAttributeName.StartsWith("_i") && mdl.Skeleton.MatrixToBoneList?.Count > (int)att.Data[i][j])
+                                        writer.Write((int)mdl.Skeleton.MatrixToBoneList[(int)att.Data[i][j]]);
+                                    else if (attribute.vertexAttributeName == "_p0")
+                                        writer.Write(att.Data[i][j] * GLContext.PreviewScale);
+                                    else
+                                        writer.Write(att.Data[i][j]);
+                                }
+                                break;
                         }
                     }
                 }
@@ -162,6 +185,7 @@ namespace CafeLibrary.Rendering
             { "_c", 4 },
             { "_w", 4 },
             { "_i", 4 },
+            { "_g3d_02_u0_u1", 4 },
         };
 
         public class VaoAttribute
@@ -184,7 +208,7 @@ namespace CafeLibrary.Rendering
             {
                 get
                 {
-                    switch (name)
+                    switch (vertexAttributeName)
                     {
                         case "_p0": return GLConstants.VPosition;
                         case "_n0": return GLConstants.VNormal;
@@ -196,6 +220,7 @@ namespace CafeLibrary.Rendering
                         case "_c0": return GLConstants.VColor;
                         case "_t0": return GLConstants.VTangent;
                         case "_b0": return GLConstants.VBitangent;
+                        case "_g3d_02_u0_u1": return GLConstants.VTexCoord0;
                         default:
                             return name;
                     }

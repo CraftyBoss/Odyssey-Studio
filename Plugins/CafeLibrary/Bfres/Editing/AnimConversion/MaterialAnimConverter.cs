@@ -23,7 +23,7 @@ namespace CafeLibrary
             animation.Baked = false;
             animation.MaterialAnims = new List<MaterialDataAnimHelper>();
             animation.Loop = anim.Loop;
-            animation.TextureList = anim.TextureList;
+            animation.TextureList = anim.TextureList.ToList();
 
             foreach (STAnimGroup group in anim.AnimGroups)
             {
@@ -46,6 +46,9 @@ namespace CafeLibrary
                         var samplerAnimHelper = new SamplerAnimHelper();
                         samplerAnimHelper.Name = track.Name;
                         samplerAnimHelper.Constant = (ushort)track.KeyFrames[0].Value;
+
+                        ((BfresAnimationTrack)track).Offset = 0;
+                        ((BfresAnimationTrack)track).Scale = 1f;
 
                         if (track.KeyFrames.Count > 1)
                             samplerAnimHelper.Curve = ConvertCurve((BfresAnimationTrack)track, 0);

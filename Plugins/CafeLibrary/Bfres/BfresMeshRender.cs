@@ -58,6 +58,8 @@ namespace CafeLibrary.Rendering
             set { UINode.IsSelected = value; }
         }
 
+        public bool HasVertexColors => Attributes.Any(x => x.name == "_c0");
+
         List<BfresGLLoader.VaoAttribute> Attributes;
 
         public BfresMeshRender(int index) { Index = index; }
@@ -225,6 +227,8 @@ namespace CafeLibrary.Rendering
             GL.DepthFunc(DepthFunction.Lequal);
             GL.DepthRange(0.0, 1.0);
             GL.DepthMask(true);
+            GL.Disable(EnableCap.AlphaTest);
+            GL.AlphaFunc(AlphaFunction.Gequal, 0.5f);
         }
 
         int indexBuffer = -1;
@@ -338,6 +342,9 @@ namespace CafeLibrary.Rendering
             for (int i = 0; i < Attributes.Count; i++)
             {
                 var att = Attributes[i];
+                if (vao.ContainsAttribute(att.UniformName))
+                    continue;
+
                 vao.AddAttribute(
                     att.UniformName,
                     att.ElementCount,

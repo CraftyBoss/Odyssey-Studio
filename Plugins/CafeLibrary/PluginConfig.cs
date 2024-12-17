@@ -5,11 +5,19 @@ using System.Text;
 using System.IO;
 using Toolbox.Core;
 using Newtonsoft.Json;
+using MapStudio.UI;
+using ImGuiNET;
 
 namespace CafeLibrary
 {
-    public class PluginConfig
+    public class PluginConfig : IPluginConfig
     {
+        [JsonProperty]
+        public static string TotkGamePath = "";
+
+        public static bool IsValidTotkGamePath;
+
+
         [JsonProperty]
         public static string MaterialPreset = "";
 
@@ -26,11 +34,30 @@ namespace CafeLibrary
         /// <returns></returns>
         public static PluginConfig Load()
         {
-            if (!File.Exists($"{Runtime.ExecutableDir}\\CafeConfig.json")) { new PluginConfig().Save(); }
+            if (!File.Exists(Path.Combine(Runtime.ExecutableDir,"CafeConfig.json"))) { new PluginConfig().Save(); }
 
-            var config = JsonConvert.DeserializeObject<PluginConfig>(File.ReadAllText($"{Runtime.ExecutableDir}\\CafeConfig.json"));
+            var config = JsonConvert.DeserializeObject<PluginConfig>(File.ReadAllText(Path.Combine(Runtime.ExecutableDir,"CafeConfig.json")));
             config.Reload();
             return config;
+        }
+
+        /// <summary>
+        /// Renders the current configuration UI.
+        /// </summary>
+        public void DrawUI()
+        {
+            if (ImguiCustomWidgets.PathSelector("TOTK Game Path", ref TotkGamePath, IsValidTotkGamePath))
+            {
+                ZDic.DumpExternalDictionaries();
+                Save();
+            }
+            if (IsValidTotkGamePath)
+            {
+                if (ImGui.Button("Dump ZS Dictionaries"))
+                {
+                    ZDic.DumpExternalDictionaries();
+                }
+            }
         }
 
         /// <summary>
@@ -38,14 +65,13 @@ namespace CafeLibrary
         /// </summary>
         public void Save()
         {
-            File.WriteAllText($"{Runtime.ExecutableDir}\\CafeConfig.json", JsonConvert.SerializeObject(this));
+            File.WriteAllText(Path.Combine(Runtime.ExecutableDir,"CafeConfig.json"), JsonConvert.SerializeObject(this));
             Reload();
         }
 
         private void Reload()
         {
-
-
+            IsValidTotkGamePath = File.Exists(Path.Combine(TotkGamePath, "Shader", "ExternalBinaryString.bfres.mc"));
             init = true;
         }
     }

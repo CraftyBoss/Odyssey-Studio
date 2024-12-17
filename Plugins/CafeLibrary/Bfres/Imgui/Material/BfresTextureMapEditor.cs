@@ -170,6 +170,7 @@ namespace CafeLibrary
             {
                 var input = TextureSelectionDialog.OutputName;
                 texMap.Name = input;
+                material.BatchTextureName(input, material.Material.Samplers[index].Name);
                 material.ReloadTextureMap(index);
                 material.OnTextureUpdated(material.Material.Samplers[index].Name, texMap.Name, true);
             }
@@ -195,8 +196,8 @@ namespace CafeLibrary
                 string name = texMapSel.Name;
                 if (ImGui.InputText("Name", ref name, 200)) {
                     texMapSel.Name = name;
+                    material.BatchTextureName(name, materialData.Samplers[index].Name);
                     material.ReloadTextureMap(index);
-                    material.OnTextureUpdated(materialData.Samplers[index].Name, texMapSel.Name, true);
                 }
             } 
 
@@ -212,6 +213,8 @@ namespace CafeLibrary
 
                 if (ImGui.BeginChild("uv_viewport1", new Vector2(width, uvWindowHeight)))
                 {
+                    var pos = ImGui.GetCursorScreenPos();
+
                     if (onLoad)
                     {
                         var meshes = material.GetMappedMeshes();
@@ -224,6 +227,12 @@ namespace CafeLibrary
 
                     UVViewport.ActiveTextureMap = material.TextureMaps[index];
                     UVViewport.Render((int)width, (int)uvWindowHeight);
+
+                    ImGui.SetCursorScreenPos(pos);
+                    if (ImGui.Checkbox("Show UVs", ref UVViewport.DisplayUVs))
+                    {
+
+                    }
                 }
                 ImGui.EndChild();
 

@@ -11,6 +11,10 @@ using OpenTK;
 using GLFrameworkEngine;
 using MapStudio.UI;
 using UIFramework;
+using System.IO;
+using IONET.Collada.Core.Controller;
+using ImGuiNET;
+using static GLFrameworkEngine.RenderablePath;
 
 namespace CafeLibrary.Rendering
 {
@@ -35,6 +39,8 @@ namespace CafeLibrary.Rendering
 
         private string ModelName = null;
 
+        private int Hash;
+
         public STSkeleton SkeletonOverride = null;
 
         public ResFile ResFile { get; set; }
@@ -54,6 +60,18 @@ namespace CafeLibrary.Rendering
             UINode.Icon = IconManager.SKELEAL_ANIM_ICON.ToString();
             UINode.OnHeaderRenamed += delegate
             {
+                //not changed
+                if (anim.Name == UINode.Header)
+                    return;
+
+                //Dupe name
+                if (resFile.SkeletalAnims.ContainsKey(UINode.Header))
+                {
+                    TinyFileDialog.MessageBoxErrorOk($"Name {UINode.Header} already exists!");
+                    //revert
+                    UINode.Header = anim.Name;
+                    return;
+                }
                 OnRenamed(UINode.Header);
             };
 
@@ -99,11 +117,59 @@ namespace CafeLibrary.Rendering
             dlg.FileName = $"{SkeletalAnim.Name}.json";
             dlg.AddFilter(".bfska", ".bfska");
             dlg.AddFilter(".json", ".json");
+            dlg.AddFilter(".anim", ".anim");
+            dlg.AddFilter(".smd", ".smd");
 
             if (dlg.ShowDialog())
             {
                 OnSave();
-                SkeletalAnim.Export(dlg.FilePath, ResFile);
+
+                switch (Path.GetExtension(dlg.FilePath))
+                {
+                    case ".anim":
+                    case ".gltf":
+                    case ".glb":
+                    case ".smd":
+                        var models = GetActiveSkeletonModels();
+                        if (models.Count == 1)
+                        {
+                            SkeletonAnimExporter.Export(SkeletalAnim, models[0].Skeleton, dlg.FilePath);
+                        }
+                        else
+                        {
+                            STGenericModel selected_model = models.FirstOrDefault();
+
+                            DialogHandler.Show("Select Model", 250, 100, () =>
+                            {
+                                if (ImGui.BeginChild("select"))
+                                {
+                                    foreach (var model in models)
+                                    {
+                                        bool selected = selected_model == model;
+                                        if (ImGui.Selectable(model.Name, selected))
+                                            selected_model = model;
+
+                                        if (selected && ImGui.IsItemHovered() && ImGui.IsMouseDoubleClicked(0))
+                                            DialogHandler.ClosePopup(true);
+                                    }
+                                    if (ImGui.Button("Ok", new System.Numerics.Vector2(240, 22)))
+                                        DialogHandler.ClosePopup(true);
+                                }
+                                ImGui.EndChild();
+                            }, (o) =>
+                            {
+                                if (o)
+                                {
+                                    SkeletonAnimExporter.Export(SkeletalAnim, selected_model.Skeleton, dlg.FilePath);
+                                }
+                            });
+                        }
+
+                        break;
+                    default:
+                        SkeletalAnim.Export(dlg.FilePath, ResFile);
+                        break;
+                }
             }
         }
 
@@ -114,10 +180,65 @@ namespace CafeLibrary.Rendering
             dlg.FileName = $"{SkeletalAnim.Name}.json";
             dlg.AddFilter(".bfska", ".bfska");
             dlg.AddFilter(".json", ".json");
+            dlg.AddFilter(".anim", ".anim");
+            dlg.AddFilter(".smd", ".smd");
+
+            // dlg.AddFilter(".gltf", ".gltf");
+            // dlg.AddFilter(".glb", ".glb");
 
             if (dlg.ShowDialog())
             {
-                SkeletalAnim.Import(dlg.FilePath, ResFile);
+                switch (Path.GetExtension(dlg.FilePath))
+                {
+                    case ".anim":
+                    case ".gltf":
+                    case ".glb":
+                    case ".smd":
+                        var models = GetActiveSkeletonModels();
+                        if (models.Count == 1)
+                        {
+                            SkeletonAnimImporter.Import(SkeletalAnim, models[0].Skeleton, dlg.FilePath, new SkeletonAnimImporter.Settings()
+                            {
+
+                            });
+                        }
+                        else
+                        {
+                            STGenericModel selected_model = models.FirstOrDefault();
+
+                            DialogHandler.Show("Select Model", 250, 100, () =>
+                            {
+                                if (ImGui.BeginChild("select"))
+                                {
+                                    foreach (var model in models)
+                                    {
+                                        bool selected = selected_model == model;
+                                        if (ImGui.Selectable(model.Name, selected))
+                                            selected_model = model;
+
+                                        if (selected && ImGui.IsItemHovered() && ImGui.IsMouseDoubleClicked(0))
+                                            DialogHandler.ClosePopup(true);
+                                    }
+                                    if (ImGui.Button("Ok", new System.Numerics.Vector2(240, 22)))
+                                        DialogHandler.ClosePopup(true);
+                                }
+                                ImGui.EndChild();
+                            }, (o) =>
+                            {
+                                if (o)
+                                {
+                                    SkeletonAnimImporter.Import(SkeletalAnim, selected_model.Skeleton, dlg.FilePath, new SkeletonAnimImporter.Settings()
+                                    {
+
+                                    });
+                                }
+                            });
+                        }
+                        break;
+                    default:
+                        SkeletalAnim.Import(dlg.FilePath, ResFile);
+                        break;
+                }
                 Reload(SkeletalAnim);
             }
         }
@@ -142,7 +263,7 @@ namespace CafeLibrary.Rendering
             //Add new material group if doesn't exist
             if (group == null)
             {
-                group = new BoneAnimGroup() { Name = bone.Name, };
+                group = new BoneAnimGroup(new BoneAnim()) { Name = bone.Name, };
                 this.AnimGroups.Add(group);
                 //Add UI node
                 if (!Root.Children.Any(x => x.Header == group.Name))
@@ -185,8 +306,15 @@ namespace CafeLibrary.Rendering
         }
 
         public void OnSave() {
-            if (IsEdited)
+            SkeletalAnim.FrameCount = (int)this.FrameCount;
+            SkeletalAnim.Loop = this.Loop;
+
+            int hash = BfresAnimations.CalculateGroupHashes(this);
+
+            if (IsEdited || hash != Hash)
                 SkeletalAnimConverter.ConvertAnimation(this, SkeletalAnim);
+
+            Hash = hash;
         }
 
         public BfresSkeletalAnim Clone()
@@ -213,16 +341,13 @@ namespace CafeLibrary.Rendering
             if (!DataCache.ModelCache.ContainsKey(ModelName))
                 return null;
 
-            var models = ((BfresRender)DataCache.ModelCache[ModelName]).Models;
-            if (models.Count == 0) return null;
-
-            if (!((BfresRender)DataCache.ModelCache[ModelName]).InFrustum)
-                return null;
-
-            foreach (var model in models)
+            foreach (var file in DataCache.ModelCache.Values)
             {
-                if (model.IsVisible)
-                    skeletons.Add(model.ModelData.Skeleton);
+                foreach (var model in file.Models)
+                {
+                    if (model.IsVisible)
+                        skeletons.Add(model.ModelData.Skeleton);
+                }
             }
             return skeletons.ToArray();
         }
@@ -231,19 +356,104 @@ namespace CafeLibrary.Rendering
         /// Gets the active skeleton visbile in the scene that may be used for animation.
         /// </summary>
         /// <returns></returns>
+        public List<STGenericModel> GetActiveSkeletonModels()
+        {
+            List<STGenericModel> list = new List<STGenericModel>();
+
+            STSkeleton IsSkeletonInAnimation(STSkeleton skeleton)
+            {
+                //Check if all the bones in the animation are present in the skeleton
+                bool areAllBonesPresent = skeleton.Bones.Count > 0;
+                foreach (var bone in skeleton.Bones)
+                {
+                    var animBone = skeleton.SearchBone(bone.Name);
+
+                    if (animBone == null)
+                        areAllBonesPresent = false;
+                }
+                if (areAllBonesPresent)
+                    return skeleton;
+                return null;
+            }
+
+            //parent resource cache
+            if (DataCache.ModelCache.ContainsKey(ModelName))
+            {
+                //check for models present
+                var models = ((BfresRender)DataCache.ModelCache[ModelName]).Models;
+                //Search multiple FMDL to find matching bones
+                foreach (var model in models)
+                    if (model.ModelData.Name != "Pupil") //MK8 ignore pupils
+                        list.Add(model.ModelData);
+                if (list.Count > 0)
+                    return list;
+            }
+
+            //Lastly check for active render and if skeleton is visible/active
+            foreach (var file in DataCache.ModelCache.Values)
+            {
+                foreach (var model in file.Models)
+                {
+                    if (file.IsVisible && model.IsVisible && model.ModelData.Name != "Pupil") //MK8 ignore pupils
+                        list.Add(model.ModelData);
+                }
+                if (list.Count > 0)
+                    return list;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Gets the active skeleton visbile in the scene that may be used for animation.
+        /// </summary>
+        /// <returns></returns>
         public override STSkeleton GetActiveSkeleton()
         {
-            if (!DataCache.ModelCache.ContainsKey(ModelName))
+            STSkeleton IsSkeletonInAnimation(STSkeleton skeleton)
+            {
+                //Check if all the bones in the animation are present in the skeleton
+                bool areAllBonesPresent = skeleton.Bones.Count > 0;
+                foreach (var bone in skeleton.Bones)
+                {
+                    var animBone = skeleton.SearchBone(bone.Name);
+
+                    if (animBone == null)
+                        areAllBonesPresent = false;
+                }
+                if (areAllBonesPresent)
+                    return skeleton;
                 return null;
+            }
 
-            var models = ((BfresRender)DataCache.ModelCache[ModelName]).Models;
-            if (models.Count == 0) return null;
+            //parent resource cache
+            if (DataCache.ModelCache.ContainsKey(ModelName))
+            {
+                //check for models present
+                var models = ((BfresRender)DataCache.ModelCache[ModelName]).Models;
 
-            if (!((BfresRender)DataCache.ModelCache[ModelName]).InFrustum)
-                return null;
+                //Return individual skeleton for single model files
+                if (models.Count == 1)
+                    return models[0].ModelData.Skeleton;
 
-            if (((BfresModelRender)models[0]).IsVisible)
-                return ((BfresModelRender)models[0]).ModelData.Skeleton;
+                //Search multiple FMDL to find matching bones
+                foreach (var model in models)
+                {
+                    var skeleton = IsSkeletonInAnimation(model.ModelData.Skeleton);
+                    if (skeleton != null)
+                        return skeleton;
+                }
+            }
+
+            //Lastly check for active render and if skeleton is visible/active
+            foreach (var file in DataCache.ModelCache.Values)
+            {
+                foreach (var model in file.Models)
+                {
+                    if (file.IsVisible && model.IsVisible)
+                        return model.ModelData.Skeleton;
+                }
+            }
+
             return null;
         }
 
@@ -257,7 +467,7 @@ namespace CafeLibrary.Rendering
             AnimGroups.Clear();
             foreach (var boneAnim in anim.BoneAnims)
             {
-                var group = new BoneAnimGroup();
+                var group = new BoneAnimGroup(boneAnim);
                 AnimGroups.Add(group);
 
                 group.Name = boneAnim.Name;
@@ -310,6 +520,8 @@ namespace CafeLibrary.Rendering
             }
             if (ResFile != null)
                  SkeletalAnimUI.ReloadTree(Root, this, ResFile);
+
+            Hash = BfresAnimations.CalculateGroupHashes(this);
         }
 
         public override void NextFrame()
@@ -407,6 +619,8 @@ namespace CafeLibrary.Rendering
 
         public class BoneAnimGroup : STAnimGroup
         {
+            public BoneAnim BoneAnimData;
+
             public Vector3Group Translate { get; set; }
             public Vector4Group Rotate { get; set; }
             public Vector3Group Scale { get; set; }
@@ -415,8 +629,10 @@ namespace CafeLibrary.Rendering
 
             public bool UseQuaternion = false;
 
-            public BoneAnimGroup()
+            public BoneAnimGroup(BoneAnim boneAnim)
             {
+                BoneAnimData = boneAnim;
+
                 Translate = new Vector3Group() { Name = "Translate" };
                 Rotate = new Vector4Group() { Name = "Rotate" };
                 Scale = new Vector3Group() { Name = "Scale" };

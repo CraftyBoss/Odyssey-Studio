@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Toolbox.Core.Animations;
 using BfresLibrary;
+using static CafeLibrary.Rendering.BfresMaterialAnim;
 
 namespace CafeLibrary.Rendering
 {
@@ -115,6 +116,53 @@ namespace CafeLibrary.Rendering
                         break;
                 }
             }
+        }
+
+        /// <summary>
+        /// Calculates a unique hash to determine if the animation has been changed.
+        /// </summary>
+        /// <returns></returns>
+        public static int CalculateGroupHashes(STAnimation animation)
+        {
+            int hash = 0;
+
+            void CalculateTrackHashes(List<STAnimationTrack> tracks)
+            {
+                foreach (var track in tracks)
+                {
+                    hash += track.InterpolationType.GetHashCode();
+
+                    foreach (var kf in track.KeyFrames)
+                    {
+                        hash += kf.Frame.GetHashCode();
+                        hash += kf.Value.GetHashCode();
+                        if (kf is STHermiteKeyFrame)
+                        {
+                            hash += ((STHermiteKeyFrame)kf).TangentIn.GetHashCode();
+                            hash += ((STHermiteKeyFrame)kf).TangentOut.GetHashCode();
+                        }
+                    }
+                }
+            }
+
+            void CalculateGroupHash(STAnimGroup subGroup)
+            {
+                hash += subGroup.Name.GetHashCode();
+
+                if (subGroup is ParamAnimGroup)
+                    CalculateTrackHashes(((ParamAnimGroup)subGroup).Tracks);
+                else if (subGroup is MaterialAnimGroup)
+                    CalculateTrackHashes(((MaterialAnimGroup)subGroup).Tracks);
+                else
+                    CalculateTrackHashes(subGroup.GetTracks());
+
+                foreach (var g in subGroup.SubAnimGroups)
+                    CalculateGroupHash(g);
+            }
+            foreach (var group in animation.AnimGroups)
+                CalculateGroupHash(group);
+
+            return hash;
         }
 
         //Method to extract the slopes from a cubic curve

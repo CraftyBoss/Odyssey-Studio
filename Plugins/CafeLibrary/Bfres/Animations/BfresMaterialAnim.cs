@@ -17,6 +17,8 @@ namespace CafeLibrary.Rendering
     {
         private string ModelName = null;
 
+        private int Hash;
+
         //Root for animation tree
         public TreeNode Root { get; set; }
 
@@ -38,18 +40,33 @@ namespace CafeLibrary.Rendering
           //  editor.LoadEditor(this);
         }
 
+        private ResDict<MaterialAnim> AnimDict;
+
         public BfresMaterialAnim() { }
 
-        public BfresMaterialAnim(ResFile resFile, MaterialAnim anim, string name)
+        public BfresMaterialAnim(ResFile resFile, ResDict<MaterialAnim> dict, MaterialAnim anim, string name)
         {
             Root = new AnimationTree.AnimNode(this);
             ResFile = resFile;
+            AnimDict = dict;
             ModelName = name;
             MaterialAnim = anim;
             UINode = new NodeBase(anim.Name) { Tag = this };
             UINode.CanRename = true;
             UINode.OnHeaderRenamed += delegate
             {
+                //not changed
+                if (anim.Name == UINode.Header)
+                    return;
+
+                //Dupe name
+                if (AnimDict.ContainsKey(UINode.Header))
+                {
+                    TinyFileDialog.MessageBoxErrorOk($"Name {UINode.Header} already exists!");
+                    //revert
+                    UINode.Header = anim.Name;
+                    return;
+                }
                 OnNameChanged(UINode.Header);
             };
             UINode.Icon = '\uf0e7'.ToString();
@@ -69,11 +86,38 @@ namespace CafeLibrary.Rendering
             MaterialAnim.FrameCount = (int)this.FrameCount;
             MaterialAnim.Loop = this.Loop;
 
-            if (!IsEdited)
-                return;
+            int hash = BfresAnimations.CalculateGroupHashes(this);
+            if (IsEdited || hash != Hash) //Generate anim data
+            {
+                this.TextureList = GetTextureList(this);
+                MaterialAnimConverter.ConvertAnimation(this, MaterialAnim);
+            }
+            Hash = hash;
+        }
 
-            //Generate anim data
-            MaterialAnimConverter.ConvertAnimation(this, MaterialAnim);
+        static List<string> GetTextureList(BfresMaterialAnim anim)
+        {
+            //Prepare an optimal texture list with only used textures
+            List<string> textureList = new List<string>();
+
+            foreach (STAnimGroup group in anim.AnimGroups)
+            {
+                foreach (var track in group.GetTracks())
+                {
+                    if (!(track is BfresMaterialAnim.SamplerTrack))
+                        continue;
+
+                    foreach (var key in track.KeyFrames)
+                    {
+                        var texture = anim.TextureList[(int)key.Value];
+                        if (!textureList.Contains(texture))
+                            textureList.Add(texture);
+
+                        key.Value = textureList.IndexOf(texture);
+                    }
+                }
+            }
+            return textureList;
         }
 
         public void OnNameChanged(string newName)
@@ -81,20 +125,10 @@ namespace CafeLibrary.Rendering
             string previousName = MaterialAnim.Name;
             MaterialAnim.Name = newName;
 
-            if (ResFile.ShaderParamAnims.ContainsKey(previousName))
+            if (AnimDict.ContainsKey(previousName))
             {
-                ResFile.ShaderParamAnims.RemoveKey(previousName);
-                ResFile.ShaderParamAnims.Add(MaterialAnim.Name, MaterialAnim);
-            }
-            if (ResFile.ColorAnims.ContainsKey(previousName))
-            {
-                ResFile.ColorAnims.RemoveKey(previousName);
-                ResFile.ColorAnims.Add(MaterialAnim.Name, MaterialAnim);
-            }
-            if (ResFile.TexSrtAnims.ContainsKey(previousName))
-            {
-                ResFile.TexSrtAnims.RemoveKey(previousName);
-                ResFile.TexSrtAnims.Add(MaterialAnim.Name, MaterialAnim);
+                AnimDict.RemoveKey(previousName);
+                AnimDict.Add(MaterialAnim.Name, MaterialAnim);
             }
         }
 
@@ -168,6 +202,7 @@ namespace CafeLibrary.Rendering
             return new MenuItemModel[]
             {
                 new MenuItemModel("Export", ExportAction),
+                new MenuItemModel("Replace", ReplaceAction),
                 new MenuItemModel(""),
                 new MenuItemModel("Rename", () => UINode.ActivateRename = true),
                 new MenuItemModel(""),
@@ -179,13 +214,27 @@ namespace CafeLibrary.Rendering
         {
             var dlg = new ImguiFileDialog();
             dlg.SaveDialog = true;
-            dlg.FileName = $"{MaterialAnim.Name}.json";
+            dlg.FileName = $"{MaterialAnim.Name}.bfmaa";
             dlg.AddFilter(".bfmaa", ".bfmaa");
             dlg.AddFilter(".json", ".json");
 
             if (dlg.ShowDialog()) {
                 OnSave();
                 MaterialAnim.Export(dlg.FilePath, ResFile);
+            }
+        }
+
+        private void ReplaceAction()
+        {
+            var dlg = new ImguiFileDialog();
+            dlg.FileName = $"{MaterialAnim.Name}.bfmaa";
+            dlg.AddFilter(".bfmaa", ".bfmaa");
+          //  dlg.AddFilter(".json", ".json");
+
+            if (dlg.ShowDialog())
+            {
+                MaterialAnim.Import(dlg.FilePath, ResFile);
+                Reload(MaterialAnim);
             }
         }
 
@@ -232,6 +281,17 @@ namespace CafeLibrary.Rendering
                 }
             }
             return materials;
+        }
+
+        /// <summary>
+        /// Gets the parent render that this animation belongs to.
+        /// </summary>
+        public BfresRender GetParentRender()
+        {
+            if (DataCache.ModelCache.ContainsKey(ModelName))
+                return (BfresRender)DataCache.ModelCache[ModelName];
+
+            return null;
         }
 
         public BfresMaterialRender[] GetMaterials()
@@ -299,13 +359,18 @@ namespace CafeLibrary.Rendering
             if (TextureList.Count == 0)
                 return;
 
-            if (material.Material.AnimatedSamplers.ContainsKey(track.Name))
-                material.Material.AnimatedSamplers.Remove(track.Name);
-
             var value = (int)track.GetFrameValue(this.Frame);
-            var texture = TextureList[value];
-            if (texture != null)
-                material.Material.AnimatedSamplers.Add(track.Name, texture);
+            if (TextureList.Count > value)
+            {
+                var texture = TextureList[value];
+                if (texture != null)
+                {
+                    if (material.Material.AnimatedSamplers.ContainsKey(track.Name))
+                        material.Material.AnimatedSamplers[track.Name] = texture;
+                    else
+                        material.Material.AnimatedSamplers.Add(track.Name, texture);
+                }
+            }
         }
 
         private void ParseParamTrack(BfresMaterialRender matRender, STAnimGroup group, ParamTrack track)
@@ -468,6 +533,9 @@ namespace CafeLibrary.Rendering
 
                     //Each constant and curve get's their own value using a value offset
                     for (int j = 0; j < numConstants; j++) {
+                        if (constantIndex + j >= matAnim.Constants.Count)
+                            continue;
+
                         var constant = matAnim.Constants[constantIndex + j];
                         float value = constant.Value;
                         bool isInit = constant.Value.Int32 > 0 && constant.Value.Int32 < 6;
@@ -505,6 +573,8 @@ namespace CafeLibrary.Rendering
 
             if (ResFile != null)
                 MaterialAnimUI.ReloadTree(Root, this, ResFile);
+
+            Hash = BfresAnimations.CalculateGroupHashes(this);
         }
 
         public class MaterialAnimGroup : STAnimGroup

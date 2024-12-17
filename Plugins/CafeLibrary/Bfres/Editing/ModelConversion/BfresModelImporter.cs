@@ -13,12 +13,13 @@ using IONET.Core.Skeleton;
 using IONET.Core.Model;
 using IONET.Core;
 using IONET;
+using System.Numerics;
 
 namespace CafeLibrary.ModelConversion
 {
     public class BfresModelImporter
     {
-        static System.Numerics.Matrix4x4 GlobalTransform;
+        static System.Numerics.Matrix4x4 GlobalTransform = System.Numerics.Matrix4x4.Identity;
 
         public static Model ImportModel(ResFile resFile, Model model, IOScene scene, string filePath, ModelImportSettings importSettings)
         {
@@ -57,7 +58,6 @@ namespace CafeLibrary.ModelConversion
             string ext = Path.GetExtension(filePath);
             MapStudio.UI.ProcessLoading.Instance.Update(10, 100, $"Loading {ext} file.");
 
-            GlobalTransform = System.Numerics.Matrix4x4.Identity;
             IOScene scene = IOManager.LoadScene(filePath, settings);
 
             var fmdl = ConvertScene(resFile, model, scene, importSettings);
@@ -68,6 +68,12 @@ namespace CafeLibrary.ModelConversion
         static Model ConvertScene(ResFile resFile, Model fmdl, IOScene scene, ModelImportSettings importSettings)
         {
             var model = scene.Models.FirstOrDefault();
+
+            GlobalTransform = System.Numerics.Matrix4x4.Identity;
+            if (importSettings.Rotate90)
+                GlobalTransform = System.Numerics.Matrix4x4.CreateRotationX(IONET.Core.IOMath.MathExt.DegToRad(90));
+            if (importSettings.RotateNeg90)
+                GlobalTransform = System.Numerics.Matrix4x4.CreateRotationX(IONET.Core.IOMath.MathExt.DegToRad(-90));
 
             fmdl.Name = model.Name;
 
@@ -93,9 +99,14 @@ namespace CafeLibrary.ModelConversion
 
                 Material fmat = new Material();
                 fmat.Name = mat.Label != null ? mat.Label : mat.Name;
+                if (string.IsNullOrEmpty(fmat.Name))
+                    continue;
+
+                fmat.Name = Utils.RenameDuplicateString(fmat.Name, fmdl.Materials.Keys.ToList());
+
                 if (mat.DiffuseMap != null)
                 {
-                    fmat.Samplers.Add("_a0", new Sampler() { Name = "_a0", TexSampler = new TexSampler()});
+                    fmat.Samplers.Add("_a0", new Sampler() { Name = "_a0", TexSampler = new TexSampler() });
                     fmat.TextureRefs.Add(new TextureRef() { Name = GetTextureName(mat.DiffuseMap) });
                 }
                 if (mat.EmissionMap != null)
@@ -119,15 +130,30 @@ namespace CafeLibrary.ModelConversion
 
             if (importSettings.ImportBones)
             {
-                fmdl.Skeleton = new Skeleton();
+                fmdl.Skeleton = new BfresLibrary.Skeleton();
                 fmdl.Skeleton.FlagsRotation = SkeletonFlagsRotation.EulerXYZ;
 
                 MapStudio.UI.ProcessLoading.Instance.Update(50, 100, $"Loading bfres bones.");
+
+                //temp fix for custom tracks having root breaking things
+                //Custom tracks need custom bones, but bones cannot transform most materials due to not being used in shaders
+                //Here we apply the root to be identify, and inverse all the children by the matrix
+                var bone_list = model.Skeleton.BreathFirstOrder();
+                foreach (var root in bone_list.Where(x => x.Parent == null))
+                {
+                    foreach (var child in root.Children)
+                        child.WorldTransform *= root.WorldTransform;
+
+                    root.WorldTransform = Matrix4x4.Identity;
+                }
 
                 foreach (var bone in model.Skeleton.BreathFirstOrder())
                 {
                     if (string.IsNullOrEmpty(bone.Name))
                         continue;
+
+                    if (bone.Parent == null && GlobalTransform != System.Numerics.Matrix4x4.Identity)
+                        bone.LocalTransform *= GlobalTransform;
 
                     Vector4F rotation = new Vector4F(
                         bone.RotationEuler.X,
@@ -138,6 +164,8 @@ namespace CafeLibrary.ModelConversion
                     if (fmdl.Skeleton.FlagsRotation == SkeletonFlagsRotation.Quaternion)
                         rotation = new Vector4F(bone.Rotation.X, bone.Rotation.Y, bone.Rotation.Z, bone.Rotation.W);
 
+                    var pos = bone.Translation;
+
                     var bfresBone = new Bone()
                     {
                         FlagsRotation = BoneFlagsRotation.EulerXYZ,
@@ -146,10 +174,7 @@ namespace CafeLibrary.ModelConversion
                         RigidMatrixIndex = -1,  //Gets calculated after
                         SmoothMatrixIndex = -1, //Gets calculated after
                         ParentIndex = (short)model.Skeleton.IndexOf(bone.Parent),
-                        Position = new Vector3F(
-                             bone.Translation.X,
-                             bone.Translation.Y,
-                             bone.Translation.Z),
+                        Position = new Vector3F(pos.X, pos.Y, pos.Z),
                         Scale = new Vector3F(
                              bone.Scale.X,
                              bone.Scale.Y,
@@ -161,8 +186,18 @@ namespace CafeLibrary.ModelConversion
                 }
             }
 
-            if (fmdl.Skeleton.Bones.Count == 0) {
+            if (fmdl.Skeleton.Bones.Count == 0)
+            {
                 fmdl.Skeleton.Bones.Add("Root", new Bone() { Name = "Root" });
+            }
+
+            System.Numerics.Matrix4x4[] transforms = new System.Numerics.Matrix4x4[fmdl.Skeleton.Bones.Count];
+            for (int i = 0; i < fmdl.Skeleton.Bones.Count; i++)
+            {
+                var mat = GetWorldMatrix(fmdl.Skeleton, fmdl.Skeleton.Bones[i]);
+                Matrix4x4.Invert(mat, out Matrix4x4 inverted);
+                transforms[i] = inverted;
+
             }
 
             List<int> smoothSkinningIndices = new List<int>();
@@ -183,50 +218,29 @@ namespace CafeLibrary.ModelConversion
                 //Set the skin count
                 uint vertexSkinCount = 0;
 
-                try
+                var riggedBones = mesh.Vertices.SelectMany(x => x.Envelope.Weights?.Select(x => x.BoneName)).Distinct().ToList();
+                //Check if more than one bone is rigged to consider using it for skinning.
+                //Single bones would use a direct bone index with rigid skinning
+                if (riggedBones?.Count >= 1)
+                    vertexSkinCount = CalculateSkinCount(mesh.Vertices);
+                //Apply rigid bodies so vertices are in world space
+                /*  if (riggedBones?.Count == 1)
+                  {
+                      var bn = model.Skeleton.BreathFirstOrder().Where(x => x.Name == riggedBones[0]).FirstOrDefault();
+                      if (bn != null)
+                          mesh.TransformVertices(bn.WorldTransform);
+                  }*/
+
+
+                //Todo. This basically reimports meshes with the original skin count to target as
+                if (importSettings.Meshes.Any(x => x.Name == mesh.Name))
                 {
-                    bool rigidBind = false;
-                    //Check if the bone list has only 1 bone or less. If so it uses rigid binding
-                    var riggedBones = mesh.Vertices.SelectMany(x => x.Envelope.Weights?.Select(x => x.BoneName)).Distinct().ToList();
-                     if (riggedBones == null || riggedBones.Count <= 1)
-                        rigidBind = true;
-
-                    if (!rigidBind)
-                        CalculateSkinCount(mesh.Vertices);
-
-                    //Todo. This basically reimports meshes with the original skin count to target as
-                    /*    if (importSettings.Meshes.Any(x => x.Name == mesh.Name))
-                        {
-                            var meshSettings = importSettings.Meshes.FirstOrDefault(x => x.Name == mesh.Name);
-                            vertexSkinCount = (uint)meshSettings.SkinCount;
-                        }*/
-
-                    //Set the skin count for each mesh. This is either calculated or applied via mesh meta info
-                    skinCounts[sindex++] = vertexSkinCount;
-
-                    //Transform rigid bindings into worldspace
-                    if (rigidBind && riggedBones?.Count == 1)
-                    {
-                        //For rigid bind types we will fully transform the model into worldspace 
-                        var bn = model.Skeleton.BreathFirstOrder().Where(x => x.Name == riggedBones[0]).FirstOrDefault();
-                        if (bn != null)
-                            mesh.TransformVertices(bn.WorldTransform);
-
-                        //Set the bone into identity as we want these to be applied
-                        var bfresBone = fmdl.Skeleton.Bones.Values.Where(x => x.Name == riggedBones[0]).FirstOrDefault();
-                        if (bfresBone != null)
-                        {
-                            bfresBone.Position = new Vector3F(0, 0, 0);
-                            bfresBone.Rotation = new Vector4F(0, 0, 0, 1);
-                            bfresBone.Scale = new Vector3F(1, 1, 1);
-                        }
-                        continue;
-                    }
+                    var meshSettings = importSettings.Meshes.FirstOrDefault(x => x.Name == mesh.Name);
+                    if (meshSettings != null)
+                        vertexSkinCount = (uint)meshSettings.SkinCount;
                 }
-                catch
-                {
 
-                }
+                skinCounts[sindex++] = vertexSkinCount;
 
                 foreach (var vertex in mesh.Vertices)
                 {
@@ -236,6 +250,8 @@ namespace CafeLibrary.ModelConversion
                         if (bn != null)
                         {
                             int index = fmdl.Skeleton.Bones.IndexOf(bn);
+                            if (index == -1)
+                                continue;
 
                             //Rigid skinning
                             if (vertexSkinCount == 1)
@@ -261,6 +277,17 @@ namespace CafeLibrary.ModelConversion
             List<int> skinningIndices = new List<int>();
             skinningIndices.AddRange(smoothSkinningIndices);
             skinningIndices.AddRange(rigidSkinningIndices);
+
+            //No valid skinning present so reset skin counts all to 0
+            //This can occur if rigging is mapped to bones not present in the current boneset and has no rigging originally
+            if (skinningIndices.Count == 0)
+                skinCounts = new uint[model.Meshes.Count];
+
+            foreach (var bone in fmdl.Skeleton.Bones)
+            {
+                bone.Value.SmoothMatrixIndex = -1;
+                bone.Value.RigidMatrixIndex = -1;
+            }
 
             //Next update the bone's skinning index value
             foreach (var index in smoothSkinningIndices)
@@ -305,34 +332,56 @@ namespace CafeLibrary.ModelConversion
                 if (mesh.Vertices.Count == 0)
                     continue;
 
+                mesh.TransformVertices(GlobalTransform);
+
                 MapStudio.UI.ProcessLoading.Instance.Update(meshIndex, model.Meshes.Count, $"Importing mesh {mesh.Name}");
 
                 var meshSettings = new ModelImportSettings.MeshSettings();
 
-                if (importSettings.Meshes.Any(x => x.Name == mesh.Name))
+                if (importSettings.Meshes.Any(x => x.MeshData == mesh))
                 {
-                    meshSettings = importSettings.Meshes.FirstOrDefault(x => x.Name == mesh.Name);
-                    if (meshSettings.SkinCount > 0)
-                    {
-                        foreach (var v in mesh.Vertices)
-                        {
-                            //Optimize weights
-                            //v.Envelope.Optimize(meshSettings.SkinCount);
-                        }
-                    }
+                    meshSettings = importSettings.Meshes.FirstOrDefault(x => x.MeshData == mesh);
                 }
-
                 var names = fmdl.Shapes.Values.Select(x => x.Name).ToList();
 
                 Shape fshp = new Shape();
+                if (string.IsNullOrEmpty(mesh.Name))
+                    mesh.Name = "Mesh";
+
                 fshp.Name = Utils.RenameDuplicateString(mesh.Name, names, 0, 2);
+
+                meshSettings.Name = fshp.Name;
+
                 fshp.MaterialIndex = 0;
-                fshp.BoneIndex = 0;
+                fshp.BoneIndex = meshSettings.BoneIndex;
                 fshp.VertexSkinCount = (byte)skinCounts[meshIndex++];
+
+                foreach (var v in mesh.Vertices)
+                {
+                    //limit the skin count 
+                    var weights = v.Envelope.Weights.Where(x => x.Weight != 0).ToList();
+                    if (weights.Count > fshp.VertexSkinCount)
+                        v.Envelope.LimtSkinCount(fshp.VertexSkinCount);
+
+                    NormalizeByteType(v.Envelope.Weights);
+                }
 
                 fshp.SkinBoneIndices = new List<ushort>();
                 foreach (var vertex in mesh.Vertices)
                 {
+                    if (importSettings.OverrideVertexColors)
+                    {
+                        vertex.SetColor(importSettings.ColorOverride.X,
+                                        importSettings.ColorOverride.Y,
+                                        importSettings.ColorOverride.Z,
+                                        importSettings.ColorOverride.W, 0);
+                    }
+                    if (importSettings.FlipUVs)
+                    {
+                        for (int i = 0; i < vertex.UVs.Count; i++)
+                            vertex.SetUV(vertex.UVs[i].X, 1 - vertex.UVs[i].Y, i);
+                    }
+
                     foreach (var weight in vertex.Envelope.Weights)
                     {
                         var bn = fmdl.Skeleton.Bones.Values.Where(x => x.Name == weight.BoneName).FirstOrDefault();
@@ -347,7 +396,13 @@ namespace CafeLibrary.ModelConversion
 
                 //Get the original material and map by string key
                 string material = mesh.Polygons[0].MaterialName;
-                int materialIndex = scene.Materials.FindIndex(x => x.Name == material);
+                foreach (var mat in scene.Materials)
+                {
+                    if (!string.IsNullOrEmpty(mat.Label) && mat.Name == material)
+                        material = mat.Label;
+                }
+
+                int materialIndex = fmdl.Materials.IndexOf(material);
                 if (materialIndex != -1)
                     fshp.MaterialIndex = (ushort)materialIndex;
                 else
@@ -355,7 +410,7 @@ namespace CafeLibrary.ModelConversion
 
                 //Generate a vertex buffer
                 VertexBuffer buffer = GenerateVertexBuffer(resFile, mesh, fshp,
-                    meshSettings, model.Skeleton.BreathFirstOrder(), fmdl.Skeleton, rigidSkinningIndices, smoothSkinningIndices);
+                    meshSettings, transforms, fmdl.Skeleton, rigidSkinningIndices, smoothSkinningIndices);
 
                 fshp.VertexBufferIndex = (ushort)fmdl.VertexBuffers.Count;
                 fshp.VertexSkinCount = (byte)buffer.VertexSkinCount;
@@ -364,7 +419,7 @@ namespace CafeLibrary.ModelConversion
                 //Generate boundings for the mesh
                 List<IOVertex> vertices = mesh.Vertices;
 
-                var boundingBox = CalculateBoundingBox(vertices, model.Skeleton.BreathFirstOrder(), fshp.VertexSkinCount > 0);
+                var boundingBox = CalculateBoundingBox(vertices, model.Skeleton.BreathFirstOrder(), fshp, fshp.VertexSkinCount > 0);
                 fshp.SubMeshBoundings.Add(boundingBox); //Create bounding for total mesh
                 fshp.SubMeshBoundings.Add(boundingBox); //Create bounding for single sub meshes
 
@@ -372,8 +427,8 @@ namespace CafeLibrary.ModelConversion
                 Vector3F max = boundingBox.Center + boundingBox.Extent;
                 float sphereRadius = (float)(boundingBox.Center.Length + boundingBox.Extent.Length);
 
-               // var sphereRadius = GetBoundingSphereFromRegion(new Vector4F(
-               //     min.X, min.Y, min.Z, 1), new Vector4F(max.X, max.Y, max.Z, 1));
+                // var sphereRadius = GetBoundingSphereFromRegion(new Vector4F(
+                //     min.X, min.Y, min.Z, 1), new Vector4F(max.X, max.Y, max.Z, 1));
 
                 fshp.RadiusArray.Add(sphereRadius); //Total radius (per LOD)
 
@@ -391,24 +446,18 @@ namespace CafeLibrary.ModelConversion
 
                 if (importSettings.EnableLODs)
                 {
-                    var lod1 = new Mesh()
+                    for (int i = 0; i < importSettings.LODCount; i++)
                     {
-                        FirstVertex = 0,
-                        SubMeshes = bMesh.SubMeshes.ToList(),
-                        IndexBuffer = bMesh.IndexBuffer,
-                        PrimitiveType = bMesh.PrimitiveType,
-                    };
-                    lod1.SetIndices(bMesh.GetIndices().ToList());
-                    fshp.Meshes.Add(lod1);
-                    var lod2 = new Mesh()
-                    {
-                        FirstVertex = 0,
-                        SubMeshes = bMesh.SubMeshes.ToList(),
-                        IndexBuffer = bMesh.IndexBuffer,
-                        PrimitiveType = bMesh.PrimitiveType,
-                    };
-                    lod2.SetIndices(bMesh.GetIndices().ToList());
-                    fshp.Meshes.Add(lod2);
+                        var lod = new Mesh()
+                        {
+                            FirstVertex = 0,
+                            SubMeshes = bMesh.SubMeshes.ToList(),
+                            IndexBuffer = bMesh.IndexBuffer,
+                            PrimitiveType = bMesh.PrimitiveType,
+                        };
+                        lod.SetIndices(bMesh.GetIndices().ToList(), bMesh.IndexFormat);
+                        fshp.Meshes.Add(lod);
+                    }
                 }
 
                 //Calculate the bounding tree
@@ -421,15 +470,29 @@ namespace CafeLibrary.ModelConversion
             return fmdl;
         }
 
+        static System.Numerics.Matrix4x4 GetWorldMatrix(BfresLibrary.Skeleton skeleton, Bone bone)
+        {
+            if (bone.ParentIndex != -1)
+                return CreateTransform(bone) * GetWorldMatrix(skeleton, skeleton.Bones[bone.ParentIndex]);
+            return CreateTransform(bone);
+        }
+
+        static System.Numerics.Matrix4x4 CreateTransform(Bone bone)
+        {
+            return System.Numerics.Matrix4x4.CreateScale(new System.Numerics.Vector3(
+                bone.Scale.X, bone.Scale.Y, bone.Scale.Z)) *
+                (System.Numerics.Matrix4x4.CreateRotationX(bone.Rotation.X) *
+                 System.Numerics.Matrix4x4.CreateRotationY(bone.Rotation.Y) *
+                 System.Numerics.Matrix4x4.CreateRotationZ(bone.Rotation.Z)) *
+                System.Numerics.Matrix4x4.CreateTranslation(new System.Numerics.Vector3(
+                bone.Position.X, bone.Position.Y, bone.Position.Z));
+        }
+
         static void CalculateSubMeshes(ResFile resFile, Shape fshp, Mesh mesh, List<IOVertex> vertices, List<int> indices, bool enableSubMesh)
         {
             List<uint> indexList = new List<uint>();
             indexList = indices.Select(x => (uint)x).ToList();
 
-            //If a mesh's vertex data is split into parts, we can create sub meshes with their own boundings
-            CalculateMeshDivision(vertices, fshp, mesh, indices, ref indexList, enableSubMesh);
-
-            //Finally setup the full index list of the entire mesh
             GX2IndexFormat Format = GX2IndexFormat.UInt16;
             if (resFile.IsPlatformSwitch)
             {
@@ -443,50 +506,49 @@ namespace CafeLibrary.ModelConversion
                     Format = GX2IndexFormat.UInt32;
             }
 
+            //If a mesh's vertex data is split into parts, we can create sub meshes with their own boundings
+            CalculateMeshDivision(vertices, fshp, mesh, Format, indices, ref indexList, enableSubMesh);
+
+            //Finally setup the full index list of the entire mesh
             mesh.SetIndices(indexList, Format);
         }
 
-        static void CalculateMeshDivision(List<IOVertex> vertices, Shape fshp, Mesh mesh, List<int> indices, ref List<uint> indexList, bool enableSubMesh)
+        static void CalculateMeshDivision(List<IOVertex> vertices, Shape fshp, Mesh mesh, GX2IndexFormat format, List<int> indices, ref List<uint> indexList, bool enableSubMesh)
         {
-            bool divide = false;
             if (enableSubMesh)
             {
-                var bb = fshp.SubMeshBoundings[0];
-                int numSubMeshes = 2;
+                //Divided up. Update the index list, boundings and sub mesh lists
+                indexList.Clear();
+                var divided = PolygonDivision.Divide(vertices, indices);
 
-                fshp.SubMeshBoundingIndices.Clear();
+                //keep first bounding as it determines camera frustum
+                var boundingFull = fshp.SubMeshBoundings.FirstOrDefault();
+
                 fshp.SubMeshBoundingNodes.Clear();
                 fshp.SubMeshBoundings.Clear();
-                for (int i = 0; i < numSubMeshes; i++)
-                {
-                    ushort index = (ushort)i;
 
-                    fshp.SubMeshBoundingIndices.Add(index);
-                    fshp.SubMeshBoundings.Add(bb);
+                foreach (var root in divided)
+                    AddSubMesh(root, format, ref fshp, ref mesh, ref indexList);
+
+                Console.WriteLine($"fshp {fshp.Name} submeshes {mesh.SubMeshes.Count}");
+
+                for (int i = 0; i < fshp.SubMeshBoundings.Count; i++)
+                {
+                    fshp.SubMeshBoundingIndices.Add((ushort)i);
                     fshp.SubMeshBoundingNodes.Add(new BoundingNode()
                     {
-                        NextSibling = index,
-                        LeftChildIndex = index,
-                        RightChildIndex = index,
-                        Unknown = index,
+                        LeftChildIndex = (ushort)i, //can match current node idx
+                        RightChildIndex = (ushort)i, //can match current node idx
+                        NextSibling = (ushort)(i < fshp.SubMeshBoundings.Count - 1 ? i + 1 : i), //next or last idx
+                        SubMeshIndex = (ushort)i,
+                        Unknown = (ushort)i, //always current idx
                         SubMeshCount = 1,
-                        SubMeshIndex = index,
                     });
                 }
-
-                //Single mesh
-                mesh.SubMeshes.Add(new SubMesh()
-                {
-                    Offset = 0,
-                    Count = (uint)indices.Count,
-                });
-                mesh.SubMeshes.Add(new SubMesh()
-                {
-                    Offset = 0,
-                    Count = 1,
-                });
+                //Full bounding at the end
+                fshp.SubMeshBoundings.Add(boundingFull);
             }
-            else if (!divide)
+            else 
             {
                 //Single mesh
                 mesh.SubMeshes.Add(new SubMesh()
@@ -505,40 +567,72 @@ namespace CafeLibrary.ModelConversion
                     SubMeshCount = 1,
                 });
             }
-            else
-            {
-                //Divided up. Update the index list, boundings and sub mesh lists
-                indexList.Clear();
-                var divided = PolygonDivision.Divide(vertices, indices, new PolygonDivision.PolygonSettings()
-                {
-
-                });
-                int offset = 0;
-
-                fshp.SubMeshBoundingNodes.Clear();
-                fshp.SubMeshBoundings.Clear();
-
-                foreach (var root in divided)
-                    AddSubMesh(root, fshp, mesh, ref offset, ref indexList);
-            }
-
         }
 
-        static void AddSubMesh(PolygonDivision.PolygonOctree subMesh, Shape shape, Mesh mesh,
-      ref int offset, ref List<uint> indexList)
+        /// <summary>
+        /// Makes sure all weights add up to 255.
+        /// Does not modify any locked weights.
+        /// </summary>
+        private static void NormalizeByteType(IEnumerable<IOBoneWeight> weights)
         {
-            indexList.AddRange(subMesh.TriangleIndices.Select(x => (uint)x).ToList());
+            float scale = 1.0f / 255f;
 
-            offset += subMesh.TriangleIndices.Count;
+            int MaxWeight = 255;
+            var list = weights.OrderBy(x => x.Weight).ToList();
+
+            int id = 0;
+            foreach (IOBoneWeight b in list)
+            {
+                id++;
+
+                if (b == null)
+                    continue;
+
+                int weight = (int)(Math.Round(b.Weight / scale, 2));
+
+                //Check if the weight is the last id
+                if (list.Count == id)
+                    weight = MaxWeight; //Set as the last amount of weights to normalize/fill the rest to equal 255
+
+                if (weight >= MaxWeight)
+                {
+                    weight = MaxWeight;
+                    MaxWeight = 0;
+                }
+                else
+                    MaxWeight -= weight;
+
+                //Turn back into float normally
+                b.Weight = weight * scale;
+            }
+        }
+
+        static void AddSubMesh(DivSubMesh subMesh, GX2IndexFormat format, ref Shape shape, ref Mesh mesh, ref List<uint> indexList)
+        {
+            bool isUshort = (format == GX2IndexFormat.UInt16 ||
+                             format == GX2IndexFormat.UInt16LittleEndian);
+
+            var stride = isUshort ? sizeof(ushort) : sizeof(uint);
+            var offset = indexList.Count * stride;
+            indexList.AddRange(subMesh.Faces.Select(x => (uint)x).ToList());
+
+            int index = mesh.SubMeshes.Count;
 
             mesh.SubMeshes.Add(new SubMesh()
             {
                 Offset = (uint)offset,
-                Count = (uint)indexList.Count,
+                Count = (uint)subMesh.Faces.Count,
             });
 
-            foreach (var child in subMesh.Children)
-                AddSubMesh(child, shape, mesh, ref offset, ref indexList);
+            var center = (subMesh.Min + subMesh.Max) / 2.0f;
+            var extent = (subMesh.Max - subMesh.Min) / 2.0f;
+
+            var boundingBox = new Bounding()
+            {
+                Center = new Vector3F(center.X, center.Y, center.Z),
+                Extent = new Vector3F(extent.X, extent.Y, extent.Z),
+            };
+            shape.SubMeshBoundings.Add(boundingBox);
         }
 
         private static float CalculateRadius(float horizontalLeg, float verticalLeg)
@@ -619,7 +713,7 @@ namespace CafeLibrary.ModelConversion
 
         }
 
-        private static Bounding CalculateBoundingBox(List<IOVertex> vertices, List<IOBone> bones, bool isSmoothSkinning)
+        private static Bounding CalculateBoundingBox(List<IOVertex> vertices, List<IOBone> bones, Shape fshp, bool isSmoothSkinning)
         {
             float minX = float.MaxValue;
             float minY = float.MaxValue;
@@ -648,12 +742,21 @@ namespace CafeLibrary.ModelConversion
 
             for (int i = 0; i < vertices.Count; i++)
             {
-                minX = Math.Min(minX, vertices[i].Position.X);
-                minY = Math.Min(minY, vertices[i].Position.Y);
-                minZ = Math.Min(minZ, vertices[i].Position.Z);
-                maxX = Math.Max(maxX, vertices[i].Position.X);
-                maxY = Math.Max(maxY, vertices[i].Position.Y);
-                maxZ = Math.Max(maxZ, vertices[i].Position.Z);
+                var position = vertices[i].Position;
+
+                //Reset rigid skinning types to local space
+                if (fshp.VertexSkinCount == 0 && bones.Count > 0)
+                {
+                    var transform = bones[fshp.BoneIndex].WorldTransform;
+                    System.Numerics.Matrix4x4.Invert(transform, out System.Numerics.Matrix4x4 inverted);
+                    position = System.Numerics.Vector3.Transform(position, inverted);
+                }
+                minX = Math.Min(minX, position.X);
+                minY = Math.Min(minY, position.Y);
+                minZ = Math.Min(minZ, position.Z);
+                maxX = Math.Max(maxX, position.X);
+                maxY = Math.Max(maxY, position.Y);
+                maxZ = Math.Max(maxZ, position.Z);
             }
 
             return CalculateBoundingBox(
@@ -663,21 +766,16 @@ namespace CafeLibrary.ModelConversion
 
         private static Bounding CalculateBoundingBox(Vector3F min, Vector3F max)
         {
-            Vector3F center = max + min;
-
             Console.WriteLine($"min {min}");
             Console.WriteLine($"max {max}");
 
-            float xxMax = GetExtent(max.X, min.X);
-            float yyMax = GetExtent(max.Y, min.Y);
-            float zzMax = GetExtent(max.Z, min.Z);
-
-            Vector3F extend = new Vector3F(xxMax, yyMax, zzMax);
+            var center = (min + max) / 2.0f;
+            var extent = (max - min) / 2.0f;
 
             return new Bounding()
             {
                 Center = new Vector3F(center.X, center.Y, center.Z),
-                Extent = new Vector3F(extend.X, extend.Y, extend.Z),
+                Extent = new Vector3F(extent.X, extent.Y, extent.Z),
             };
         }
 
@@ -689,7 +787,7 @@ namespace CafeLibrary.ModelConversion
         }
 
         private static VertexBuffer GenerateVertexBuffer(ResFile resFile, IOMesh mesh, Shape fshp, ModelImportSettings.MeshSettings settings,
-           List<IOBone> bones, Skeleton fskl, List<int> rigidIndices, List<int> smoothIndices)
+           System.Numerics.Matrix4x4[] boneMatrices, BfresLibrary.Skeleton fskl, List<int> rigidIndices, List<int> smoothIndices)
         {
             List<IOVertex> vertices = mesh.Vertices;
 
@@ -703,8 +801,12 @@ namespace CafeLibrary.ModelConversion
             List<Vector4F> Tangents = new List<Vector4F>();
             List<Vector4F> Bitangents = new List<Vector4F>();
 
-            int numTexCoords = vertices.Max(x => x.UVs.Count);
-            int numColors = vertices.Max(x => x.Colors.Count);
+            int numTexCoords = Math.Min(vertices.Max(x => x.UVs.Count), 4);
+            int numColors = Math.Min(vertices.Max(x => x.Colors.Count), 4);
+
+            //force vertex color usage
+            if (settings.Colors.Enable && numColors == 0)
+                numColors = 1;
 
             Vector4F[][] TexCoords = new Vector4F[numTexCoords][];
             Vector4F[][] Colors = new Vector4F[numColors][];
@@ -720,29 +822,33 @@ namespace CafeLibrary.ModelConversion
             {
                 var vertex = vertices[v];
 
-                var position = vertex.Position;
-                var normal = vertex.Normal;
+                var position = new System.Numerics.Vector3(vertex.Position.X, vertex.Position.Y, vertex.Position.Z);
+                var normal = new System.Numerics.Vector3(vertex.Normal.X, vertex.Normal.Y, vertex.Normal.Z);
+                var tangent = new System.Numerics.Vector3(vertex.Tangent.X, vertex.Tangent.Y, vertex.Tangent.Z);
+                var binormal = new System.Numerics.Vector3(vertex.Binormal.X, vertex.Binormal.Y, vertex.Binormal.Z);
 
                 //Reset rigid skinning types to local space
-                if (fshp.VertexSkinCount == 0 && bones.Count > 0)
+                if (fshp.VertexSkinCount == 0 && boneMatrices.Length > 0)
                 {
-                    var transform = bones[fshp.BoneIndex].WorldTransform;
-                    System.Numerics.Matrix4x4.Invert(transform, out System.Numerics.Matrix4x4 inverted);
-                    position = System.Numerics.Vector3.Transform(position, inverted);
-                    normal = System.Numerics.Vector3.TransformNormal(normal, inverted);
+                    var transform = boneMatrices[fshp.BoneIndex];
+                    position = System.Numerics.Vector3.Transform(position, transform);
+                    normal = System.Numerics.Vector3.TransformNormal(normal, transform);
+                    tangent = System.Numerics.Vector3.TransformNormal(tangent, transform);
+                    binormal = System.Numerics.Vector3.TransformNormal(binormal, transform);
                 }
                 //Reset rigid skinning types to local space
                 if (fshp.VertexSkinCount == 1)
                 {
-                    var bone = bones.FirstOrDefault(x => x.Name == vertex.Envelope.Weights[0].BoneName);
-                    var transform = bone.WorldTransform;
-                    System.Numerics.Matrix4x4.Invert(transform, out System.Numerics.Matrix4x4 inverted);
-                    position = System.Numerics.Vector3.Transform(position, inverted);
-                    normal = System.Numerics.Vector3.TransformNormal(normal, inverted);
+                    int index = Array.FindIndex(fskl.Bones.Values.ToArray(), x => x.Name == vertex.Envelope.Weights[0].BoneName);
+                    if (index != -1)
+                    {
+                        var transform = boneMatrices[index];
+                        position = System.Numerics.Vector3.Transform(position, transform);
+                        normal = System.Numerics.Vector3.TransformNormal(normal, transform);
+                        tangent = System.Numerics.Vector3.TransformNormal(tangent, transform);
+                        binormal = System.Numerics.Vector3.TransformNormal(binormal, transform);
+                    }
                 }
-
-               // position = System.Numerics.Vector3.Transform(position, GlobalTransform);
-               // normal = System.Numerics.Vector3.Transform(normal, GlobalTransform);
 
                 Positions.Add(new Vector4F(
                     position.X,
@@ -757,25 +863,42 @@ namespace CafeLibrary.ModelConversion
                 if (settings.Tangent.Enable)
                 {
                     Tangents.Add(new Vector4F(
-                        vertex.Tangent.X,
-                        vertex.Tangent.Y,
-                        vertex.Tangent.Z, 0));
+                        tangent.X,
+                        tangent.Y,
+                        tangent.Z, 1));
                 }
 
                 if (settings.Bitangent.Enable)
                 {
                     Bitangents.Add(new Vector4F(
-                        vertex.Binormal.X,
-                        vertex.Binormal.Y,
-                        vertex.Binormal.Z, 0));
+                        binormal.X,
+                        binormal.Y,
+                        binormal.Z, 1));
                 }
 
+                int currentIdx = 0;
                 for (int i = 0; i < vertex.UVs?.Count; i++)
                 {
-                    TexCoords[i][v] = new Vector4F(
-                        vertex.UVs[i].X,
-                        1 - vertex.UVs[i].Y,
-                        0, 0);
+                    if (i >= TexCoords.Length)
+                        continue;
+
+                    if (settings.CombineUVs && i % 2 == 0 && i < vertex.UVs.Count - 1)
+                    {
+                        TexCoords[currentIdx][v] = new Vector4F(
+                               vertex.UVs[i].X,
+                           1 - vertex.UVs[i].Y,
+                               vertex.UVs[i + 1].X,
+                           1 - vertex.UVs[i + 1].Y);
+                        currentIdx++;
+                    }
+                    else
+                    {
+                        TexCoords[currentIdx][v] = new Vector4F(
+                            vertex.UVs[i].X,
+                            1 - vertex.UVs[i].Y,
+                            0, 0);
+                        currentIdx++;
+                    }
                 }
 
                 for (int i = 0; i < vertex.Colors?.Count; i++)
@@ -786,6 +909,9 @@ namespace CafeLibrary.ModelConversion
                         vertex.Colors[i].Z,
                         vertex.Colors[i].W);
                 }
+
+                if (settings.Colors.Enable && vertex.Colors?.Count <= 0)
+                    Colors[0][v] = new Vector4F(1, 1, 1, 1);
 
                 int[] indices = new int[4];
                 float[] weights = new float[4];
@@ -816,12 +942,13 @@ namespace CafeLibrary.ModelConversion
 
                 if (hasWeights && settings.BoneIndices.Enable && fshp.VertexSkinCount > 0)
                 {
-                    BoneWeights.Add(new Vector4F(weights[0], weights[1], weights[2], weights[3]));
+                    if (fshp.VertexSkinCount > 1)
+                        BoneWeights.Add(new Vector4F(weights[0], weights[1], weights[2], weights[3]));
                     BoneIndices.Add(new Vector4F(indices[0], indices[1], indices[2], indices[3]));
                 }
             }
 
-            if(missingBones.Count > 0)
+            if (missingBones.Count > 0)
             {
                 foreach (var bone in missingBones)
                     StudioLogger.WriteWarning($"Missing bone {bone} on mesh {mesh.Name}");
@@ -865,15 +992,35 @@ namespace CafeLibrary.ModelConversion
                 });
             }
 
-            for (int i = 0; i < TexCoords.Length; i++)
+            if (settings.CombineUVs && TexCoords.Length > 0)
             {
-                if (settings.UseTexCoord[i])
+                //Combine types will use 2 layer types
+                attributes.Add(new VertexBufferHelperAttrib()
                 {
+                    Name = $"_g3d_02_u0_u1",
+                    Data = TexCoords[0],
+                    Format = GX2AttribFormat.Format_16_16_16_16_Single,
+                });
+                if (TexCoords.Length > 1)
+                {
+                    attributes.Add(new VertexBufferHelperAttrib()
+                    {
+                        Name = $"_g3d_02_u2_u3",
+                        Data = TexCoords[1],
+                        Format = GX2AttribFormat.Format_16_16_16_16_Single,
+                    });
+                }
+            }
+            else
+            {
+                for (int i = 0; i < TexCoords.Length; i++)
+                {
+                    var format = i == 0 ? settings.UVs.Format : settings.UV_Layers.Format;
                     attributes.Add(new VertexBufferHelperAttrib()
                     {
                         Name = $"_u{i}",
                         Data = TexCoords[i],
-                        Format = settings.UVs.Format,
+                        Format = format,
                     });
                 }
             }
@@ -911,37 +1058,22 @@ namespace CafeLibrary.ModelConversion
                 });
             }
 
-            foreach (var att in settings.AttributeLayout)
+            //Ensure all attributes from the current layout exist to use
+            bool useCustomLayout = settings.AttributeLayout.All(x => attributes.Any(y => y.Name == x.Name));
+            if (useCustomLayout)
             {
-                var attribute = attributes.FirstOrDefault(x => x.Name == att.Name);
-                if (attribute != null)
-                    attribute.BufferIndex = att.BufferIndex;
+                foreach (var att in settings.AttributeLayout)
+                {
+                    var attribute = attributes.FirstOrDefault(x => x.Name == att.Name);
+                    if (attribute != null)
+                        attribute.BufferIndex = att.BufferIndex;
+                }
             }
 
             vertexBufferHelper.Attributes = attributes;
             var buffer = vertexBufferHelper.ToVertexBuffer();
             buffer.VertexSkinCount = (byte)fshp.VertexSkinCount;
             return buffer;
-        }
-
-        public class MeshSettings
-        {
-            public bool UseNormal { get; set; }
-
-            public bool UseBoneWeights { get; set; }
-            public bool UseBoneIndices { get; set; }
-            public bool UseTangents { get; set; }
-            public bool UseBitangents { get; set; }
-
-            public GX2AttribFormat PositionFormat = GX2AttribFormat.Format_32_32_32_Single;
-            public GX2AttribFormat NormalFormat = GX2AttribFormat.Format_10_10_10_2_SNorm;
-            public GX2AttribFormat TexCoordFormat = GX2AttribFormat.Format_16_16_Single;
-            public GX2AttribFormat ColorFormat = GX2AttribFormat.Format_16_16_16_16_Single;
-            public GX2AttribFormat TangentFormat = GX2AttribFormat.Format_8_8_8_8_SNorm;
-            public GX2AttribFormat BitangentFormat = GX2AttribFormat.Format_8_8_8_8_SNorm;
-
-            public GX2AttribFormat BoneIndicesFormat = GX2AttribFormat.Format_8_8_8_8_UInt;
-            public GX2AttribFormat BoneWeightsFormat = GX2AttribFormat.Format_8_8_8_8_UNorm;
         }
     }
 }

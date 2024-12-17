@@ -119,6 +119,7 @@ namespace RedStarLibrary.GameTypes
                 hasArchive = true;
             }
         }
+
         public LiveActor(NodeBase parentNode, PlacementInfo info)
         {
             parent = parentNode;
@@ -135,7 +136,6 @@ namespace RedStarLibrary.GameTypes
             {
                 hasArchive = true;
             }
-
         }
 
         public void SetParentNode(NodeBase parentNode)

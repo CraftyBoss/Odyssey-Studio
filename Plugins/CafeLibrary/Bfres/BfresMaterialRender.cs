@@ -324,7 +324,9 @@ namespace CafeLibrary.Rendering
 
             shader.SetBoolToInt("drawDebugAreaID", BfresRender.DrawDebugAreaID);
             shader.SetInt("areaID", AreaIndex);
+            shader.SetBoolToInt("displayVertexColors", ((BfresMeshRender)mesh).HasVertexColors);
 
+           
            // UpdateMaterialBlock();
             MaterialBlock.RenderBuffer(shader.program, "ub_MaterialParams");
         }
@@ -475,7 +477,11 @@ namespace CafeLibrary.Rendering
         public virtual void SetDebugTextureUniforms(GLContext control, ShaderProgram shader)
         {
             shader.SetTexture(RenderTools.blackTex, "default", 5);
-
+            shader.SetInt("isLightmapArray", 0);
+            shader.SetInt("IndirectLightBakeTextureArray", -1);
+            shader.SetInt("IndirectLightBakeTexture", -1);
+            shader.SetBoolToInt("hasLightmap", false);
+            
             int id = 5;
             for (int i = 0; i < Material.TextureMaps?.Count; i++)
             {
@@ -509,12 +515,31 @@ namespace CafeLibrary.Rendering
                 if (uniformName == string.Empty)
                     continue;
 
+                GL.ActiveTexture(TextureUnit.Texture0 + id);
                 var binded = BindTexture(shader, sampler, GetTextures(), Material.TextureMaps[i], name, id);
-                shader.SetInt(uniformName, id++);
+                if (uniformName == "IndirectLightBakeTexture")
+                    shader.SetBoolToInt("hasLightmap", true);
+
+                //Check if lightmap is a type of array texture
+                if (binded is GLTexture2DArray && uniformName == "IndirectLightBakeTexture")
+                {
+                    //bind to next slot
+                    id++;
+
+                    GL.ActiveTexture(TextureUnit.Texture0 + id);
+                    binded.Bind();
+                    shader.SetInt("isLightmapArray", 1);
+                    shader.SetInt("IndirectLightBakeTextureArray", id++);
+                }
+                else
+                {
+                    shader.SetInt(uniformName, id++);
+                }
             }
 
             GL.ActiveTexture(TextureUnit.Texture0);
             GL.BindTexture(TextureTarget.Texture2D, 0);
+            GL.BindTexture(TextureTarget.Texture2DArray, 0);
         }
 
         public virtual void SetTextureUniforms(GLContext control, ShaderProgram shader)
@@ -532,7 +557,7 @@ namespace CafeLibrary.Rendering
                     name = Material.AnimatedSamplers[sampler];
 
                 string uniformName = GetUniformName(sampler);
-                if (sampler == "_a0")
+                if (sampler == "_a0" || sampler == "_albedo0")
                 {
                     uniformName = "u_TextureAlbedo0";
                     shader.SetBoolToInt("hasDiffuseMap", true);
@@ -541,6 +566,7 @@ namespace CafeLibrary.Rendering
                 if (uniformName == string.Empty)
                     continue;
 
+                GL.ActiveTexture(TextureUnit.Texture0 + id);
                 var binded = BindTexture(shader, sampler, GetTextures(), Material.TextureMaps[i], name, id);
                 shader.SetInt(uniformName, id++);
             }
@@ -575,9 +601,6 @@ namespace CafeLibrary.Rendering
             if (name == null)
                 return null;
 
-            GL.ActiveTexture(TextureUnit.Texture0 + id);
-            GL.BindTexture(TextureTarget.Texture2D, RenderTools.defaultTex.ID);
-
             if (textures.ContainsKey(name))
                 return BindGLTexture(textures[name], textureMap, sampler);
 
@@ -586,6 +609,8 @@ namespace CafeLibrary.Rendering
                 if (model.Textures.ContainsKey(name))
                     return BindGLTexture(model.Textures[name], textureMap, sampler);
             }
+
+            GL.BindTexture(TextureTarget.Texture2D, RenderTools.defaultTex.ID);
 
             return RenderTools.defaultTex;
         }

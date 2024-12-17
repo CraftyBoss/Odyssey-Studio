@@ -11,16 +11,36 @@ namespace CafeLibrary
 {
     public class ModelImportSettings
     {
+        //Global attribute toggles
+        public AttributeSettings Position = new AttributeSettings(true, GX2AttribFormat.Format_32_32_32_Single, PositionFormats);
+        public AttributeSettings Normal = new AttributeSettings(true, GX2AttribFormat.Format_10_10_10_2_SNorm, NormalsFormats);
+        public AttributeSettings UVs = new AttributeSettings(true, GX2AttribFormat.Format_16_16_Single, UVFormats);
+        public AttributeSettings Colors = new AttributeSettings(true, GX2AttribFormat.Format_8_8_8_8_UNorm, ColorFormats);
+        public AttributeSettings Tangent = new AttributeSettings(true, GX2AttribFormat.Format_8_8_8_8_SNorm, TangentFormats);
+        public AttributeSettings Bitangent = new AttributeSettings(true, GX2AttribFormat.Format_8_8_8_8_SNorm, BiTangentFormats);
+        public AttributeSettings BoneWeights = new AttributeSettings(true, GX2AttribFormat.Format_8_8_8_8_UNorm, WeightFormats);
+        public AttributeSettings BoneIndices = new AttributeSettings(true, GX2AttribFormat.Format_8_8_8_8_UInt, BoneIndicesFormats);
+
+        public bool ResetUVParams = true;
+        public bool ReseColorParams = true;
+
         public bool Replacing = false;
         public bool FlipUVs = false;
         public bool Rotate90 = false;
         public bool RotateNeg90 = false;
         public bool EnableLODs = false;
         public bool EnableSubMesh = false;
-        public bool ImportBones = true;
+        public bool ImportBones = false;
+
+        public bool RecalculateNormals = false;
+        public bool OverrideVertexColors = false;
 
         public bool ReplaceMatchingMeshes = true;
         public bool KeepOrginalMaterialsOnReplace = false;
+
+        public int LODCount = 2;
+
+        public Vector4 ColorOverride = Vector4.One;
 
         public List<MeshSettings> Meshes = new List<MeshSettings>();
         public List<string> Materials = new List<string>();
@@ -34,6 +54,12 @@ namespace CafeLibrary
             public string Name { get; set; }
             public string MaterialName;
             public string ImportedMaterial;
+            public BfresLibrary.Material MaterialInstance;
+
+            public bool CombineUVs;
+
+            public bool UseCustomAttributeSettings;
+
             public string PresetName { get; set; }
 
             public bool KeepTextures = true;
@@ -46,12 +72,15 @@ namespace CafeLibrary
 
             public int SkinCount;
 
+            public ushort BoneIndex = 0; //single binded bone
+
             public bool[] UseTexCoord { get; set; } = new bool[] { true, true, true, true };
             public bool[] UseColor { get; set; } = new bool[] { true, true, true, true };
 
             public AttributeSettings Position = new AttributeSettings(true, GX2AttribFormat.Format_32_32_32_Single, PositionFormats);
             public AttributeSettings Normal = new AttributeSettings(true, GX2AttribFormat.Format_10_10_10_2_SNorm, NormalsFormats);
             public AttributeSettings UVs = new AttributeSettings(true, GX2AttribFormat.Format_16_16_Single, UVFormats);
+            public AttributeSettings UV_Layers = new AttributeSettings(true, GX2AttribFormat.Format_32_32_Single, UVFormats);
             public AttributeSettings Colors = new AttributeSettings(true, GX2AttribFormat.Format_8_8_8_8_UNorm, ColorFormats);
             public AttributeSettings Tangent = new AttributeSettings(true, GX2AttribFormat.Format_8_8_8_8_SNorm, TangentFormats);
             public AttributeSettings Bitangent = new AttributeSettings(true, GX2AttribFormat.Format_8_8_8_8_SNorm, BiTangentFormats);
@@ -288,7 +317,7 @@ namespace CafeLibrary
 
             if (ImGui.Button(materialPresetLbl, new Vector2(ImGui.GetColumnWidth(), 23)))
             {
-            
+
             }
             ImGui.NextColumn();
 
