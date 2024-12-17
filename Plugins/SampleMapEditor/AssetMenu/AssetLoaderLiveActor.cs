@@ -1,5 +1,6 @@
 ﻿using ImGuiNET;
 using MapStudio.UI;
+using RedStarLibrary.GameTypes;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,20 +18,39 @@ namespace RedStarLibrary.AssetMenu
         public bool IsFilterMode => isFilter;
         private static bool isFilter = false;
 
+        private List<AssetItem> assets;
+
         public AssetLoaderLiveActor(string category) : base()
         {
             this.category = category;
+
+            List<AssetItem> folderAssets = new List<AssetItem>();
+            List<AssetItem> iconAssets = new List<AssetItem>();
+            List<AssetItem> emptyAssets = new List<AssetItem>();
+
+            // organize by: actors with multiple icons -> actors with icons -> actors without icons
+
+            var databaseCategory = ActorDataBase.GetDataBase().Where(e => e.ActorCategory == category);
+
+            foreach (var actor in databaseCategory)
+            {
+                if (actor.Models.Count > 1)
+                    folderAssets.Add(CreateAsset(actor));
+                else if (actor.Models.Count == 1)
+                    iconAssets.Add(CreateAsset(actor));
+                else if (actor.Models.Count == 0)
+                    emptyAssets.Add(CreateAsset(actor));
+            }
+
+            assets = new List<AssetItem>();
+
+            assets.AddRange(folderAssets);
+            assets.AddRange(iconAssets);
+            assets.AddRange(emptyAssets);
         }
 
         public List<AssetItem> Reload()
         {
-            List<AssetItem> assets = new List<AssetItem>();
-
-            foreach (var actor in ActorDataBase.GetDataBase().Where(e=> e.ActorCategory == category))
-            {
-                assets.Add(CreateAsset(actor));
-            }
-
             return assets;
         }
 
@@ -79,6 +99,8 @@ namespace RedStarLibrary.AssetMenu
             DatabaseEntry = entry;
         }
         public ObjectDatabaseEntry DatabaseEntry { get; private set; }
+        public string ActorCategory { get { return DatabaseEntry.ActorCategory; } }
+
     }
 
     public class LiveActorFolder : AssetFolder

@@ -38,10 +38,8 @@ namespace RedStarLibrary
         /// </summary>
         public static int MapScenarioNo { get; set; } = 0;
 
-        // List Name -> List of Actors in Layers (Layer Common) -> List of Actors
+        // Category Name (ex: ObjectList) -> List of Actors in Layers (ex: Layer Common) -> List of Actors
         private Dictionary<string, Dictionary<string,List<LiveActor>>> SceneActors { get; set; }
-
-        private Dictionary<string, List<ActorList>> newSceneActors;
 
         public void Setup(EditorLoader loader)
         {
@@ -84,24 +82,87 @@ namespace RedStarLibrary
 
         public void AddSceneRenders(EditorLoader loader)
         {
-            StageScenario curScenarioPlacement = StageScenarios.Find(e => e.ScenarioIdx == MapScenarioNo);
+            StageScenario curScenarioPlacement = GetCurrentScenario();
 
             SceneActors = new Dictionary<string, Dictionary<string, List<LiveActor>>>();
 
-            newSceneActors = new Dictionary<string, List<ActorList>>();
-
-            //if(loader.MapActorList.TryGetValue("Graphics Objects", out List<ActorList> objLists))
-            //    foreach (var objList in objLists) combinedList.Add(objList);
+            // TODO: entirely remove frontend seperation of global and scenarios (maybe use an option in each actor placement instead?)
 
             LoadRendersFromList(loader, GlobalLayers, "Global Layer ");
 
             LoadRendersFromList(loader, curScenarioPlacement.ScenarioLayers, "Scenario Layer ");
         }
+
+        public void TryAddActorFromAsset(EditorLoader loader, Vector3 spawnPos, AssetMenu.LiveActorAsset asset)
+        {
+            string objCategory = asset.ActorCategory + "List";
+            string actorLayer = EditorLoader.SelectedLayer;
+
+            StageScenario curScenario = GetCurrentScenario();
+
+            PlacementInfo actorPlacement = new PlacementInfo(asset.DatabaseEntry);
+
+            actorPlacement.LayerConfigName = actorLayer;
+            actorPlacement.PlacementFileName = EditorLoader.PlacementFileName;
+            actorPlacement.Id = "obj" + new Random().Next(1000);
+            actorPlacement.Translate = spawnPos;
+
+            LayerList categoryLayers = curScenario.GetOrCreateLayerList(actorPlacement, objCategory);
+
+            LayerConfig placementLayer = categoryLayers.AddObjectToLayers(actorPlacement);
+
+            NodeBase actorList = loader.Root.GetChild(objCategory);
+
+            if (actorList == null)
+            {
+                actorList = new NodeBase(objCategory);
+                actorList.HasCheckBox = true;
+                loader.Root.AddChild(actorList);
+                actorList.Icon = IconManager.FOLDER_ICON.ToString();
+
+                SceneActors.Add(objCategory, new Dictionary<string, List<LiveActor>>());
+
+            }
+
+            // TODO: not this
+            string nodeName = "Scenario Layer " + actorLayer;
+
+            NodeBase layerActors = actorList.GetChild(nodeName);
+
+            if (layerActors == null)
+            {
+                layerActors = new NodeBase(nodeName);
+                layerActors.HasCheckBox = true;
+                actorList.AddChild(layerActors);
+                layerActors.Icon = IconManager.FOLDER_ICON.ToString();
+
+                SceneActors[objCategory].TryAdd(actorLayer, new List<LiveActor>());
+            }
+
+            LiveActor actor = LoadActorFromPlacement(actorPlacement, placementLayer);
+
+            actor.ResetLinkedActors();
+
+            actor.SetParentNode(layerActors);
+
+            if (actor.ObjectDrawer != null)
+                loader.AddRender(actor.ObjectDrawer);
+            else
+                loader.AddRender(actor.ObjectRender);
+
+            actor.actorLayer = placementLayer;
+
+            actor.isPlaced = true;
+
+            SceneActors[objCategory][actorLayer].Add(actor);
+
+        }
+
         public HashSet<string> GetLoadedLayers()
         {
             HashSet<string> layers = new HashSet<string>();
 
-            StageScenario curScenarioPlacement = StageScenarios.Find(e => e.ScenarioIdx == MapScenarioNo);
+            StageScenario curScenarioPlacement = GetCurrentScenario();
 
             foreach (var layerNames in curScenarioPlacement.LoadedLayerNames)
             {
@@ -113,6 +174,18 @@ namespace RedStarLibrary
 
             return layers;
         }
+
+        public List<LiveActor> GetLoadedActors()
+        {
+            List<LiveActor> liveActors = new List<LiveActor>();
+
+            foreach (var categoryList in SceneActors)
+                foreach (var layerList in categoryList.Value)
+                    liveActors.AddRange(layerList.Value);
+
+            return liveActors;
+        }
+
         private void SetupObjects(EditorLoader loader)
         {
 
@@ -126,26 +199,26 @@ namespace RedStarLibrary
 
         }
 
+
         private void LoadRendersFromList(EditorLoader loader, Dictionary<string, LayerList> stageLayers, string nodePrefix = "")
         {
-            foreach (var objList in CreateActorsFromList(stageLayers))
+            foreach ((string objCategory, List<ActorList> actorLists) in CreateActorsFromList(stageLayers))
             {
-                NodeBase actorList = loader.Root.GetChild(objList.Key);
+                NodeBase actorList = loader.Root.GetChild(objCategory);
 
                 if (actorList == null)
                 {
-                    actorList = new NodeBase(objList.Key);
+                    actorList = new NodeBase(objCategory);
                     actorList.HasCheckBox = true;
                     loader.Root.AddChild(actorList);
                     actorList.Icon = IconManager.FOLDER_ICON.ToString();
 
-                    SceneActors.Add(objList.Key, new Dictionary<string, List<LiveActor>>());
+                    SceneActors.Add(objCategory, new Dictionary<string, List<LiveActor>>());
 
                 }
 
-                foreach (var mapActors in objList.Value)
+                foreach (var mapActors in actorLists)
                 {
-
                     string nodeName = nodePrefix + mapActors.ActorListName;
 
                     NodeBase layerActors = actorList.GetChild(nodeName);
@@ -157,7 +230,7 @@ namespace RedStarLibrary
                         actorList.AddChild(layerActors);
                         layerActors.Icon = IconManager.FOLDER_ICON.ToString();
 
-                        SceneActors[objList.Key].Add(mapActors.ActorListName, new List<LiveActor>());
+                        SceneActors[objCategory].TryAdd(mapActors.ActorListName, new List<LiveActor>());
                     }
 
                     foreach (var actor in mapActors)
@@ -173,37 +246,11 @@ namespace RedStarLibrary
 
                         actor.isPlaced = true;
 
-                        SceneActors[objList.Key][mapActors.ActorListName].Add(actor);
+                        SceneActors[objCategory][mapActors.ActorListName].Add(actor);
 
                         // actor.PlaceLinkedObjects(loader);
 
                     }
-                }
-
-            }
-        }
-
-        private void LoadActorsFromList(EditorLoader loader, Dictionary<string, LayerList> stageLayers, string nodePrefix = "")
-        {
-            foreach (var objList in CreateActorsFromList(stageLayers))
-            {
-                NodeBase actorList = loader.Root.GetChild(objList.Key);
-
-                if (actorList == null)
-                    SceneActors.Add(objList.Key, new Dictionary<string, List<LiveActor>>());
-
-                foreach (var mapActors in objList.Value)
-                {
-
-                    string nodeName = nodePrefix + mapActors.ActorListName;
-
-                    NodeBase layerActors = actorList.GetChild(nodeName);
-
-                    if (layerActors == null)
-                        SceneActors[objList.Key].Add(mapActors.ActorListName, new List<LiveActor>());
-
-                    foreach (var actor in mapActors)
-                        SceneActors[objList.Key][mapActors.ActorListName].Add(actor);
                 }
 
             }
@@ -252,7 +299,7 @@ namespace RedStarLibrary
         {
             Dictionary<string, List<ActorList>> scenarioList = new Dictionary<string, List<ActorList>>();
 
-            StageScenario curScenarioPlacement = StageScenarios.Find(e => e.ScenarioIdx == MapScenarioNo);
+            StageScenario curScenarioPlacement = GetCurrentScenario();
 
             foreach (var placementList in actorList)
             {
@@ -381,6 +428,11 @@ namespace RedStarLibrary
             }
 
             return null;
+        }
+
+        private StageScenario GetCurrentScenario()
+        {
+            return StageScenarios.Find(e => e.ScenarioIdx == MapScenarioNo);
         }
 
         /// <summary>

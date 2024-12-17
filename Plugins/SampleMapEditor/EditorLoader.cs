@@ -16,6 +16,9 @@ using Toolbox.Core.ViewModels;
 using RedStarLibrary.Extensions;
 using HakoniwaByml.Iter;
 using HakoniwaByml.Writer;
+using System.Linq;
+using System.Text.Json;
+using CafeLibrary.Rendering;
 
 namespace RedStarLibrary
 {
@@ -61,7 +64,7 @@ namespace RedStarLibrary
         /// <summary>
         /// Currently selected Layer used for placing new objects into the scene.
         /// </summary>
-        public static string SelectedLayer { get; set; }
+        public static string SelectedLayer { get; set; } = "Common";
 
         /// <summary>
         /// SARC containing all data used in the map
@@ -77,10 +80,8 @@ namespace RedStarLibrary
         /// </summary>
         public bool Identify(File_Info fileInfo, Stream stream)
         {
-            return fileInfo.FileName.EndsWith("StageMap.szs");
+            return fileInfo.FileName.EndsWith("StageMap.szs") || fileInfo.FileName.EndsWith("ZoneMap.szs"); // temp support for zone maps, in future, auto load zones listed in ZoneList
         }
-
-        const bool STAGE_TEST = false;
 
         /// <summary>
         /// Loads the given file data from a stream.
@@ -97,103 +98,43 @@ namespace RedStarLibrary
 
             ActorDataBase.LoadDatabase();
 
-            //if(InitIcons())
-            //{
-            //    CreateAssetCategories();
-            //}
-
-            // debug test every stage 
-
-            if (STAGE_TEST)
+            if (InitIcons())
             {
-                var stageDirectory = new List<string>(Directory.GetFiles($"{PluginConfig.GamePath}\\StageData"));
+                CreateAssetCategories();
+            }
 
-                foreach (var stagePath in stageDirectory.FindAll(e => Path.GetFileNameWithoutExtension(e).Contains("StageMap")))
-                {
+            mapArc = new SARC();
 
-                    string fileName = Path.GetFileNameWithoutExtension(stagePath);
+            mapArc.Load(stream);
 
-                    mapArc = new SARC();
+            ArchiveFileInfo mapData = mapArc.files.Find(e => e.FileName.Contains("StageMap.byml") || e.FileName.Contains("ZoneMap.byml"));
 
-                    mapArc.Load(new MemoryStream(YAZ0.Decompress(stagePath)));
+            if (mapData != null)
+            {
 
-                    ArchiveFileInfo mapData = mapArc.files.Find(e => e.FileName.Contains($"{fileName}.byml"));
+                PlacementFileName = mapData.FileName.Replace("Map.byml", "");
 
-                    if (mapData != null)
-                    {
-                        BymlFileData mapByml = ByamlFile.LoadN(mapData.FileData, false);
+                BymlIter iter = new BymlIter(mapData.AsBytes());
 
-                        CurrentMapScene = new StageScene();
+                string designPath = ResourceManager.FindResourcePath($"StageData\\{PlacementFileName}Design.szs");
 
-                        CurrentMapScene.DeserializeByml(mapByml.RootNode);
+                if (File.Exists(designPath))
+                    LoadGraphicsData(designPath);
 
-                        //string designPath = ResourceManager.FindResourcePath($"StageData\\{PlacementFileName}Design.szs");
+                IsLoadingStage = true;
 
-                        //if (File.Exists(designPath))
-                        //    LoadGraphicsData(designPath);
+                CurrentMapScene = new StageScene();
 
-                        //foreach (var layer in LayerList.LayerList)
-                        //{
-                        //    foreach (var objList in layer.LayerObjects)
-                        //    {
-                        //        if (objList.Key == "AreaList" || objList.Key == "ZoneList") continue; // we should probably handle area's a bit differently
+                CurrentMapScene.DeserializeByml(iter);
 
-                        //        ActorDataBase.RegisterActorsToDatabase(objList.Value);
-                        //    }
-                        //}
+                CurrentMapScene.Setup(this);
 
-                        Console.WriteLine($"Stage {fileName} Loaded without Exception!");
+                IsLoadingStage = false;
 
-                        Console.WriteLine("Beginning Save.");
-
-                        Save(null);
-                    }
-                    else
-                    {
-                        throw new FileLoadException("Unable to Load Archive!");
-                    }
-
-                }
-
-                ActorDataBase.SerializeDatabase();
-
-                Console.WriteLine("Every Stage Sucessfully Loaded!");
             }
             else
             {
-                mapArc = new SARC();
-
-                mapArc.Load(stream);
-
-                ArchiveFileInfo mapData = mapArc.files.Find(e => e.FileName.Contains("StageMap.byml"));
-
-                if (mapData != null)
-                {
-
-                    PlacementFileName = mapData.FileName.Replace("Map.byml", "");
-
-                    BymlIter iter = new BymlIter(mapData.AsBytes());
-
-                    string designPath = ResourceManager.FindResourcePath($"StageData\\{PlacementFileName}Design.szs");
-
-                    if (File.Exists(designPath))
-                        LoadGraphicsData(designPath);
-
-                    IsLoadingStage = true;
-
-                    CurrentMapScene = new StageScene();
-
-                    CurrentMapScene.DeserializeByml(iter);
-
-                    CurrentMapScene.Setup(this);
-
-                    IsLoadingStage = false;
-
-                }
-                else
-                {
-                    throw new FileLoadException("Unable to Load Archive!");
-                }
+                throw new FileLoadException("Unable to Load Archive!");
             }
 
         }
@@ -234,6 +175,63 @@ namespace RedStarLibrary
             mapArc.SetFileData(mapData.FileName, memStream);
 
             mapArc.Save(stream);
+        }
+
+        // Iterates through every stage located within the users provided dump directory and creates a database with all objects found within the stages.
+        private void GenerateActorDataBase()
+        {
+            var stageDirectory = new List<string>(Directory.GetFiles($"{PluginConfig.GamePath}\\StageData"));
+
+            foreach (var stagePath in stageDirectory.FindAll(e => Path.GetFileNameWithoutExtension(e).Contains("StageMap")))
+            {
+                string fileName = Path.GetFileNameWithoutExtension(stagePath);
+
+                mapArc = new SARC();
+
+                mapArc.Load(new MemoryStream(YAZ0.Decompress(stagePath)));
+
+                ArchiveFileInfo mapData = mapArc.files.Find(e => e.FileName.Contains($"{fileName}.byml"));
+
+                if (mapData != null)
+                {
+                    StageScene curStage = new StageScene();
+
+                    curStage.DeserializeByml(new BymlIter(mapData.AsBytes()));
+
+                    //foreach (var layer in LayerList.LayerList)
+                    //{
+                    //    foreach (var objList in layer.LayerObjects)
+                    //    {
+                    //        if (objList.Key == "AreaList" || objList.Key == "ZoneList") continue; // we should probably handle area's a bit differently
+
+                    //        ActorDataBase.RegisterActorsToDatabase(objList.Value);
+                    //    }
+                    //}
+
+                    // global layers
+                    foreach (var layers in curStage.GlobalLayers)
+                    {
+                        foreach (var layer in layers.Value)
+                        {
+                            ActorDataBase.RegisterActorsToDatabase(layer.LayerObjects);
+                        }
+                    }
+
+                    // scenario layers
+                    foreach (var scenario in curStage.StageScenarios)
+                    {
+                        foreach (var layers in scenario.ScenarioLayers)
+                        {
+                            foreach (var layer in layers.Value)
+                            {
+                                ActorDataBase.RegisterActorsToDatabase(layer.LayerObjects);
+                            }
+                        }
+                    }
+                }
+            }
+
+            ActorDataBase.SerializeDatabase();
         }
 
         private bool InitIcons()
@@ -381,6 +379,52 @@ namespace RedStarLibrary
                 });
             }
 
+            if(ImGui.Button("Dump Stage Models"))
+            {
+                var dlg = new ImguiFolderDialog();
+                dlg.Title = "Select Stage Folder Output";
+
+                if (dlg.ShowDialog())
+                {
+                    var stageActors = CurrentMapScene.GetLoadedActors();
+
+                    var stageDumpPath = Path.Combine(dlg.SelectedPath, PlacementFileName);
+                    if (!Directory.Exists(stageDumpPath))
+                        Directory.CreateDirectory(stageDumpPath);
+
+                    Dictionary<string, dynamic> stageData = new Dictionary<string, dynamic>();
+                    Dictionary<string, dynamic> positionData = new Dictionary<string, dynamic>();
+                    stageData.Add("PlacementInfo", positionData);
+
+                    List<string> exportedModels = new List<string>();
+                    stageData.Add("ExportedModels", exportedModels);
+
+                    foreach (var actor in stageActors.Where(e => e.ObjectRender is BfresRender))
+                    {
+                        var placementInfo = actor.Placement;
+                        var collectionName = $"{actor.ArchiveName}_{placementInfo.Id}";
+
+                        Console.WriteLine("Adding Placement Info for: " + collectionName);
+
+                        positionData.Add(collectionName, new Dictionary<string, dynamic>()
+                        {
+                            {"Position", placementInfo.Translate.ToDict() },
+                            {"Rotation", placementInfo.Rotate.ToDict() },
+                            {"Scale", placementInfo.Scale.ToDict() }
+                        });
+
+                        if (!exportedModels.Contains(actor.ArchiveName))
+                        {
+                            Console.WriteLine("Dumping Model: " + actor.ArchiveName);
+                            actor.TryExportModel(stageDumpPath);
+                            exportedModels.Add(actor.ArchiveName);
+                        }
+                    }
+                    File.WriteAllText(Path.Combine(stageDumpPath, PlacementFileName + ".json"), JsonSerializer.Serialize(stageData, new JsonSerializerOptions() { WriteIndented = true }));
+     
+                    FileUtility.OpenFolder(stageDumpPath);
+                }
+            }
         }
 
         public void DrawEditorDropdown()
@@ -551,16 +595,19 @@ namespace RedStarLibrary
 
             if(item is AssetMenu.LiveActorAsset actorAsset)
             {
-                var actorPlacement = new PlacementInfo(actorAsset.DatabaseEntry);
 
-                Random rng = new Random();
+                CurrentMapScene.TryAddActorFromAsset(this, position, actorAsset);
 
-                string listName = actorPlacement.UnitConfig.GenerateCategory;
+                //var actorPlacement = new PlacementInfo(actorAsset.DatabaseEntry);
 
-                actorPlacement.Translate = position;
-                actorPlacement.Id = "obj" + rng.Next(1000);
-                actorPlacement.LayerConfigName = SelectedLayer;
-                actorPlacement.PlacementFileName = PlacementFileName;
+                //Random rng = new Random();
+
+                //string listName = actorPlacement.UnitConfig.GenerateCategory;
+
+                //actorPlacement.Translate = position;
+                //actorPlacement.Id = "obj" + rng.Next(1000);
+                //actorPlacement.LayerConfigName = SelectedLayer;
+                //actorPlacement.PlacementFileName = PlacementFileName;
 
                 //var actor = CurrentMapScene.LoadActorFromPlacement(actorPlacement, new ActorList(""));
 

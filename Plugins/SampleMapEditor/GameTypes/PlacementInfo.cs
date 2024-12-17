@@ -134,6 +134,8 @@ namespace RedStarLibrary.GameTypes
 
         public bool isLinkedInfo = false; // determines whether or not the placement is an object created from a parent info
 
+        public bool isSyncInfoToLayer = true; // if disabled, placement info will only save itself in the scenario currently loaded
+
         private List<string> loadedParams;
         public PlacementInfo()
         {

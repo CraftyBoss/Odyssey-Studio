@@ -15,6 +15,9 @@ using Toolbox.Core;
 using ImGuiNET;
 using RedStarLibrary.Rendering;
 using RedStarLibrary.MapData;
+using BfresLibrary;
+using CafeLibrary.ModelConversion;
+using RedStarLibrary.Extensions;
 
 namespace RedStarLibrary.GameTypes
 {
@@ -57,6 +60,7 @@ namespace RedStarLibrary.GameTypes
             get { return ObjectRender.Transform; }
         }
 
+        public ActorRenderMode RenderMode { get; private set; }
 
         [BindGUI("Invalidate Camera Clipping", Category = "Archive Properties")]
         public bool IsInvalidateClipping
@@ -93,9 +97,8 @@ namespace RedStarLibrary.GameTypes
                 }
             }
         }
-        private float clipRadius = 10000.0f;
 
-        private ActorRenderMode renderMode;
+        private float clipRadius = 10000.0f;
 
         public LiveActor(NodeBase parentNode, string actorName, string path)
         {
@@ -139,9 +142,9 @@ namespace RedStarLibrary.GameTypes
         {
             parent = parentNode;
 
-            if (renderMode == ActorRenderMode.EditableObj)
+            if (RenderMode == ActorRenderMode.EditableObj)
                 ObjectRender.ParentUINode = parent;
-            else if (renderMode == ActorRenderMode.Drawable)
+            else if (RenderMode == ActorRenderMode.Drawable)
                 parent.AddChild(((RenderablePath)ObjectDrawer).UINode);
 
             
@@ -164,7 +167,7 @@ namespace RedStarLibrary.GameTypes
         {
             Console.WriteLine($"Creating Basic Render of Actor: {Placement.Id} {Placement.UnitConfigName}");
             ObjectRender = new TransformableObject(null);
-            renderMode = ActorRenderMode.EditableObj;
+            RenderMode = ActorRenderMode.EditableObj;
             UpdateRenderer();
         }
 
@@ -172,18 +175,33 @@ namespace RedStarLibrary.GameTypes
         {
             Console.WriteLine($"Creating BFRES Render of Actor: {Placement.Id} {Placement.UnitConfigName}");
 
-            ObjectRender = new BfresRender(modelStream, modelPath);
+            var bfresFileInfo = new File_Info();
+            bfresFileInfo.Compression = new Yaz0();
+            bfresFileInfo.FilePath = modelPath;
+            bfresFileInfo.FileName = ArchiveName;
 
-            var bfresRender = (BfresRender)ObjectRender;
+            // TODO: using this method of loading a bfres model, each mesh is selectable in the scene view, find a way to make the selection only apply to the whole model
+            var bfres = new BFRES();
+            bfres.FileInfo = bfresFileInfo;
+            bfres.Load(modelStream);
+            bfres.Renderer.UpdateBoundingBox();
+
+            var bfresRender = bfres.Renderer;
+
+            ObjectRender = bfresRender;
 
             if (textureList != null)
             {
-                // TODO: Find a way to only add textures that the BFRES needs instead of every texture in the archive
-                foreach (var texture in textureList)
+                var usedTextures = GetUsedTextureNames();
+
+                foreach ( var textureName in usedTextures )
                 {
-                    if (!bfresRender.Textures.ContainsKey(texture.Key))
+                    if(!bfresRender.Textures.ContainsKey(textureName))
                     {
-                        bfresRender.Textures.Add(texture.Key, texture.Value);
+                        if (textureList.ContainsKey(textureName))
+                            bfresRender.Textures.Add(textureName, textureList[textureName]);
+                        else
+                            Console.WriteLine($"[{ArchiveName}] Missing Texture: {textureName}");
                     }
                 }
             }
@@ -194,7 +212,7 @@ namespace RedStarLibrary.GameTypes
                 return FrustumCullActor((BfresRender)ObjectRender);
             };
 
-            renderMode = ActorRenderMode.EditableObj;
+            RenderMode = ActorRenderMode.EditableObj;
             UpdateRenderer();
         }
 
@@ -235,7 +253,7 @@ namespace RedStarLibrary.GameTypes
                     break;
             }
 
-            renderMode = ActorRenderMode.EditableObj;
+            RenderMode = ActorRenderMode.EditableObj;
             UpdateRenderer();
         }
 
@@ -260,7 +278,7 @@ namespace RedStarLibrary.GameTypes
             rail.Transform.RotationEulerDegrees = Placement.Rotate;
             rail.Transform.UpdateMatrix(true);
 
-            renderMode = ActorRenderMode.Drawable;
+            RenderMode = ActorRenderMode.Drawable;
 
             SetupRail(rail, Placement);
 
@@ -277,9 +295,9 @@ namespace RedStarLibrary.GameTypes
                     {
                         actor.isPlaced = false;
 
-                        if (renderMode == ActorRenderMode.EditableObj)
+                        if (RenderMode == ActorRenderMode.EditableObj)
                             ObjectRender.UINode.Children.Clear();
-                        else if (renderMode == ActorRenderMode.Drawable)
+                        else if (RenderMode == ActorRenderMode.Drawable)
                             ((RenderablePath)ObjectDrawer).UINode.Children.Clear();
                     }
                 }
@@ -329,12 +347,67 @@ namespace RedStarLibrary.GameTypes
 
                 }
 
-                if (renderMode == ActorRenderMode.EditableObj)
+                if (RenderMode == ActorRenderMode.EditableObj)
                     ObjectRender.UINode.AddChild(rootLinkNode);
-                else if (renderMode == ActorRenderMode.Drawable)
+                else if (RenderMode == ActorRenderMode.Drawable)
                     ((RenderablePath)ObjectDrawer).UINode.AddChild(rootLinkNode);
                     
             }
+        }
+
+        public bool TryExportModel(string outPath)
+        {
+            if (ObjectRender is BfresRender bfresRender)
+            {
+                outPath = Path.Combine(outPath, ArchiveName);
+                if (!Directory.Exists(outPath))
+                    Directory.CreateDirectory(outPath);
+                else // dont bother re-dumping if the model folder is already present
+                    return true;
+
+                var bfres = bfresRender.BfresFile;
+
+                foreach (var model in bfres.ModelFolder.Models)
+                {
+                    var modelPath = Path.Combine(outPath, model.Name + ".dae");
+
+                    var scene = BfresModelExporter.FromGeneric(model.ResFile, model.Model);
+                    IONET.IOManager.ExportScene(scene, modelPath, new IONET.ExportSettings() { });
+                }
+
+                bfres.TextureFolder.ExportAllTextures(outPath, false);
+
+                foreach ((var texName, var arcTex) in bfresRender.Textures)
+                    arcTex.OriginalSource.Export($"{outPath}\\{texName}.png", new TextureExportSettings());
+
+                return true;
+            }
+            return false;
+        }
+
+        private List<string> GetUsedTextureNames()
+        {
+            if (ObjectRender is not BfresRender bfresRender)
+                return new List<string>();
+
+            List<string> result = new List<string>();
+
+            foreach (BfresModelRender model in bfresRender.Models)
+            {
+                foreach (BfresMeshRender mesh in model.Meshes)
+                {
+                    if (mesh.MaterialAsset is not SMORenderer matAsset)
+                        continue;
+
+                    foreach (var texMap in matAsset.Material.TextureMaps)
+                    {
+                        if(!result.Contains(texMap.Name))
+                            result.Add(texMap.Name);
+                    }
+                }
+            }
+
+            return result;
         }
 
         private void UpdateRenderer()
@@ -356,6 +429,9 @@ namespace RedStarLibrary.GameTypes
                     PropertyDrawer.Draw(Placement.ActorParams);
                 };
             }
+
+            if(ObjectRender is BfresRender)
+                ObjectRender.UINode.TagUI.UIDrawer += ExportDialog;
 
             ObjectRender.Transform.TransformUpdated += delegate
             {
@@ -393,6 +469,17 @@ namespace RedStarLibrary.GameTypes
                 //    LayerList.AddObjectToLayers(Placement, EditorLoader.MapScenarioNo, Placement.UnitConfig.GenerateCategory, true);
                 //}
             };
+        }
+
+        private void ExportDialog(object sender, EventArgs e)
+        {
+            if (ImGui.Button("Export Model"))
+            {
+                var dlg = new ImguiFolderDialog();
+
+                if (dlg.ShowDialog())
+                    TryExportModel(dlg.SelectedPath);
+            }
         }
 
         private bool FrustumCullActor(BfresRender render)

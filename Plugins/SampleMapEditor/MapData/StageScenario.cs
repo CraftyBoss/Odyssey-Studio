@@ -17,6 +17,7 @@ namespace RedStarLibrary.MapData
         public int ScenarioIdx { get; private set; }
         /// <summary>
         /// List of Layers containing unique objects for the current layer, separate from the global layer list.
+        /// TODO: Remove this, objects placed within a scenario that is unique to it should only be differentiated during saving.
         /// </summary>
         public Dictionary<string, LayerList> ScenarioLayers { get; private set; }
 
@@ -37,12 +38,12 @@ namespace RedStarLibrary.MapData
             ScenarioIdx = scenarioIdx;
         }
 
-        public LayerList GetPlacementLayer(PlacementInfo info, string layerName)
+        public LayerList GetOrCreateLayerList(PlacementInfo info, string objCategory)
         {
 
             LayerList actorLayer;
 
-            if (GlobalLayerList.TryGetValue(layerName, out LayerList globalList))
+            if (GlobalLayerList.TryGetValue(objCategory, out LayerList globalList))
             {
                 if (!globalList.IsInfoInAnyLayer(info))
                 {
@@ -50,10 +51,10 @@ namespace RedStarLibrary.MapData
 
                     if (layer != null && layer.IsLayerLoaded)
                     {
-                        if (!ScenarioLayers.TryGetValue(layerName, out actorLayer))
+                        if (!ScenarioLayers.TryGetValue(objCategory, out actorLayer))
                         {
                             actorLayer = new LayerList();
-                            ScenarioLayers.Add(layerName, actorLayer);
+                            ScenarioLayers.Add(objCategory, actorLayer);
                         }
                     }
                     else
@@ -69,7 +70,7 @@ namespace RedStarLibrary.MapData
             else
             {
                 actorLayer = new LayerList();
-                GlobalLayerList.Add(layerName, actorLayer);
+                GlobalLayerList.Add(objCategory, actorLayer);
             }
 
             return actorLayer;
@@ -122,7 +123,7 @@ namespace RedStarLibrary.MapData
                 {
                     PlacementInfo actorPlacement = new PlacementInfo(actorIter);
 
-                    LayerList actorLayer = GetPlacementLayer(actorPlacement, listName);
+                    LayerList actorLayer = GetOrCreateLayerList(actorPlacement, listName);
 
                     layerNames.Add(actorPlacement.LayerConfigName);
 
@@ -139,10 +140,10 @@ namespace RedStarLibrary.MapData
 
             // actor linking
 
-            foreach (var item in LoadedLayerNames)
-            {
+            //foreach (var item in LoadedLayerNames)
+            //{
 
-            }
+            //}
 
             foreach (var layerList in GlobalLayerList.Values)
             {
@@ -169,11 +170,6 @@ namespace RedStarLibrary.MapData
                             Console.ForegroundColor = ConsoleColor.Yellow;
                             Console.WriteLine($"Stage: {placement.PlacementFileName} Obj ID: {placement.Id} Name: {placement.UnitConfigName} Scenario: {ScenarioIdx} Considered a link Destination!");
                             Console.ForegroundColor = ConsoleColor.Gray;
-                        }
-
-                        if(placement.ObjectName == "AnimalChaseExGround000")
-                        {
-
                         }
 
                         if (!placement.isLinkedInfo)

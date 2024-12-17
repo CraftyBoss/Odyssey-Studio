@@ -254,6 +254,8 @@ namespace MapStudio
             fileMenu.MenuItems.Add(new MenuItem($"EXIT", ' ', () => { _window.Exit(); }));
 
             var saveConfigMenu = new MenuItem("SAVE_CONFIG") { RenderItems = LoadFileConfigMenu };
+            var editMenu = new MenuItem("EDIT") { RenderItems = LoadEditMenu };
+            var pathMenu = new MenuItem("PATHS") { RenderItems = LoadPluginsMenu };
             var settingsMenu = new MenuItem("SETTINGS", LoadSettingsWindow);
             var windowsMenu = new MenuItem("WINDOWS") { RenderItems = LoadWindowMenu };
             var pluginsMenu = new MenuItem("PLUGINS") { RenderItems = LoadPluginMenus };
@@ -271,6 +273,8 @@ namespace MapStudio
 
             MenuItems.Add(fileMenu);
             MenuItems.Add(saveConfigMenu);
+            MenuItems.Add(editMenu);
+            MenuItems.Add(pathMenu);
             MenuItems.Add(settingsMenu);
             MenuItems.Add(windowsMenu);
             MenuItems.Add(pluginsMenu);

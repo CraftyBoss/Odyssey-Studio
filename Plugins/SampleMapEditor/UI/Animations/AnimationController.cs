@@ -9,7 +9,7 @@ using MapStudio.UI;
 using ImGuiNET;
 using System.Numerics;
 
-namespace SampleMapEditor
+namespace RedStarLibrary
 {
     /// <summary>
     /// Represents a playable animation that can be displayed in the viewport. 

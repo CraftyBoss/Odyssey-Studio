@@ -192,7 +192,6 @@ namespace RedStarLibrary
                         else
                             entry.ActorParams.Add(kvp.Key, new HashSet<dynamic>() { kvp.Value });
                     }
-                        
 
                     Console.WriteLine($"Added {info.ClassName} to Database.");
 
