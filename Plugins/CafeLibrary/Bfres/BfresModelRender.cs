@@ -317,7 +317,7 @@ namespace CafeLibrary.Rendering
 
             context.CurrentShader = materialAsset.Shader;
             ((BfshaRenderer)mesh.MaterialAsset).ParentRenderer = parentRender;
-          ((BfshaRenderer)mesh.MaterialAsset).Render(context, this, parentRender.Transform, materialAsset.Shader, mesh);
+            ((BfshaRenderer)mesh.MaterialAsset).Render(context, this, parentRender.Transform, materialAsset.Shader, mesh);
             //Draw the mesh
             int lod = mesh.GetDisplayLevel(GLContext.ActiveContext, parentRender);
             mesh.DrawCustom(context.CurrentShader, lod);

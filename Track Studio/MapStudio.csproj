@@ -33,6 +33,9 @@
 	<ItemGroup>
 	  <ProjectReference Include="..\GLFrameworkEngine\GLFrameworkEngine.csproj" />
 	  <ProjectReference Include="..\MapStudio.UI\MapStudio.UI.csproj" />
+	  <ProjectReference Include="..\Plugins\CafeLibrary\CafeLibrary.csproj" />
+	  <ProjectReference Include="..\Plugins\DirectXTexLibrary\DirectXTexLibrary.csproj" />
+	  <ProjectReference Include="..\Plugins\MapStudio.ImageCompressor\MapStudio.ImageCompressor.csproj" />
 	  <ProjectReference Include="..\Plugins\SampleMapEditor\RedStarLibrary.csproj" />
 	</ItemGroup>
   

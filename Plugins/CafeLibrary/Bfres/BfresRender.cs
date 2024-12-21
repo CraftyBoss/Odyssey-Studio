@@ -133,7 +133,20 @@ namespace CafeLibrary.Rendering
         public BfresRender(BfresLibrary.ResFile resFile, string filePath, NodeBase parent = null) : base(parent)
         {
             Name = filePath;
+
+            this.Transform.TransformUpdated += delegate
+            {
+                CalculateProbes();
+            };
+
             BfresLoader.OpenBfres(resFile, this);
+
+            if (Models.Count > 0)
+            {
+                var bounding = ((BfresModelRender)Models[0]).BoundingNode;
+                Transform.ModelBounding = bounding.Box;
+            }
+
             UpdateBoundingBox();
         }
 

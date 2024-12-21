@@ -312,18 +312,21 @@ namespace CafeLibrary.Rendering
         static BfresMaterialRender LoadMaterial(BfresRender render, BfresModelRender model, BfresMeshRender meshRender, Material mat, Shape shape)
         {
             BfresMaterialRender matRender = new BfresMaterialRender(render, model);
-            if (render.ShaderFiles.Count > 0)
+
+            if (TargetShader != null && PluginConfig.UseGameShaders)
             {
-                if (TargetShader != null)
-                    matRender = (BfresMaterialRender)Activator.CreateInstance(TargetShader, render, model);
+                var shaderMat = (ShaderRenderBase)Activator.CreateInstance(TargetShader, render, model);
+                if (shaderMat.UseRenderer(mat, mat.ShaderAssign.ShaderArchiveName, mat.ShaderAssign.ShadingModelName))
+                    matRender = shaderMat;
             }
+
             matRender.Material = new FMAT();
             matRender.Name = mat.Name;
             matRender.Material.ReloadMaterial(mat);
             matRender.ReloadRenderState(mat, meshRender);
 
-            if (matRender is BfshaRenderer)
-                ((BfshaRenderer)matRender).TryLoadShader(render, meshRender);
+            if (matRender is BfshaRenderer bfshaRender)
+                bfshaRender.TryLoadShader(render, meshRender);
 
             return matRender;
         }

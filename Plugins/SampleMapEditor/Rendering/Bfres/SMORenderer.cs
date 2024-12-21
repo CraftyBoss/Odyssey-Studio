@@ -17,10 +17,43 @@ namespace RedStarLibrary.Rendering
 {
     public class SMORenderer : BfshaRenderer
     {
+        public enum RenderType
+        {
+            Deferred,
+            Deferred_Translucent,
+            Deferred_Translucent_Thickness,
+            Forward,
+            Forward_Translucent_Thickness,
+            Deferred_Translucent_Seal,
+            Deferred_Translucent_Thickness_Fur,
+        }
+
+        public enum RenderShader
+        {
+            Material,
+            Sky
+        }
+
+        private RenderShader ShaderType;
+
         public override bool UseRenderer(BfresLibrary.Material material, string archive, string model)
         {
             Console.WriteLine($"Checking if {archive} can be used.");
-            return archive == "alRenderMaterial"; //|| archive == "alRenderSky";
+
+            if (archive.StartsWith("alRender"))
+                archive = archive.Substring("alRender".Length);
+            else
+                return false;
+
+            Console.WriteLine("Got Render Type: " + archive);
+
+            if(Enum.TryParse<RenderShader>(archive, out var result))
+            {
+                ShaderType = result;
+                return true;
+            }
+
+            return false;
         }
 
         public SMORenderer(BfresRender render, BfresModelRender model) : base(render, model)
@@ -30,12 +63,13 @@ namespace RedStarLibrary.Rendering
 
         public override void ReloadRenderState(Material mat, BfresMeshRender mesh)
         {
+            var renderType = Enum.Parse<RenderType>(mat.ShaderAssign.ShaderOptions["cRenderType"]);
 
-            if (mat.ShaderAssign.ShaderOptions["cRenderType"] == "3") {
+            if (renderType == RenderType.Forward) {
                 mesh.UseColorBufferPass = true;
             }
 
-            if (mat.ShaderAssign.ShaderOptions["cRenderType"] != "0") {
+            if (renderType != RenderType.Deferred) {
                 Material.BlendState.State = GLMaterialBlendState.BlendState.Translucent;
                 Material.BlendState.BlendColor = true;
                 Material.IsTransparent = true;

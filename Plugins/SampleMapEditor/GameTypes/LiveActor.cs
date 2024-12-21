@@ -132,10 +132,7 @@ namespace RedStarLibrary.GameTypes
 
             modelPath = ResourceManager.FindResourcePath($"ObjectData\\{ArchiveName}.szs");
 
-            if (File.Exists(modelPath))
-            {
-                hasArchive = true;
-            }
+            hasArchive = File.Exists(modelPath);
         }
 
         public void SetParentNode(NodeBase parentNode)
@@ -146,8 +143,6 @@ namespace RedStarLibrary.GameTypes
                 ObjectRender.ParentUINode = parent;
             else if (RenderMode == ActorRenderMode.Drawable)
                 parent.AddChild(((RenderablePath)ObjectDrawer).UINode);
-
-            
         }
 
         public void SetActorIcon(char icon)
@@ -175,18 +170,10 @@ namespace RedStarLibrary.GameTypes
         {
             Console.WriteLine($"Creating BFRES Render of Actor: {Placement.Id} {Placement.UnitConfigName}");
 
-            var bfresFileInfo = new File_Info();
-            bfresFileInfo.Compression = new Yaz0();
-            bfresFileInfo.FilePath = modelPath;
-            bfresFileInfo.FileName = ArchiveName;
+            var resFile = new ResFile(modelStream);
+            var bfresRender = new BfresRender(resFile, ArchiveName);
 
-            // TODO: using this method of loading a bfres model, each mesh is selectable in the scene view, find a way to make the selection only apply to the whole model
-            var bfres = new BFRES();
-            bfres.FileInfo = bfresFileInfo;
-            bfres.Load(modelStream);
-            bfres.Renderer.UpdateBoundingBox();
-
-            var bfresRender = bfres.Renderer;
+            bfresRender.BfresFile = new BFRES() { ResFile = resFile };
 
             ObjectRender = bfresRender;
 
@@ -367,15 +354,13 @@ namespace RedStarLibrary.GameTypes
 
                 var bfres = bfresRender.BfresFile;
 
-                foreach (var model in bfres.ModelFolder.Models)
+                foreach (var model in bfres.ResFile.Models)
                 {
-                    var modelPath = Path.Combine(outPath, model.Name + ".dae");
+                    var modelPath = Path.Combine(outPath, model.Key + ".dae");
 
-                    var scene = BfresModelExporter.FromGeneric(model.ResFile, model.Model);
+                    var scene = BfresModelExporter.FromGeneric(bfres.ResFile, model.Value);
                     IONET.IOManager.ExportScene(scene, modelPath, new IONET.ExportSettings() { });
                 }
-
-                bfres.TextureFolder.ExportAllTextures(outPath, false);
 
                 foreach ((var texName, var arcTex) in bfresRender.Textures)
                     arcTex.OriginalSource.Export($"{outPath}\\{texName}.png", new TextureExportSettings());
