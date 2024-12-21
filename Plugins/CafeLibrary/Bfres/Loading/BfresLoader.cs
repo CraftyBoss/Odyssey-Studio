@@ -313,7 +313,7 @@ namespace CafeLibrary.Rendering
         {
             BfresMaterialRender matRender = new BfresMaterialRender(render, model);
 
-            if (TargetShader != null && PluginConfig.UseGameShaders)
+            if (TargetShader != null)
             {
                 var shaderMat = (ShaderRenderBase)Activator.CreateInstance(TargetShader, render, model);
                 if (shaderMat.UseRenderer(mat, mat.ShaderAssign.ShaderArchiveName, mat.ShaderAssign.ShadingModelName))

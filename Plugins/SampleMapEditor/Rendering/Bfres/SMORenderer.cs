@@ -31,7 +31,7 @@ namespace RedStarLibrary.Rendering
         public enum RenderShader
         {
             Material,
-            Sky
+            //Sky,
         }
 
         private RenderShader ShaderType;
