@@ -108,6 +108,8 @@ namespace CafeLibrary.Rendering
         public bool MeshPicking = false;
         public Func<bool> EnablePicking;
 
+        public BfresLibrary.ResFile ResFile;
+
         public BFRES BfresFile;
 
         public BfresRender() { }
@@ -128,26 +130,6 @@ namespace CafeLibrary.Rendering
         public BfresRender(System.IO.Stream stream, string filePath, NodeBase parent = null) : base(parent)
         {
             UpdateModelFromFile(stream, filePath);
-        }
-
-        public BfresRender(BfresLibrary.ResFile resFile, string filePath, NodeBase parent = null) : base(parent)
-        {
-            Name = filePath;
-
-            this.Transform.TransformUpdated += delegate
-            {
-                CalculateProbes();
-            };
-
-            BfresLoader.OpenBfres(resFile, this);
-
-            if (Models.Count > 0)
-            {
-                var bounding = ((BfresModelRender)Models[0]).BoundingNode;
-                Transform.ModelBounding = bounding.Box;
-            }
-
-            UpdateBoundingBox();
         }
 
         public bool UpdateModelFromFile(System.IO.Stream stream, string name)

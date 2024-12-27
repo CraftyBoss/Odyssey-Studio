@@ -16,7 +16,7 @@
     <ProjectReference Include="..\..\HakoniwaByml\HakoniwaByml\HakoniwaByml.csproj" />
     <ProjectReference Include="..\..\MapStudio.UI\MapStudio.UI.csproj" />
     <ProjectReference Include="..\..\Toolbox.Core\Toolbox.Core.csproj" />
-    <ProjectReference Include="..\CafeLibrary\CafeLibrary.csproj" />
+	<ProjectReference Include="..\CafeLibrary\CafeLibrary.csproj" />
   </ItemGroup>	
   <ItemGroup>
     <Reference Include="BfresLibrary">

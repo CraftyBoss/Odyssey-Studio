@@ -8,12 +8,17 @@ using GLFrameworkEngine;
 using System.Reflection;
 using MapStudio.UI;
 using System.Linq;
+using RedStarLibrary;
 
 namespace MapStudio
 {
     public class Program
     {
+#if DEBUG
+        static bool IS_DEBUG = true;
+#else
         static bool IS_DEBUG = false;
+#endif
 
         const string DLL_DIRECTORY = "Lib";
 
@@ -45,14 +50,14 @@ namespace MapStudio
             InitGLResourceCreation();
             //Load the window and run the application
             GraphicsMode mode = new GraphicsMode(new ColorFormat(32), 24, 8, 4, new ColorFormat(32), 2, false);
-            var asssemblyVersion = GetRepoCompileDate(Runtime.ExecutableDir);
+#if DEBUG
+            var assemblyVersion = "Debug";
+#else
+            var assemblyVersion = GetRepoCompileDate(Runtime.ExecutableDir);
+#endif
 
-            string programName = System.Reflection.Assembly.GetExecutingAssembly().GetName().Name;
-
-            var wnd = new UIFramework.Framework(new MainWindow(argumentHandle), mode, asssemblyVersion, programName);
-            wnd.Icon = System.Drawing.Icon.ExtractAssociatedIcon(Assembly.GetExecutingAssembly().Location);
-            wnd.VSync = OpenTK.VSyncMode.On;
-            wnd.Run();
+            UIFramework.Framework.Init(new MainWindow(argumentHandle), mode, assemblyVersion, "Odyssey Studio");
+            UIFramework.Framework.RunWindow();
         }
 
         static void ExceptionHandler(object sender, UnhandledExceptionEventArgs args)
@@ -124,7 +129,7 @@ namespace MapStudio
         static IRenderableTexture TextureCreationOpenGL(object sender, EventArgs e)
         {
             var tex = sender as STGenericTexture;
-            return GLTexture.FromGenericTexture(tex, tex.Parameters);
+            return ResourceManager.FindOrLoadRenderTex(tex);
         }
 
         /// 

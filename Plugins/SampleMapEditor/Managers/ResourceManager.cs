@@ -1,6 +1,8 @@
-﻿using CafeLibrary;
+﻿using BfresLibrary;
+using CafeLibrary;
 using CafeLibrary.Rendering;
 using GLFrameworkEngine;
+using RedStarLibrary.Extensions;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -12,15 +14,17 @@ using Toolbox.Core.IO;
 
 namespace RedStarLibrary
 {
-    class ResourceManager
+    public class ResourceManager
     {
 
         private static Dictionary<string, SARC> LoadedSARCS = new Dictionary<string, SARC>();
         private static Dictionary<string, Dictionary<string, GenericRenderer.TextureView>> LoadedTextures = new Dictionary<string, Dictionary<string, GenericRenderer.TextureView>>();
+        private static Dictionary<string, IRenderableTexture> TextureCache = new Dictionary<string, IRenderableTexture>();
         public static void ClearTextureList()
         {
             LoadedTextures = new Dictionary<string, Dictionary<string, GenericRenderer.TextureView>>();
         }
+
         public static Dictionary<string, GenericRenderer.TextureView> FindOrLoadTextureList(string relativePath)
         {
 
@@ -64,17 +68,28 @@ namespace RedStarLibrary
                 if (!LoadedSARCS.ContainsKey(arcName))
                 {
                     SARC arc = new SARC();
-
                     arc.Load(new MemoryStream(YAZ0.Decompress(sarcPath)));
-
                     LoadedSARCS.Add(arcName, arc);
                 }
 
                 return LoadedSARCS[arcName];
             }else
-            {
                 return null;
-            }
+        }
+
+        public static IRenderableTexture FindOrLoadRenderTex(STGenericTexture tex)
+        {
+            if (!TextureCache.TryGetValue(tex.Name, out var texture))
+                TextureCache.Add(tex.Name, texture = GLTexture.FromGenericTexture(tex, tex.Parameters));
+
+            return texture;
+        }
+
+        public static void ClearResources()
+        {
+            LoadedSARCS.Clear();
+            LoadedTextures.Clear();
+            TextureCache.Clear();
         }
 
         public static string FindResourcePath(string relativePath)

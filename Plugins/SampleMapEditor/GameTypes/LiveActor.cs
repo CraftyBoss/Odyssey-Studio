@@ -18,6 +18,7 @@ using RedStarLibrary.MapData;
 using BfresLibrary;
 using CafeLibrary.ModelConversion;
 using RedStarLibrary.Extensions;
+using UIFramework;
 
 namespace RedStarLibrary.GameTypes
 {
@@ -170,10 +171,7 @@ namespace RedStarLibrary.GameTypes
         {
             Console.WriteLine($"Creating BFRES Render of Actor: {Placement.Id} {Placement.UnitConfigName}");
 
-            var resFile = new ResFile(modelStream);
-            var bfresRender = new BfresRender(resFile, ArchiveName);
-
-            bfresRender.BfresFile = new BFRES() { ResFile = resFile };
+            var bfresRender = new BfresRender(modelStream, ArchiveName);
 
             ObjectRender = bfresRender;
 
@@ -352,13 +350,13 @@ namespace RedStarLibrary.GameTypes
                 else // dont bother re-dumping if the model folder is already present
                     return true;
 
-                var bfres = bfresRender.BfresFile;
+                var resFile = bfresRender.ResFile;
 
-                foreach (var model in bfres.ResFile.Models)
+                foreach (var model in resFile.Models)
                 {
                     var modelPath = Path.Combine(outPath, model.Key + ".dae");
 
-                    var scene = BfresModelExporter.FromGeneric(bfres.ResFile, model.Value);
+                    var scene = BfresModelExporter.FromGeneric(resFile, model.Value);
                     IONET.IOManager.ExportScene(scene, modelPath, new IONET.ExportSettings() { });
                 }
 
@@ -407,6 +405,9 @@ namespace RedStarLibrary.GameTypes
             ObjectRender.Transform.RotationEulerDegrees = Placement.Rotate;
             ObjectRender.Transform.UpdateMatrix(true);
 
+            if (ObjectRender is BfresRender)
+                ObjectRender.UINode.TagUI.UIDrawer += DrawModelProperties;
+
             if (Placement.ActorParams.Count > 0)
             {
                 ObjectRender.UINode.TagUI.UIDrawer += delegate
@@ -414,9 +415,6 @@ namespace RedStarLibrary.GameTypes
                     PropertyDrawer.Draw(Placement.ActorParams);
                 };
             }
-
-            if(ObjectRender is BfresRender)
-                ObjectRender.UINode.TagUI.UIDrawer += ExportDialog;
 
             ObjectRender.Transform.TransformUpdated += delegate
             {
@@ -456,14 +454,23 @@ namespace RedStarLibrary.GameTypes
             };
         }
 
-        private void ExportDialog(object sender, EventArgs e)
+        private void DrawModelProperties(object sender, EventArgs e)
         {
-            if (ImGui.Button("Export Model"))
+            if(ImGui.CollapsingHeader("Model Properties", ImGuiTreeNodeFlags.DefaultOpen))
             {
-                var dlg = new ImguiFolderDialog();
+                float width = ImGui.GetWindowWidth();
+                var btnSize = new System.Numerics.Vector2(width, 22);
 
-                if (dlg.ShowDialog())
-                    TryExportModel(dlg.SelectedPath);
+                if (ImGui.Button("Open Model", btnSize))
+                    Framework.QueueWindowFileDrop(modelPath);
+
+                if (ImGui.Button("Export Model", btnSize))
+                {
+                    var dlg = new ImguiFolderDialog();
+
+                    if (dlg.ShowDialog())
+                        TryExportModel(dlg.SelectedPath);
+                }
             }
         }
 
@@ -511,7 +518,6 @@ namespace RedStarLibrary.GameTypes
                 point.UpdateMatrices();
 
                 PathRender.AddPoint(point);
-
             }
         }
     }

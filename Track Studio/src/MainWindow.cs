@@ -583,7 +583,7 @@ namespace MapStudio
                     ForceFocus = true;
                     //Remove active workspace when none of them are present.
                     if (Workspaces.Count == 0)
-                        Workspace.ActiveWorkspace = null;
+                        Workspace.ActiveWorkspace = null; 
                     else
                         Workspace.ActiveWorkspace = Workspaces.LastOrDefault();
 

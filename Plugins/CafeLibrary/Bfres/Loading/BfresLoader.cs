@@ -111,6 +111,8 @@ namespace CafeLibrary.Rendering
 
         public static bool OpenBfres(ResFile resFile, BfresRender renderer)
         {
+            renderer.ResFile = resFile;
+
             LoadShaders(resFile, renderer);
 
             foreach (var model in resFile.Models.Values)

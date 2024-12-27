@@ -335,8 +335,9 @@ namespace RedStarLibrary
             if (actor.hasArchive)
             {
                 var modelARC = ResourceManager.FindOrLoadSARC(actor.modelPath);
+                var modelName = Path.GetFileNameWithoutExtension(actor.modelPath);
 
-                var modelStream = modelARC.GetModelStream(Path.GetFileNameWithoutExtension(actor.modelPath));
+                using var modelStream = modelARC.GetModelStream(modelName);
 
                 if (modelStream != null)
                 {
@@ -366,6 +367,8 @@ namespace RedStarLibrary
                     actor.CreateBasicRenderer();
                     actor.SetActorIcon(Rendering.MapEditorIcons.OBJECT_ICON);
                 }
+
+
             }
             else
             {
