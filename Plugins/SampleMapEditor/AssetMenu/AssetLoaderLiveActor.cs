@@ -3,6 +3,7 @@ using MapStudio.UI;
 using RedStarLibrary.GameTypes;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -24,7 +25,6 @@ namespace RedStarLibrary.AssetMenu
         {
             this.category = category;
 
-            List<AssetItem> folderAssets = new List<AssetItem>();
             List<AssetItem> iconAssets = new List<AssetItem>();
             List<AssetItem> emptyAssets = new List<AssetItem>();
 
@@ -32,21 +32,26 @@ namespace RedStarLibrary.AssetMenu
 
             var databaseCategory = ActorDataBase.GetDataBase().Where(e => e.ActorCategory == category);
 
+            var categoryFolder = Path.Combine(Runtime.ExecutableDir, "Lib","Images","ActorThumbnails", category);
+
             foreach (var actor in databaseCategory)
             {
                 if (actor.Models.Count > 1)
-                    folderAssets.Add(CreateAsset(actor));
+                {
+                    var classFolder = Path.Combine(categoryFolder, actor.ClassName);
+
+                    foreach (var item in actor.Models)
+                        iconAssets.Add(new LiveActorAsset(actor, Path.Combine(classFolder, item + ".png")));
+                }
                 else if (actor.Models.Count == 1)
-                    iconAssets.Add(CreateAsset(actor));
+                {
+                    iconAssets.Add(new LiveActorAsset(actor, Path.Combine(categoryFolder, actor.Models.FirstOrDefault() + ".png")));
+                }
                 else if (actor.Models.Count == 0)
-                    emptyAssets.Add(CreateAsset(actor));
+                    emptyAssets.Add(new LiveActorAsset(actor));
             }
 
-            assets = new List<AssetItem>();
-
-            assets.AddRange(folderAssets);
-            assets.AddRange(iconAssets);
-            assets.AddRange(emptyAssets);
+            assets = [.. iconAssets, .. emptyAssets];
         }
 
         public List<AssetItem> Reload()
@@ -62,51 +67,32 @@ namespace RedStarLibrary.AssetMenu
 
             return filterUpdate;
         }
-
-        private AssetItem CreateAsset(ObjectDatabaseEntry objEntry)
-        {
-            if(objEntry.Models.Count > 1)
-            {
-                return new LiveActorFolder($"{Runtime.ExecutableDir}\\Lib\\Images\\ActorThumbnails\\{objEntry.ActorCategory}\\{objEntry.ClassName}");
-            }
-
-            string arcName = objEntry.Models.FirstOrDefault();
-
-            string icoPath = "Node";
-
-            if(arcName != null)
-            {
-                string path = $"{Runtime.ExecutableDir}\\Lib\\Images\\ActorThumbnails\\{objEntry.ActorCategory}\\{arcName}.png";
-
-                if (IconManager.HasIcon(path))
-                    icoPath = path;
-                else
-                    Console.WriteLine("Missing Icon at path: " + path);
-            }
-
-            return new LiveActorAsset(objEntry.ClassName, objEntry)
-            {
-                Name = objEntry.ClassName,
-                Icon = IconManager.GetTextureIcon(icoPath)
-            };
-        }
     }
 
     public class LiveActorAsset : AssetItem
     {
-        public LiveActorAsset(string filePath, ObjectDatabaseEntry entry) : base(filePath)
+        public LiveActorAsset(ObjectDatabaseEntry entry, string icoPath = null) : base(icoPath)
         {
             DatabaseEntry = entry;
+
+            if (icoPath == null)
+            {
+                ID = entry.ClassName;
+                Name = entry.ClassName;
+
+                icoPath = "Node";
+            }else
+            {
+                Name = Path.GetFileNameWithoutExtension(icoPath);
+            }
+
+            if (!IconManager.HasIcon(icoPath)) 
+                Console.WriteLine("Missing Icon at path: " + icoPath);
+
+            Icon = IconManager.GetTextureIcon(icoPath);
         }
         public ObjectDatabaseEntry DatabaseEntry { get; private set; }
         public string ActorCategory { get { return DatabaseEntry.ActorCategory; } }
 
-    }
-
-    public class LiveActorFolder : AssetFolder
-    {
-        public LiveActorFolder(string filePath) : base(filePath)
-        {
-        }
     }
 }

@@ -59,6 +59,19 @@ namespace CafeLibrary
             return sarc.Files[file];
         }
 
+        public static byte[] TryGetFile(string sarcPath, string file)
+        {
+            Stream stream = File.OpenRead(sarcPath);
+            if (YAZ0.IsCompressed(sarcPath))
+                stream = new MemoryStream(YAZ0.Decompress(sarcPath));
+
+            var sarc = SARC_Parser.UnpackRamN(stream);
+            if (sarc.Files.ContainsKey(file))
+                return sarc.Files[file];
+            else
+                return [];
+        }
+
         public void Load(System.IO.Stream stream)
         {
             files.Clear();

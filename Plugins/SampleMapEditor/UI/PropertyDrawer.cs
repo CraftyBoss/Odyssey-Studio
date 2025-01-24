@@ -45,12 +45,12 @@ namespace RedStarLibrary
         static List<string> removedProperties = new List<string>();
 
         //A dialog to add/remove properties.
-        static void PropertiesDialog(IDictionary<string, dynamic> properties)
+        static void PropertiesDialog(IDictionary<string, dynamic> properties) // TODO: add support for adding known properties
         {
             if (isUpdating)
                 return;
 
-            if (ImGui.CollapsingHeader("Add Property", ImGuiTreeNodeFlags.DefaultOpen))
+            if (ImGui.CollapsingHeader("Add New Property", ImGuiTreeNodeFlags.DefaultOpen))
             {
                 ImGui.PushItemWidth(100);
                 if (ImGui.Combo("", ref selectedPropertyType, PropertyTypes, PropertyTypes.Length, 100))
@@ -85,6 +85,10 @@ namespace RedStarLibrary
                     }
                 }
                 ImGui.PopItemWidth();
+            }
+            if(ImGui.CollapsingHeader("Add Existing Property"))
+            {
+                ImGui.Text("To be Implemented.");
             }
             if (ImGui.CollapsingHeader("Properties", ImGuiTreeNodeFlags.DefaultOpen))
             {

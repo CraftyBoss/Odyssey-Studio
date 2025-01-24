@@ -16,6 +16,20 @@ namespace RedStarLibrary
     [JsonObject]
     public class ObjectDatabaseEntry
     {
+        public class ParamEntry
+        {
+            /// <summary>
+            /// Determines if the parameter is required to create the actor in game (will need to be determined manually)
+            /// </summary>
+            [JsonProperty]
+            public bool Required = false;
+            /// <summary>
+            /// List of all values found for the parameter in every stage (can be useful for some parameters with fixed values)
+            /// </summary>
+            [JsonProperty]
+            public HashSet<dynamic> FoundValues = new HashSet<dynamic>();
+        }
+
         /// <summary>
         /// Internal name for the LiveActor class the actor uses in game.
         /// The games ActorFactory references this string when constructing the LiveActor for the scene.
@@ -41,7 +55,7 @@ namespace RedStarLibrary
         /// dictionary containing a unique list of every value found for the parameters the actor can have
         /// </summary>
         [JsonProperty]
-        public Dictionary<string, HashSet<dynamic>> ActorParams;
+        public Dictionary<string, ParamEntry> ActorParams;
     }
 
     public class ActorDataBase
@@ -81,7 +95,6 @@ namespace RedStarLibrary
 
         public static void LoadDatabase()
         {
-
             if (ObjDatabase != null) 
                 return;
 
@@ -175,7 +188,7 @@ namespace RedStarLibrary
                         PlacementCategory = info.UnitConfig.PlacementTargetFile,
                         ActorCategory = actorCategory.Remove(actorCategory.IndexOf("List"), 4),
                         Models = new HashSet<string>(),
-                        ActorParams = new Dictionary<string, HashSet<dynamic>>()
+                        ActorParams = new()
                     };
 
                     var copy = Helpers.Placement.CopyNode(info.ActorParams);
@@ -186,11 +199,11 @@ namespace RedStarLibrary
                             continue;
 
                         if(kvp.Value is float)
-                            entry.ActorParams.Add(kvp.Key, new HashSet<dynamic>() { 0.0f });
+                            entry.ActorParams.Add(kvp.Key, new ObjectDatabaseEntry.ParamEntry() { FoundValues = new HashSet<dynamic>() { 0.0f } });
                         else if(ParamsUseEmptyString.Contains(kvp.Key))
-                            entry.ActorParams.Add(kvp.Key, new HashSet<dynamic>() { "" });
+                            entry.ActorParams.Add(kvp.Key, new ObjectDatabaseEntry.ParamEntry() { FoundValues = new HashSet<dynamic>() { "" } });
                         else
-                            entry.ActorParams.Add(kvp.Key, new HashSet<dynamic>() { kvp.Value });
+                            entry.ActorParams.Add(kvp.Key, new ObjectDatabaseEntry.ParamEntry() { FoundValues = new HashSet<dynamic>() { kvp.Value } });
                     }
 
                     Console.WriteLine($"Added {info.ClassName} to Database.");
@@ -207,20 +220,20 @@ namespace RedStarLibrary
                         if (!entry.ActorParams.ContainsKey(param.Key))
                         {
                             if (param.Value is float)
-                                entry.ActorParams.Add(param.Key, new HashSet<dynamic>() { 0.0f });
+                                entry.ActorParams.Add(param.Key, new ObjectDatabaseEntry.ParamEntry() { FoundValues = new HashSet<dynamic>() { 0.0f } });
                             else if (ParamsUseEmptyString.Contains(param.Key))
-                                entry.ActorParams.Add(param.Key, new HashSet<dynamic>() { "" });
+                                entry.ActorParams.Add(param.Key, new ObjectDatabaseEntry.ParamEntry() { FoundValues = new HashSet<dynamic>() { "" } });
                             else
-                                entry.ActorParams.Add(param.Key, new HashSet<dynamic>() { param.Value });
+                                entry.ActorParams.Add(param.Key, new ObjectDatabaseEntry.ParamEntry() { FoundValues = new HashSet<dynamic>() { param.Value } });
                         }
                         else
                         {
                             if (param.Value is float)
-                                entry.ActorParams[param.Key].Add(0.0f);
+                                entry.ActorParams[param.Key].FoundValues.Add(0.0f);
                             else if (ParamsUseEmptyString.Contains(param.Key))
-                                entry.ActorParams[param.Key].Add("");
+                                entry.ActorParams[param.Key].FoundValues.Add("");
                             else
-                                entry.ActorParams[param.Key].Add(param.Value);
+                                entry.ActorParams[param.Key].FoundValues.Add(param.Value);
                         }
                     }
                 }
@@ -253,7 +266,6 @@ namespace RedStarLibrary
 
         public static void SerializeDatabase()
         {
-
             ObjDatabase = ObjDatabase.OrderBy(e => e.ClassName).ToList();
 
             Helpers.JsonHelper.WriteToJSON(ObjDatabase, "ObjectDatabase.json");

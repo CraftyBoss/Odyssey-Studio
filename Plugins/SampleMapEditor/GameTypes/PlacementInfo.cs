@@ -168,47 +168,29 @@ namespace RedStarLibrary.GameTypes
 
         }
 
-        public PlacementInfo(ObjectDatabaseEntry objEntry)
+        public PlacementInfo(ObjectDatabaseEntry objEntry, string assetName)
         {
 
             UnitConfig = new PlacementUnitConfig();
-
             ActorParams = new Dictionary<string, dynamic>();
-
+            sourceLinks = new Dictionary<string, List<PlacementInfo>>();
+            destLinks = new Dictionary<string, List<PlacementInfo>>();
             isUseLinks = false;
 
-            sourceLinks = new Dictionary<string, List<PlacementInfo>>();
+            // load default placement info data
+            ClassName = objEntry.ClassName;
+            ObjectName = assetName;
+            UnitConfig.PlacementTargetFile = objEntry.PlacementCategory;
+            UnitConfig.GenerateCategory = objEntry.ActorCategory + "List";
+            ModelName = assetName;
 
-            destLinks = new Dictionary<string, List<PlacementInfo>>();
-
-            // load params
+            // load required params 
             foreach (var param in objEntry.ActorParams)
             {
-
-                dynamic value;
-                if(param.Value.First().GetType() == typeof(long))
-                {
-                    value = (int)param.Value.First();
-                }else
-                {
-                    value = param.Value.First();
-                }
-
-                ActorParams.Add(param.Key, value);
+                var entry = param.Value;
+                if (entry.Required)
+                    ActorParams.Add(param.Key, null);
             }
-
-            // load default placement info data
-
-            ClassName = objEntry.ClassName;
-
-            ObjectName = objEntry.ClassName;
-
-            UnitConfig.PlacementTargetFile = objEntry.PlacementCategory;
-
-            UnitConfig.GenerateCategory = objEntry.ActorCategory + "List";
-
-            ModelName = objEntry.Models.FirstOrDefault();
-
         }
         private Dictionary<string, dynamic> GetActorParams(BymlIter iter)
         {

@@ -19,6 +19,9 @@ using HakoniwaByml.Writer;
 using System.Linq;
 using System.Text.Json;
 using CafeLibrary.Rendering;
+using RedStarLibrary.MapData.Camera;
+using System.Text.Encodings.Web;
+using System.Text.Unicode;
 
 namespace RedStarLibrary
 {
@@ -75,6 +78,8 @@ namespace RedStarLibrary
         private StageScene CurrentMapScene { get; set; }
         private string ThumbnailPath => $"{Runtime.ExecutableDir}\\Lib\\Images\\ActorThumbnails";
 
+        public static Dictionary<string, Dictionary<string, string>> TempCameraParamCollection = new();
+
         /// <summary>
         /// Determines when to use the map editor from a given file.
         /// You can check from file extension or check the data inside the file stream.
@@ -90,6 +95,21 @@ namespace RedStarLibrary
         /// </summary>
         public void Load(Stream stream)
         {
+            foreach (var stageFilePath in Directory.GetFiles("F:\\Users\\Talib\\Downloads\\ModdingStuff\\SwitchHacks\\SuperMarioOdysseyDump\\NCAExtracted\\StageData", "*Map.szs"))
+            {
+                SarcData stageSarc = new SarcData();
+                var cameraParamData = SARC.TryGetFile(stageFilePath, "CameraParam.byml");
+                if (cameraParamData.Length == 0)
+                    continue;
+
+                var cameraParamIter = new BymlIter(cameraParamData);
+
+                var cameraParam = new CameraParam();
+                cameraParam.DeserializeByml(cameraParamIter);
+            }
+
+            File.WriteAllText("FoundParams.json", JsonSerializer.Serialize(TempCameraParamCollection, new JsonSerializerOptions() { WriteIndented = true, Encoder = JavaScriptEncoder.Create(UnicodeRanges.All)}));
+
             //Set the game shader
             BfresLoader.TargetShader = typeof(SMORenderer);
 
@@ -100,9 +120,7 @@ namespace RedStarLibrary
             ActorDataBase.LoadDatabase();
 
             if (InitIcons())
-            {
                 CreateAssetCategories();
-            }
 
             mapArc = new SARC();
 
@@ -264,7 +282,6 @@ namespace RedStarLibrary
 
         private void CreateAssetCategories()
         {
-
             foreach (var thumbnailCategory in Directory.GetDirectories(ThumbnailPath))
             {
                 var category = new AssetMenu.AssetLoaderLiveActor(Path.GetFileName(thumbnailCategory));

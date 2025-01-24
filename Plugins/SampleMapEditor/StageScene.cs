@@ -19,6 +19,7 @@ using RedStarLibrary.Extensions;
 using HakoniwaByml.Iter;
 using HakoniwaByml.Writer;
 using System.Linq;
+using RedStarLibrary.Helpers;
 
 namespace RedStarLibrary
 {
@@ -40,6 +41,8 @@ namespace RedStarLibrary
 
         // Category Name (ex: ObjectList) -> List of Actors in Layers (ex: Layer Common) -> List of Actors
         private Dictionary<string, Dictionary<string,List<LiveActor>>> SceneActors { get; set; }
+
+        private int CurrentObjectID = 90000; // TODO: replace this with the next highest obj id value (not entirely needed)
 
         public void Setup(EditorLoader loader)
         {
@@ -77,7 +80,6 @@ namespace RedStarLibrary
             TryLoadGraphicsData(loader);
 
             EditorLoader.IsLoadingStage = false;
-
         }
 
         public void AddSceneRenders(EditorLoader loader)
@@ -100,11 +102,11 @@ namespace RedStarLibrary
 
             StageScenario curScenario = GetCurrentScenario();
 
-            PlacementInfo actorPlacement = new PlacementInfo(asset.DatabaseEntry);
+            PlacementInfo actorPlacement = new PlacementInfo(asset.DatabaseEntry, asset.Name);
 
             actorPlacement.LayerConfigName = actorLayer;
             actorPlacement.PlacementFileName = EditorLoader.PlacementFileName;
-            actorPlacement.Id = "obj" + new Random().Next(1000);
+            actorPlacement.Id = "obj" + GetNextAvailableObjID();
             actorPlacement.Translate = spawnPos;
 
             LayerList categoryLayers = curScenario.GetOrCreateLayerList(actorPlacement, objCategory);
@@ -208,6 +210,25 @@ namespace RedStarLibrary
                     actorList.HasCheckBox = true;
                     loader.Root.AddChild(actorList);
                     actorList.Icon = IconManager.FOLDER_ICON.ToString();
+
+                    actorList.ContextMenus.Add(new MenuItemModel("Clear", () =>
+                    {
+                        for (int i = actorList.Children.Count - 1; i >= 0; i--)
+                        {
+                            var layerActors = actorList.Children[i];
+
+                            for (int x = layerActors.Children.Count - 1; x >= 0; x--)
+                            {
+                                var actorNode = layerActors.Children[x];
+
+                                if (actorNode is EditableObjectNode editNode)
+                                    loader.RemoveRender(editNode.Object);
+                            }
+
+                            if(layerActors.Children.Count == 0)
+                                actorList.Children.Remove(layerActors);
+                        }
+                    }));
 
                     SceneActors.Add(objCategory, new Dictionary<string, List<LiveActor>>());
                 }
@@ -390,7 +411,7 @@ namespace RedStarLibrary
                 }
             }
 
-            if(actor.Placement.IsLinkDest)
+            if (actor.Placement.IsLinkDest)
             {
                 actor.SetActorIcon(IconManager.LINK_ICON);
 
@@ -400,7 +421,7 @@ namespace RedStarLibrary
                     {
                         var destActor = LoadActorFromPlacement(actorPlacement);
 
-                        if(destActor != null && destActor.ObjectRender != null && actor.ObjectRender != null)
+                        if (destActor != null && destActor.ObjectRender != null && actor.ObjectRender != null)
                         {
                             if (!actor.ObjectRender.DestObjectLinks.Contains(destActor.ObjectRender))
                                 actor.ObjectRender.DestObjectLinks.Add(destActor.ObjectRender);
@@ -410,6 +431,11 @@ namespace RedStarLibrary
                         }
                     }
                 }
+            }
+
+            if(actor.Placement.ClassName.Contains("Camera"))
+            {
+
             }
 
             return actor;
@@ -432,6 +458,8 @@ namespace RedStarLibrary
         {
             return StageScenarios.Find(e => e.ScenarioIdx == MapScenarioNo);
         }
+
+        private int GetNextAvailableObjID() => CurrentObjectID++;  
 
         /// <summary>
         /// Creates a big plane which you can drop objects onto.

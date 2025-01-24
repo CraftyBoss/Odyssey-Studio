@@ -251,13 +251,7 @@ namespace RedStarLibrary.GameTypes
             rail.UINode.Header = ArchiveName;
             rail.UINode.Icon = IconManager.MESH_ICON.ToString();
             rail.UINode.Tag = this;
-            if (Placement.ActorParams.Count > 0)
-            {
-                rail.UINode.TagUI.UIDrawer += delegate
-                {
-                    PropertyDrawer.Draw(Placement.ActorParams);
-                };
-            }
+            ObjectRender.UINode.TagUI.UIDrawer += (o, e) => PropertyDrawer.Draw(Placement.ActorParams);
             rail.Transform.Position = Placement.Translate;
             rail.Transform.Scale = Placement.Scale;
             rail.Transform.RotationEulerDegrees = Placement.Rotate;
@@ -299,7 +293,6 @@ namespace RedStarLibrary.GameTypes
 
                 foreach (var linkList in linkedObjs)
                 {
-
                     NodeBase linkNode = new NodeBase(linkList.Key);
 
                     foreach (var linkedActor in linkList.Value)
@@ -351,6 +344,9 @@ namespace RedStarLibrary.GameTypes
                     return true;
 
                 var resFile = bfresRender.ResFile;
+
+                if (resFile == null)
+                    throw new NullReferenceException();
 
                 foreach (var model in resFile.Models)
                 {
@@ -408,13 +404,7 @@ namespace RedStarLibrary.GameTypes
             if (ObjectRender is BfresRender)
                 ObjectRender.UINode.TagUI.UIDrawer += DrawModelProperties;
 
-            if (Placement.ActorParams.Count > 0)
-            {
-                ObjectRender.UINode.TagUI.UIDrawer += delegate
-                {
-                    PropertyDrawer.Draw(Placement.ActorParams);
-                };
-            }
+            ObjectRender.UINode.TagUI.UIDrawer += (o, e) => PropertyDrawer.Draw(Placement.ActorParams);
 
             ObjectRender.Transform.TransformUpdated += delegate
             {

@@ -45,6 +45,24 @@ namespace CafeLibrary.ModelConversion
                         daeMat.DiffuseMap.WrapS = IONET.Core.Model.WrapMode.REPEAT;
                         daeMat.DiffuseMap.WrapT = IONET.Core.Model.WrapMode.REPEAT;
                     }
+                    else if(sampler == "_n0")
+                    {
+                        daeMat.NormalMap = new IOTexture();
+                        daeMat.NormalMap.Name = name;
+                        daeMat.NormalMap.FilePath = $"{name}.png";
+                        daeMat.NormalMap.UVChannel = 0;
+                        daeMat.NormalMap.WrapS = IONET.Core.Model.WrapMode.REPEAT;
+                        daeMat.NormalMap.WrapT = IONET.Core.Model.WrapMode.REPEAT;
+                    }
+                    else if (sampler == "_s0")
+                    {
+                        daeMat.SpecularMap = new IOTexture();
+                        daeMat.SpecularMap.Name = name;
+                        daeMat.SpecularMap.FilePath = $"{name}.png";
+                        daeMat.SpecularMap.UVChannel = 0;
+                        daeMat.SpecularMap.WrapS = IONET.Core.Model.WrapMode.REPEAT;
+                        daeMat.SpecularMap.WrapT = IONET.Core.Model.WrapMode.REPEAT;
+                    }
                 }
                 scene.Materials.Add(daeMat);
             }

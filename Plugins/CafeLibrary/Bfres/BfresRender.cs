@@ -145,6 +145,7 @@ namespace CafeLibrary.Rendering
             {
                 var cachedModel = DataCache.ModelCache[name] as BfresRender;
                 BfresLoader.LoadBfresCached(this, cachedModel);
+                this.ResFile = cachedModel.ResFile;
                 UpdateBoundingBox();
                 return false;
             }
