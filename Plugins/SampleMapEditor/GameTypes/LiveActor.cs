@@ -19,6 +19,7 @@ using BfresLibrary;
 using CafeLibrary.ModelConversion;
 using RedStarLibrary.Extensions;
 using UIFramework;
+using Newtonsoft.Json.Linq;
 
 namespace RedStarLibrary.GameTypes
 {
@@ -101,9 +102,14 @@ namespace RedStarLibrary.GameTypes
 
         private float clipRadius = 10000.0f;
 
+        private StageScene curStage;
+
         public LiveActor(NodeBase parentNode, string actorName, string path)
         {
             parent = parentNode;
+            if(parent != null)
+                curStage = (parentNode.Tag as EditorLoader).CurrentMapScene;
+
             Placement = new PlacementInfo();
 
             Placement.ModelName = actorName;
@@ -115,15 +121,15 @@ namespace RedStarLibrary.GameTypes
 
             modelPath = path;
 
-            if (File.Exists(modelPath))
-            {
-                hasArchive = true;
-            }
+            hasArchive = File.Exists(modelPath);
         }
 
         public LiveActor(NodeBase parentNode, PlacementInfo info)
         {
             parent = parentNode;
+            if (parent != null)
+                curStage = (parentNode.Tag as EditorLoader).CurrentMapScene;
+
             Placement = info;
 
             linkedObjs = new Dictionary<string, List<LiveActor>>();
@@ -139,6 +145,7 @@ namespace RedStarLibrary.GameTypes
         public void SetParentNode(NodeBase parentNode)
         {
             parent = parentNode;
+            curStage = (parentNode.Tag as EditorLoader).CurrentMapScene;
 
             if (RenderMode == ActorRenderMode.EditableObj)
                 ObjectRender.ParentUINode = parent;
@@ -405,6 +412,7 @@ namespace RedStarLibrary.GameTypes
                 ObjectRender.UINode.TagUI.UIDrawer += DrawModelProperties;
 
             ObjectRender.UINode.TagUI.UIDrawer += (o, e) => PropertyDrawer.Draw(Placement.ActorParams);
+            ObjectRender.UINode.TagUI.UIDrawer += DrawLayerConfig;
 
             ObjectRender.Transform.TransformUpdated += delegate
             {
@@ -460,6 +468,51 @@ namespace RedStarLibrary.GameTypes
 
                     if (dlg.ShowDialog())
                         TryExportModel(dlg.SelectedPath);
+                }
+            }
+        }
+
+        private void DrawLayerConfig(object sender, EventArgs e)
+        {
+            if(ImGui.CollapsingHeader("Layer Config", ImGuiTreeNodeFlags.DefaultOpen))
+            {
+                if(ImGui.BeginCombo("Actor Layer", Placement.LayerConfigName))
+                {
+                    foreach (var layerName in curStage.GetLoadedLayers())
+                    {
+                        if(ImGui.Selectable(layerName))
+                            Placement.LayerConfigName = layerName;
+                    }
+                    ImGui.EndCombo();
+                }
+
+                if (ImGui.BeginMenu("Active Scenarios"))
+                {
+                    if (ImGui.BeginTable("LayerScenarioTable", StageScene.SCENARIO_COUNT, ImGuiTableFlags.RowBg | ImGuiTableFlags.Borders))
+                    {
+                        ImGui.TableNextRow();
+                        ImGui.TableSetColumnIndex(0);
+
+                        for (int i = 0; i < StageScene.SCENARIO_COUNT; i++)
+                        {
+                            ImGui.TableSetColumnIndex(i);
+                            ImGui.Text((i + 1).ToString());
+                        }
+
+                        ImGui.TableNextRow();
+                        for (int i = 0; i < StageScene.SCENARIO_COUNT; i++)
+                        {
+                            ImGui.TableSetColumnIndex(i);
+
+                            bool isChecked = Placement.IsScenarioActive(i);
+                            if (ImGui.Checkbox($"##{i}", ref isChecked))
+                                Placement.SetScenarioActive(i, isChecked);
+                        }
+
+                        ImGui.EndTable();
+                    }
+
+                    ImGui.EndMenu();
                 }
             }
         }

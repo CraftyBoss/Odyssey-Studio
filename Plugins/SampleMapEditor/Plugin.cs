@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 using Toolbox.Core;
 using MapStudio.UI;
 using GLFrameworkEngine;
+using UIFramework;
+using RedStarLibrary.UI;
 
 namespace RedStarLibrary
 {
@@ -17,10 +19,20 @@ namespace RedStarLibrary
     {
         public string Name => "SMO Map Editor";
 
+        private SwitchFileUploader Uploader = new SwitchFileUploader();
+
         public Plugin()
         {
-            if(!PluginConfig.init)
-                PluginConfig.Load();
+            PluginConfig.Load();
+
+            var fileMenu = Framework.MainWindow.MenuItems.First(e=> e.Header == "File");
+
+            fileMenu.MenuItems.Add(new MenuItem("Upload File") { RenderItems = () =>
+            {
+
+            }});
+
+            Framework.MainWindow.MenuItems.Add(new MenuItem("FTP Settings") { RenderItems = PluginConfig.DrawFTPSettings });
         }
     }
 }

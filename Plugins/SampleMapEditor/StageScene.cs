@@ -20,17 +20,21 @@ using HakoniwaByml.Iter;
 using HakoniwaByml.Writer;
 using System.Linq;
 using RedStarLibrary.Helpers;
+using Discord;
+using static Toolbox.Core.GX.DisplayListHelper;
 
 namespace RedStarLibrary
 {
-    internal class StageScene : Interfaces.IBymlSerializable
+    public class StageScene : Interfaces.IBymlSerializable
     {
-        /// <summary>
-        /// Placement data for every actor in the stage
-        /// </summary>
-        public List<StageScenario> StageScenarios { get; set; } = new List<StageScenario>();
+        #region Constants
+
+        public static int SCENARIO_COUNT = 15;
+
+        #endregion
         /// <summary>
         /// Every layer that is shared between scenarios will be used here
+        /// TODO: remove category separation of layers
         /// </summary>
         public Dictionary<string, LayerList> GlobalLayers { get; set; } = new Dictionary<string, LayerList>();
 
@@ -53,18 +57,31 @@ namespace RedStarLibrary
             //Add some objects to the scene
             SetupObjects(loader);
 
+            var playerObj = FindActorWithClass("PlayerList", "PlayerActorHakoniwa");
+            // set target position for current camera to the player
+            if (playerObj != null)
+            {
+                var ctxCamera = GLContext.ActiveContext.Camera;
+                var forwardDir = playerObj.Transform.Rotation * Vector3.UnitZ;
+                var rot = playerObj.Transform.RotationEulerDegrees;
+                float offset = 500.0f;
+
+                ctxCamera.TargetPosition = playerObj.Transform.Position + (-forwardDir * offset) + (Vector3.UnitY * offset);
+
+                ctxCamera.RotationDegreesX = rot.X;
+                ctxCamera.RotationDegreesY = rot.Y;
+                ctxCamera.RotationDegreesZ = rot.Z;
+            }
+
             ProcessLoading.Instance.IsLoading = false;
         }
 
         public void RestartScene(EditorLoader loader)
         {
-
             EditorLoader.IsLoadingStage = true;
 
             for (int i = loader.Scene.Objects.Count - 1; i >= 0; i--)
-            {
                 loader.RemoveRender(loader.Scene.Objects[i]);
-            }
 
             for (int i = loader.Root.Children.Count - 1; i >= 0; i--)
             {
@@ -84,23 +101,15 @@ namespace RedStarLibrary
 
         public void AddSceneRenders(EditorLoader loader)
         {
-            StageScenario curScenarioPlacement = GetCurrentScenario();
-
             SceneActors = new Dictionary<string, Dictionary<string, List<LiveActor>>>();
 
-            // TODO: entirely remove frontend seperation of global and scenarios (maybe use an option in each actor placement instead?)
-
-            LoadRendersFromList(loader, GlobalLayers, "Global Layer ");
-
-            LoadRendersFromList(loader, curScenarioPlacement.ScenarioLayers, "Scenario Layer ");
+            LoadRendersFromList(loader);
         }
 
         public void TryAddActorFromAsset(EditorLoader loader, Vector3 spawnPos, AssetMenu.LiveActorAsset asset)
         {
             string objCategory = asset.ActorCategory + "List";
             string actorLayer = EditorLoader.SelectedLayer;
-
-            StageScenario curScenario = GetCurrentScenario();
 
             PlacementInfo actorPlacement = new PlacementInfo(asset.DatabaseEntry, asset.Name);
 
@@ -109,9 +118,10 @@ namespace RedStarLibrary
             actorPlacement.Id = "obj" + GetNextAvailableObjID();
             actorPlacement.Translate = spawnPos;
 
-            LayerList categoryLayers = curScenario.GetOrCreateLayerList(actorPlacement, objCategory);
+            LayerList categoryLayers = GetOrCreateLayerList(objCategory);
 
             LayerConfig placementLayer = categoryLayers.AddObjectToLayers(actorPlacement);
+            actorPlacement.SetActiveScenarios(placementLayer);
 
             NodeBase actorList = loader.Root.GetChild(objCategory);
 
@@ -164,17 +174,20 @@ namespace RedStarLibrary
         {
             HashSet<string> layers = new HashSet<string>();
 
-            StageScenario curScenarioPlacement = GetCurrentScenario();
-
-            foreach (var layerNames in curScenarioPlacement.LoadedLayerNames)
+            foreach ((var objCategory, var layerList) in GlobalLayers)
             {
-                foreach (var name in layerNames.Value)
-                {
+                foreach (var name in layerList.GetLayerNames())
                     layers.Add(name);
-                }
             }
 
             return layers;
+        }
+
+        public LayerList GetOrCreateLayerList(string objCategory)
+        {
+            if(!GlobalLayers.TryGetValue(objCategory, out LayerList layerList))
+                GlobalLayers.Add(objCategory, layerList = new LayerList());
+            return layerList;
         }
 
         public List<LiveActor> GetLoadedActors()
@@ -188,6 +201,14 @@ namespace RedStarLibrary
             return liveActors;
         }
 
+        private LiveActor? FindActorWithClass(string objCategory, string className)
+        {
+            if(!SceneActors.TryGetValue(objCategory, out var actorLists))
+                return null;
+
+            return actorLists.First().Value.FirstOrDefault(e=> e.Placement.ClassName == className);
+        }
+
         private void SetupObjects(EditorLoader loader)
         {
             // Load Actor Models used in Current Scenario
@@ -197,16 +218,16 @@ namespace RedStarLibrary
             TryLoadGraphicsData(loader);
         }
 
-
-        private void LoadRendersFromList(EditorLoader loader, Dictionary<string, LayerList> stageLayers, string nodePrefix = "")
+        private void LoadRendersFromList(EditorLoader loader)
         {
-            foreach ((string objCategory, List<ActorList> actorLists) in CreateActorsFromList(stageLayers))
+            foreach ((string objCategory, List<ActorList> actorLists) in CreateActorsFromList(GlobalLayers))
             {
                 NodeBase actorList = loader.Root.GetChild(objCategory);
 
                 if (actorList == null)
                 {
                     actorList = new NodeBase(objCategory);
+                    actorList.Tag = loader.Root.Tag;
                     actorList.HasCheckBox = true;
                     loader.Root.AddChild(actorList);
                     actorList.Icon = IconManager.FOLDER_ICON.ToString();
@@ -235,13 +256,14 @@ namespace RedStarLibrary
 
                 foreach (var mapActors in actorLists)
                 {
-                    string nodeName = nodePrefix + mapActors.ActorListName;
+                    string nodeName = "Layer " + mapActors.ActorListName;
 
                     NodeBase layerActors = actorList.GetChild(nodeName);
 
                     if (layerActors == null)
                     {
                         layerActors = new NodeBase(nodeName);
+                        layerActors.Tag = actorList.Tag;
                         layerActors.HasCheckBox = true;
                         actorList.AddChild(layerActors);
                         layerActors.Icon = IconManager.FOLDER_ICON.ToString();
@@ -265,10 +287,8 @@ namespace RedStarLibrary
                         SceneActors[objCategory][mapActors.ActorListName].Add(actor);
 
                         // actor.PlaceLinkedObjects(loader);
-
                     }
                 }
-
             }
         }
 
@@ -287,6 +307,7 @@ namespace RedStarLibrary
                 graphicsObjs.Add(skyboxList);
 
                 NodeBase GraphicsObjs = new NodeBase("Graphics Objects");
+                GraphicsObjs.Tag = loader.Root.Tag;
                 GraphicsObjs.HasCheckBox = true;
                 loader.Root.AddChild(GraphicsObjs);
                 GraphicsObjs.Icon = IconManager.MODEL_ICON.ToString();
@@ -315,36 +336,49 @@ namespace RedStarLibrary
         {
             Dictionary<string, List<ActorList>> scenarioList = new Dictionary<string, List<ActorList>>();
 
-            StageScenario curScenarioPlacement = GetCurrentScenario();
-
-            foreach (var placementList in actorList)
+            foreach ((var objCategory, var layerList) in actorList)
             {
-                if(!curScenarioPlacement.LoadedLayerNames.ContainsKey(placementList.Key))
-                    continue;
+                if (!scenarioList.TryGetValue(objCategory, out List<ActorList> layerActors))
+                    scenarioList.Add(objCategory, layerActors = new List<ActorList>());
 
-                if(!scenarioList.TryGetValue(placementList.Key, out List<ActorList> layerActors))
+                foreach (var layer in layerList)
                 {
-                    layerActors = new List<ActorList>();
-                    scenarioList.Add(placementList.Key, layerActors);
-                }
+                    ActorList actors = new ActorList(layer.LayerName);
 
-                foreach (var config in placementList.Value)
-                {
-                    if (!curScenarioPlacement.LoadedLayerNames[placementList.Key].Contains(config.LayerName))
-                        continue;
-
-                    ActorList actors = new ActorList(config.LayerName);
-
-                    foreach (var placement in config.LayerObjects)
+                    foreach (var placement in layer.LayerObjects)
                     {
-                        actors.Add(LoadActorFromPlacement(placement, config));
+                        if(placement.IsScenarioActive(MapScenarioNo))
+                            actors.Add(LoadActorFromPlacement(placement, layer));
                     }
 
-                    layerActors.Add(actors);
+                    if(actors.Any())
+                        layerActors.Add(actors);
                 }
             }
 
             return scenarioList;
+
+            //StageScenario curScenarioPlacement = GetCurrentScenario();
+            //foreach (var placementList in actorList)
+            //{
+            //    if(!curScenarioPlacement.LoadedLayerNames.ContainsKey(placementList.Key))
+            //        continue;
+            //    if(!scenarioList.TryGetValue(placementList.Key, out List<ActorList> layerActors))
+            //    {
+            //        layerActors = new List<ActorList>();
+            //        scenarioList.Add(placementList.Key, layerActors);
+            //    }
+            //    foreach (var config in placementList.Value)
+            //    {
+            //        if (!curScenarioPlacement.LoadedLayerNames[placementList.Key].Contains(config.LayerName))
+            //            continue;
+            //        ActorList actors = new ActorList(config.LayerName);
+            //        foreach (var placement in config.LayerObjects)
+            //            actors.Add(LoadActorFromPlacement(placement, config));
+            //        layerActors.Add(actors);
+            //    }
+            //}
+            //return scenarioList;
         }
 
         private LiveActor LoadActorFromPlacement(PlacementInfo placement, LayerConfig list = null)
@@ -454,11 +488,6 @@ namespace RedStarLibrary
             return null;
         }
 
-        private StageScenario GetCurrentScenario()
-        {
-            return StageScenarios.Find(e => e.ScenarioIdx == MapScenarioNo);
-        }
-
         private int GetNextAvailableObjID() => CurrentObjectID++;  
 
         /// <summary>
@@ -487,30 +516,73 @@ namespace RedStarLibrary
         public void DeserializeByml(BymlIter rootNode)
         {
             int scenarioIdx = 0;
-
             foreach (BymlIter scenarioIter in rootNode.AsArray<BymlIter>())
-            {
-                StageScenario scenario = new StageScenario(GlobalLayers, scenarioIdx);
-
-                scenario.DeserializeByml(scenarioIter);
-
-                StageScenarios.Add(scenario);
-
-                scenarioIdx++;
-            }
+                DeserializeScenario(scenarioIter, scenarioIdx++);
         }
 
         public BymlContainer SerializeByml()
         {
-
             BymlArray result = new BymlArray();
 
-            foreach (var scenario in StageScenarios)
+            for (int i = 0; i < SCENARIO_COUNT; i++)
             {
-                result.Add(scenario.SerializeByml());
+                var scenarioByml = new BymlHash();
+
+                foreach ((var objCategory, var layerList) in GlobalLayers)
+                {
+                    var listByml = new BymlArray();
+
+                    foreach (var config in layerList)
+                    {
+                        foreach (var placement in config.GetPlacementsInScenario(i))
+                            listByml.Add(placement.SerializeByml());
+                    }
+
+                    if(listByml.Length() > 0)
+                        scenarioByml.Add(objCategory, listByml);
+                }
+
+                result.Add(scenarioByml);
             }
 
             return result;
+        }
+
+        private void DeserializeScenario(BymlIter rootNode, int scenarioIdx)
+        {
+            foreach ((string objCategory, BymlIter listIter) in rootNode.As<BymlIter>())
+            {
+                HashSet<string> layerNames = new HashSet<string>();
+
+                foreach (BymlIter actorIter in listIter.AsArray<BymlIter>())
+                {
+                    PlacementId actorId = new PlacementId(actorIter);
+
+                    if (!GlobalLayers.TryGetValue(objCategory, out LayerList globalList))
+                        GlobalLayers.Add(objCategory, globalList = new LayerList());
+
+                    PlacementInfo actorInfo;
+                    if (globalList.IsIdInAnyLayer(actorId))
+                    {
+                        actorInfo = globalList.GetInfoById(actorId);
+
+                        globalList.GetLayerByName(actorId.LayerConfigName).SetScenarioActive(scenarioIdx, true);
+                    }
+                    else
+                        globalList.AddObjectToLayers(actorInfo = new PlacementInfo(actorIter), scenarioIdx);
+
+                    actorInfo.SetScenarioActive(scenarioIdx, true);
+
+                    layerNames.Add(actorId.LayerConfigName);
+                }
+            }
+
+            // actor linking
+
+            //foreach (var item in LoadedLayerNames)
+            //{
+
+            //}
         }
     }
 }

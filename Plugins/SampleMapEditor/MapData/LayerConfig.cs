@@ -1,4 +1,5 @@
-﻿using RedStarLibrary.GameTypes;
+﻿using ImGuiNET;
+using RedStarLibrary.GameTypes;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -23,9 +24,10 @@ namespace RedStarLibrary.MapData
         public bool IsEnabled;
 
         /// <summary>
-        /// Specifies whether a layer has finished loading all objects.
+        /// List of all scenarios this layer is enabled/disabled in.
         /// </summary>
-        public bool IsLayerLoaded;
+        private bool[] activeScenarios = new bool[StageScene.SCENARIO_COUNT];
+
         public LayerConfig(PlacementInfo actorPlacement)
         {
             LayerName = actorPlacement.LayerConfigName;
@@ -40,9 +42,25 @@ namespace RedStarLibrary.MapData
             IsEnabled = true;
         }
 
-        public bool IsInfoInLayer(PlacementInfo info)
+        public bool IsInfoInLayer(PlacementInfo info) => LayerObjects.Any(e => e == info);
+        public void SetScenarioActive(int idx, bool active) => activeScenarios[idx] = active;
+        public bool IsScenarioActive(int idx) => activeScenarios[idx];
+        public IEnumerable<PlacementInfo> GetPlacementsInScenario(int idx) => LayerObjects.Where(e=> e.IsScenarioActive(idx));
+
+        internal void DrawScenarioTable()
         {
-            return LayerObjects.Any(e => e == info);
+            if (ImGui.BeginTable("LayerScenarioTable", StageScene.SCENARIO_COUNT, ImGuiTableFlags.RowBg))
+            {
+                ImGui.TableNextRow();
+
+                for (int i = 0; i < activeScenarios.Length; i++)
+                {
+                    ImGui.TableSetColumnIndex(i);
+                    ImGui.Checkbox(i.ToString(), ref activeScenarios[i]);
+                }
+
+                ImGui.EndTable();
+            }
         }
     }
 }

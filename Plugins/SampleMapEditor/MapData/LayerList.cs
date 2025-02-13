@@ -17,36 +17,25 @@ namespace RedStarLibrary.MapData
             _layerList = new List<LayerConfig>();
         }
 
-        public LayerConfig AddObjectToLayers(PlacementInfo actorPlacement, bool isIgnoreLoaded = false)
+        public LayerConfig AddObjectToLayers(PlacementInfo actorPlacement, int useScenario = -1)
         {
-
             LayerConfig config = _layerList.Find(e => e.LayerName == actorPlacement.LayerConfigName);
 
             if (config != null)
             {
-
-                if (config.IsLayerLoaded && !isIgnoreLoaded)
-                {
-                    if (config.IsInfoInLayer(actorPlacement))
-                        return config;
-
-                    config = _layerList.Find(e => e.LayerName == actorPlacement.LayerConfigName + $"_ScenarioWhack");
-
-                    if (config == null)
-                    {
-                        config = new LayerConfig(actorPlacement.LayerConfigName + $"_ScenarioWhack");
-                        _layerList.Add(config);
-                    }
-
-                }
-
                 if (!config.LayerObjects.Contains(actorPlacement)) 
                     config.LayerObjects.Add(actorPlacement);
+
+                if(useScenario != -1)
+                    config.SetScenarioActive(useScenario, true);
 
                 return config;
             }
 
             config = new LayerConfig(actorPlacement);
+
+            if (useScenario != -1)
+                config.SetScenarioActive(useScenario, true);
 
             _layerList.Add(config);
 
@@ -61,11 +50,6 @@ namespace RedStarLibrary.MapData
                 if (info.LayerObjects.Contains(placement))
                     info.LayerObjects.Remove(placement);
 
-        }
-
-        public void SetLayersAsLoaded()
-        {
-            _layerList.ForEach(e => e.IsLayerLoaded = true);
         }
 
         public LayerConfig GetLayerByName(string name)
@@ -84,18 +68,27 @@ namespace RedStarLibrary.MapData
             return false;
         }
 
-        public bool IsInfoInAnyLayer(PlacementInfo info, int scenario)
+        public bool IsIdInAnyLayer(PlacementId id)
         {
-            var config = _layerList.Find(e => e.LayerName == info.LayerConfigName);
-
-            if (config == null)
-                config = _layerList.Find(e => e.LayerName == info.LayerConfigName + $"_Scenario{scenario}");
+            var config = _layerList.Find(e => e.LayerName == id.LayerConfigName);
 
             if (config != null)
-                return config.IsInfoInLayer(info);
+                return config.LayerObjects.Any(e => e == id);
 
             return false;
         }
+
+        public PlacementInfo? GetInfoById(PlacementId id)
+        {
+            var config = _layerList.Find(e => e.LayerName == id.LayerConfigName);
+
+            if (config != null)
+                return config.LayerObjects.Single(e => e == id);
+
+            return null;
+        }
+
+        public IEnumerable<string> GetLayerNames() => _layerList.Select(e=> e.LayerName);
 
         public IEnumerator<LayerConfig> GetEnumerator()
         {

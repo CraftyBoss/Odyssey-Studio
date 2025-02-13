@@ -88,7 +88,6 @@ namespace RedStarLibrary.Helpers
 
             return dict;
         }
-
         public static List<dynamic> ConvertToList(BymlIter iter)
         {
             var list = new List<dynamic>();
@@ -118,7 +117,6 @@ namespace RedStarLibrary.Helpers
 
             return list;
         }
-
         public static BymlHash ConvertToHash(Dictionary<string, dynamic> node)
         {
             BymlHash hash = new BymlHash();
@@ -137,7 +135,6 @@ namespace RedStarLibrary.Helpers
 
             return hash;
         }
-
         public static BymlArray ConvertToArray(List<dynamic> node)
         {
             BymlArray arr = new BymlArray();
@@ -154,6 +151,7 @@ namespace RedStarLibrary.Helpers
 
             return arr;
         }
+
         public static Vector3 LoadVector(BymlIter iter, string key)
         {
 
@@ -185,76 +183,76 @@ namespace RedStarLibrary.Helpers
         {
             return new Vector3(node["X"], node["Y"], node["Z"]);
         }
-        public static bool CompareStages(List<dynamic> origRootNode, List<dynamic> newRootNode)
-        {
 
+        public static bool CompareLists(List<dynamic> origRootNode, List<dynamic> newRootNode, bool isRoot = false)
+        {
             if (origRootNode.Count != newRootNode.Count)
                 throw new Exception("New node does not match original Count!");
 
-            bool isFound = false;
+            bool isMatch = true;
 
-            foreach (Dictionary<string, dynamic> origScenario in origRootNode)
+            if(isRoot)
             {
-                foreach (Dictionary<string, dynamic> newScenario in newRootNode)
+                for (int i = 0; i < origRootNode.Count; i++)
                 {
-                    if (CompareScenarios(origScenario, newScenario))
+                    Console.WriteLine($"Comparing Scenario {i}.");
+
+                    Dictionary<string, dynamic> origScenario = origRootNode[i];
+                    Dictionary<string, dynamic> newScenario = newRootNode[i];
+
+                    if (!CompareDicts(origScenario, newScenario))
                     {
-                        isFound = true;
+                        Console.WriteLine("New Scenario does not match original!");
+                        isMatch = false;
                         break;
                     }
                 }
-
-                if(isFound)
-                {
-                    break;
-                }
-                
-            }
-
-            if(isFound)
-            {
-                return true;
             }else
             {
-                throw new Exception("New dictionary entry does not match original!");
+                isMatch = false;
+                foreach (Dictionary<string, dynamic> origScenario in origRootNode)
+                {
+                    foreach (Dictionary<string, dynamic> newScenario in newRootNode)
+                    {
+                        if (CompareDicts(origScenario, newScenario))
+                        {
+                            isMatch = true;
+                            break;
+                        }
+                    }
+
+                    if (isMatch)
+                        break;
+                }
             }
+
+            if(isMatch)
+                return true;
+            else
+                throw new Exception("New dictionary entry does not match original!");
         }
 
-        private static bool CompareScenarios(Dictionary<string,dynamic> origScenario, Dictionary<string,dynamic> newScenario)
+        public static bool CompareStages(BymlIter origStage, BymlIter newStage)
         {
+            return CompareLists(ConvertToList(origStage), ConvertToList(newStage), true);
+        }
 
+        private static bool CompareDicts(Dictionary<string,dynamic> origScenario, Dictionary<string,dynamic> newScenario)
+        {
             if (origScenario.Count != newScenario.Count)
                 return false;
 
             foreach (var origList in origScenario)
             {
-                if(newScenario.ContainsKey(origList.Key))
-                {
-                    if(newScenario[origList.Key] is List<object> newList)
-                    {
-                        if (!CompareStages(origList.Value, newList))
-                        {
-                            return false;
-                        }
-                    }else if(newScenario[origList.Key] is Dictionary<string,object> obj)
-                    {
-                        if (!CompareScenarios(origList.Value, obj))
-                        {
-                            return false;
-                        }
-                    }
-                    else
-                    {
-                        if(newScenario[origList.Key] != origList.Value)
-                        {
-                            return false;
-                        }
-                    }
-
-                }else
-                {
+                if(!newScenario.ContainsKey(origList.Key))
                     return false;
-                }
+
+                if (newScenario[origList.Key] is List<object> newList)
+                    return CompareLists(origList.Value, newList);
+                else if (newScenario[origList.Key] is Dictionary<string, object> obj)
+                    return CompareDicts(origList.Value, obj);
+                else if (newScenario[origList.Key] != origList.Value)
+                    return false;
             }
 
             return true;

@@ -16,59 +16,97 @@ namespace RedStarLibrary
     /// </summary>
     public class PluginConfig : IPluginConfig
     {
-        //Only load the config once when this constructor is activated.
-        internal static bool init = false;
+        [JsonObject]
+        private struct ConfigData
+        {
+            public string GamePath = "";
+            public string ModPath = "";
+            public string FTPUsername = "";
+            public string FTPPassword = "";
+            public string FTPIp = "";
+            public string FTPPort = "";
+            public string FTPWorkingDir = "";
 
-        public PluginConfig() { init = true; }
+            public ConfigData() {}
+        }
 
-        [JsonProperty]
-        public static string GamePath = "";
+        private static bool isLoadedData = false;
+        private static ConfigData configData = new ConfigData();
 
-        [JsonProperty]
-        public static string ModPath = "";
+        public static string GamePath { get => configData.GamePath; }
+        public static string ModPath { get => configData.ModPath; }
+        public static string FTPUsername { get => configData.FTPUsername; }
+        public static string FTPPassword { get => configData.FTPPassword; }
+        public static string FTPIp { get => configData.FTPIp; }
+        public static string FTPPort { get => configData.FTPPort; }
+        public static string FTPWorkingDir { get => configData.FTPWorkingDir; }
 
         /// <summary>
         /// Renders the current configuration UI.
         /// </summary>
         public void DrawUI()
         {
-            if (ImguiCustomWidgets.PathSelector("Super Mario Odyssey Path", ref GamePath))
-            {
+            bool changed = false;
+
+            if (ImguiCustomWidgets.PathSelector("Super Mario Odyssey Path", ref configData.GamePath))
+                changed = true;
+            if (ImguiCustomWidgets.PathSelector("Super Mario Odyssey Mod Path", ref configData.ModPath))
+                changed = true;
+
+            if (changed)
                 Save();
-            }
-            if (ImguiCustomWidgets.PathSelector("Super Mario Odyssey Mod Path", ref ModPath))
-            {
+        }
+
+        public static void DrawFTPSettings()
+        {
+            bool changed = false;
+
+            if (ImGui.InputText("FTP Username", ref configData.FTPUsername, 0x100))
+                changed = true;
+            if (ImGui.InputText("FTP Password", ref configData.FTPPassword, 0x100))
+                changed = true;
+            if (ImGui.InputText("FTP IP", ref configData.FTPIp, 0x100))
+                changed = true;
+            if (ImGui.InputText("FTP Port", ref configData.FTPPort, 0x100))
+                changed = true;
+            if (ImGui.InputText("Server Working Dir", ref configData.FTPWorkingDir, 0x100))
+                changed = true;
+
+            if (changed)
                 Save();
-            }
         }
 
         /// <summary>
         /// Loads the config json file on disc or creates a new one if it does not exist.
         /// </summary>
         /// <returns></returns>
-        public static PluginConfig Load() {
-            Console.WriteLine("Loading config...");
-            if (!File.Exists($"{Runtime.ExecutableDir}\\SampleMapEditorConfig.json")) { new PluginConfig().Save(); }
+        public static void Load() {
+            if (isLoadedData)
+                return;
 
-            var config = JsonConvert.DeserializeObject<PluginConfig>(File.ReadAllText($"{Runtime.ExecutableDir}\\SampleMapEditorConfig.json"));
-            config.Reload();
-            return config;
+            Console.WriteLine("Loading config...");
+            if (!File.Exists($"{Runtime.ExecutableDir}\\SampleMapEditorConfig.json")) { Save(); }
+
+            configData = JsonConvert.DeserializeObject<ConfigData>(File.ReadAllText($"{Runtime.ExecutableDir}\\SampleMapEditorConfig.json"));
+
+            isLoadedData = true;
         }
 
         /// <summary>
         /// Saves the current configuration to json on disc.
         /// </summary>
-        public void Save() {
+        public static void Save() {
             Console.WriteLine("Saving config...");
-            File.WriteAllText($"{Runtime.ExecutableDir}\\SampleMapEditorConfig.json", JsonConvert.SerializeObject(this));
+            File.WriteAllText($"{Runtime.ExecutableDir}\\SampleMapEditorConfig.json", JsonConvert.SerializeObject(configData));
             Reload();
         }
 
         /// <summary>
         /// Called when the config file has been loaded or saved.
         /// </summary>
-        public void Reload()
+        public static void Reload()
         {
+
         }
     }
 }

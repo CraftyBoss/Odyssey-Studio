@@ -13,7 +13,7 @@ using HakoniwaByml.Writer;
 
 namespace RedStarLibrary.GameTypes
 {
-    public class PlacementInfo : IEquatable<PlacementInfo>, Interfaces.IBymlSerializable
+    public class PlacementInfo : IEquatable<PlacementInfo>, IEquatable<PlacementId>, Interfaces.IBymlSerializable
     {
         public class PlacementUnitConfig
         {
@@ -136,6 +136,8 @@ namespace RedStarLibrary.GameTypes
 
         public bool isSyncInfoToLayer = true; // if disabled, placement info will only save itself in the scenario currently loaded
 
+        private bool[] activeLayers = new bool[StageScene.SCENARIO_COUNT];
+
         private List<string> loadedParams;
         public PlacementInfo()
         {
@@ -155,7 +157,6 @@ namespace RedStarLibrary.GameTypes
 
         public PlacementInfo(BymlIter actorIter)
         {
-
             UnitConfig = new PlacementUnitConfig();
 
             loadedParams = new List<string>();
@@ -165,7 +166,6 @@ namespace RedStarLibrary.GameTypes
             sourceLinks = new Dictionary<string, List<PlacementInfo>>();
 
             destLinks = new Dictionary<string, List<PlacementInfo>>();
-
         }
 
         public PlacementInfo(ObjectDatabaseEntry objEntry, string assetName)
@@ -191,6 +191,13 @@ namespace RedStarLibrary.GameTypes
                 if (entry.Required)
                     ActorParams.Add(param.Key, null);
             }
+        }
+        public void SetScenarioActive(int idx, bool active) => activeLayers[idx] = active;
+        public bool IsScenarioActive(int idx) => activeLayers[idx];
+        public void SetActiveScenarios(LayerConfig config)
+        {
+            for (int i = 0; i < activeLayers.Length; i++)
+                activeLayers[i] = config.IsScenarioActive(i);
         }
         private Dictionary<string, dynamic> GetActorParams(BymlIter iter)
         {
@@ -290,9 +297,7 @@ namespace RedStarLibrary.GameTypes
                     break;
                 }
                 else if(value is BymlIter subIter)
-                {
                     property.SetValue(obj, Helpers.Placement.ConvertToDict(subIter));
-                }
                 else
                     property.SetValue(obj, value);
             }
@@ -334,39 +339,14 @@ namespace RedStarLibrary.GameTypes
                 node.Remove(property.Name);
             }
         }
-        public static bool operator ==(PlacementInfo obj1, PlacementInfo obj2)
-        {
-            if (ReferenceEquals(obj1, obj2))
-                return true;
-            if (ReferenceEquals(obj1, null))
-                return false;
-            if (ReferenceEquals(obj2, null))
-                return false;
-            return obj1.Equals(obj2);
-        }
-        public static bool operator !=(PlacementInfo obj1, PlacementInfo obj2) => !(obj1 == obj2);
-        public bool Equals(PlacementInfo other)
-        {
-            return Id == other.Id && UnitConfigName == other.UnitConfigName && LayerConfigName == other.LayerConfigName;
-        }
-        public override bool Equals(object obj) => Equals(obj as PlacementInfo);
-        public override int GetHashCode()
-        {
-            return HashCode.Combine(Id, UnitConfigName, LayerConfigName);
-        }
-
+        
         public void DeserializeByml(BymlIter rootNode)
         {
-
             LoadValues(this, rootNode);
 
             ActorParams = GetActorParams(rootNode);
 
-            if (Links.Count > 0)
-            {
-                isUseLinks = true;
-            }
-
+            isUseLinks = Links.Count > 0;
         }
 
         public BymlContainer SerializeByml()
@@ -380,5 +360,25 @@ namespace RedStarLibrary.GameTypes
 
             return Helpers.Placement.ConvertToHash(serializedDefaults);
         }
+
+        private void DeserializeLinks(BymlIter rootNode)
+        {
+
+        }
+
+        public static bool operator ==(PlacementInfo obj1, PlacementInfo obj2) => ReferenceEquals(obj1, obj2) || (!ReferenceEquals(obj1, null) && !ReferenceEquals(obj2, null) && obj1.Equals(obj2));
+        public static bool operator !=(PlacementInfo obj1, PlacementInfo obj2) => !(obj1 == obj2);
+        public static bool operator ==(PlacementInfo obj1, PlacementId obj2) => !ReferenceEquals(obj1, null) && !ReferenceEquals(obj2, null) && obj1.Equals(obj2);
+        public static bool operator !=(PlacementInfo obj1, PlacementId obj2) => !(obj1 == obj2);
+        public bool Equals(PlacementInfo other) => Id == other.Id && UnitConfigName == other.UnitConfigName && LayerConfigName == other.LayerConfigName;
+        public bool Equals(PlacementId other) => Id == other.Id && UnitConfigName == other.UnitConfigName && LayerConfigName == other.LayerConfigName;
+        public override bool Equals(object obj)
+        {
+            if (obj is PlacementId id)
+                return Equals(id);
+            else
+                return Equals(obj as PlacementInfo);
+        }
+        public override int GetHashCode() => HashCode.Combine(Id, UnitConfigName, LayerConfigName);
     }
 }

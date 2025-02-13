@@ -22,6 +22,7 @@ using CafeLibrary.Rendering;
 using RedStarLibrary.MapData.Camera;
 using System.Text.Encodings.Web;
 using System.Text.Unicode;
+using RedStarLibrary.Helpers;
 
 namespace RedStarLibrary
 {
@@ -70,15 +71,20 @@ namespace RedStarLibrary
         /// Currently selected Layer used for placing new objects into the scene.
         /// </summary>
         public static string SelectedLayer { get; set; } = "Common";
+        public StageScene CurrentMapScene { get; private set; }
 
         /// <summary>
         /// SARC containing all data used in the map
         /// </summary>
         private SARC mapArc;
-        private StageScene CurrentMapScene { get; set; }
         private string ThumbnailPath => $"{Runtime.ExecutableDir}\\Lib\\Images\\ActorThumbnails";
 
         public static Dictionary<string, Dictionary<string, string>> TempCameraParamCollection = new();
+
+        public EditorLoader() : base() 
+        { 
+            Root.Tag = this;
+        }
 
         /// <summary>
         /// Determines when to use the map editor from a given file.
@@ -163,37 +169,36 @@ namespace RedStarLibrary
         /// </summary>
         public void Save(Stream stream)
         {
-
             ArchiveFileInfo mapData = mapArc.files.Find(e => e.FileName.Contains("StageMap.byml") || e.FileName.Contains("StageDesign.byml") || e.FileName.Contains("StageSound.byml"));
+            var origMapIter = new BymlIter(mapData.FileData.ToArray());
 
-            BymlWriter mapByml = new BymlWriter(CurrentMapScene.SerializeByml());
-
-            //if(STAGE_TEST || stream == null)
-            //{
-            //    BymlFileData origMapByml = ByamlFile.LoadN(mapData.FileData, false);
-            //
-            //    if (Helpers.Placement.CompareStages(origMapByml.RootNode, serializedDict))
-            //    {
-            //        Console.ForegroundColor = ConsoleColor.Green;
-            //        Console.WriteLine("New Stage matches original!");
-            //    }
-            //    else
-            //    {
-            //        Console.ForegroundColor = ConsoleColor.Red;
-            //        Console.WriteLine("New Stage does not match original!");
-            //    }
-            //
-            //    Console.ForegroundColor = ConsoleColor.Gray;
-            //
-            //    return;
-            //}
-
-            // Console.WriteLine($"Saving File: {mapData.FileName}");
-
+            var mapContainer = CurrentMapScene.SerializeByml();
+            BymlWriter mapByml = new BymlWriter(mapContainer);
             var memStream = new MemoryStream(mapByml.Serialize().ToArray());
+
+            Console.WriteLine($"Saving File: {mapData.FileName}");
+
             mapArc.SetFileData(mapData.FileName, memStream);
 
             mapArc.Save(stream);
+
+            {
+                File.WriteAllText(Path.Combine(FileInfo.FolderPath, "OrigStageByml.yaml"), origMapIter.ToYaml());
+                File.WriteAllText(Path.Combine(FileInfo.FolderPath, "NewStageByml.yaml"), mapContainer.ToYaml());
+
+                if (Helpers.Placement.CompareStages(origMapIter, new BymlIter(memStream.ToArray())))
+                {
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine("New Stage matches original!");
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("New Stage does not match original!");
+                }
+
+                Console.ForegroundColor = ConsoleColor.Gray;
+            }
         }
 
         // Iterates through every stage located within the users provided dump directory and creates a database with all objects found within the stages.
@@ -233,18 +238,6 @@ namespace RedStarLibrary
                         foreach (var layer in layers.Value)
                         {
                             ActorDataBase.RegisterActorsToDatabase(layer.LayerObjects);
-                        }
-                    }
-
-                    // scenario layers
-                    foreach (var scenario in curStage.StageScenarios)
-                    {
-                        foreach (var layers in scenario.ScenarioLayers)
-                        {
-                            foreach (var layer in layers.Value)
-                            {
-                                ActorDataBase.RegisterActorsToDatabase(layer.LayerObjects);
-                            }
                         }
                     }
                 }
@@ -352,27 +345,20 @@ namespace RedStarLibrary
 
             if(ImGui.Button("Open Stage Settings"))
             {
-                DialogHandler.Show("Stage Settings", 400, 400, () => {
+                DialogHandler.Show("Stage Settings", 300, 400, () => {
 
                     if (ImGui.Button("Close and Reload"))
-                    {
                         DialogHandler.ClosePopup(true);
-                    }
 
                     if (ImGui.CollapsingHeader($"Layer/Scenario Settings", ImGuiTreeNodeFlags.DefaultOpen))
-                    {
                         DrawScenarioSettings();
-                    }
 
                     if(ImGui.CollapsingHeader("Stage World List Settings", ImGuiTreeNodeFlags.DefaultOpen))
-                    {
                         DrawWorldListSettings();
-                    }
 
                 }, (isDone) => {
-
-                    CurrentMapScene.RestartScene(this);
-
+                    if(isDone)
+                        CurrentMapScene.RestartScene(this);
                 });
             }
 
@@ -474,7 +460,46 @@ namespace RedStarLibrary
             ImGui.DragInt("Scenario", ref scenario, 1, 0, 14);
             StageScene.MapScenarioNo = scenario;
 
-            //ImGuiHelper.BoldText("Scenario Layers:");
+            ImGuiHelper.BoldText("Scenario Layers:");
+
+            foreach ((var categoryName, var categoryList) in CurrentMapScene.GlobalLayers)
+            {
+                if(ImGui.BeginMenu(categoryName))
+                {
+                    if (ImGui.BeginTable("LayerScenarioTable", StageScene.SCENARIO_COUNT + 1, ImGuiTableFlags.RowBg | ImGuiTableFlags.Borders))
+                    {
+                        ImGui.TableNextRow();
+                        ImGui.TableSetColumnIndex(0);
+
+                        ImGui.Text("Layer Name");
+                        for (int i = 0; i < StageScene.SCENARIO_COUNT; i++)
+                        {
+                            ImGui.TableSetColumnIndex(i + 1);
+                            ImGui.Text((i+1).ToString());
+                        }
+
+                        foreach (var layer in categoryList)
+                        {
+                            ImGui.TableNextRow();
+                            ImGui.TableSetColumnIndex(0);
+                            ImGui.Text(layer.LayerName);
+
+                            for (int i = 0; i < StageScene.SCENARIO_COUNT; i++)
+                            {
+                                ImGui.TableSetColumnIndex(i + 1);
+
+                                bool isChecked = layer.IsScenarioActive(i);
+                                if (ImGui.Checkbox($"##{i}", ref isChecked))
+                                    layer.SetScenarioActive(i, isChecked);
+                            }
+                        }
+                        ImGui.EndTable();
+                    }
+
+                    ImGui.EndMenu();
+                }
+                
+            }
 
             //ImGui.Columns(2, "layer_list", true);
 
@@ -591,47 +616,7 @@ namespace RedStarLibrary
             }
 
             if(item is AssetMenu.LiveActorAsset actorAsset)
-            {
-
                 CurrentMapScene.TryAddActorFromAsset(this, position, actorAsset);
-
-                //var actorPlacement = new PlacementInfo(actorAsset.DatabaseEntry);
-
-                //Random rng = new Random();
-
-                //string listName = actorPlacement.UnitConfig.GenerateCategory;
-
-                //actorPlacement.Translate = position;
-                //actorPlacement.Id = "obj" + rng.Next(1000);
-                //actorPlacement.LayerConfigName = SelectedLayer;
-                //actorPlacement.PlacementFileName = PlacementFileName;
-
-                //var actor = CurrentMapScene.LoadActorFromPlacement(actorPlacement, new ActorList(""));
-
-                //if(MapActorList.TryGetValue(SelectedLayer, out List<ActorList> lists))
-                //{
-                //    var actorList = lists.Find(e => e.ActorListName == listName);
-
-                //    if(actorList != null)
-                //    {
-                //        actorList.Add(actor);
-                //    }else
-                //    {
-                //        actorList = new ActorList(listName);
-                //        lists.Add(actorList);
-                //    }
-                //}else
-                //{
-                //    var actorLists = new List<ActorList>();
-
-                //    actorLists.Add(new ActorList(listName));
-
-                //    MapActorList.Add(SelectedLayer, actorLists);
-                //}
-
-                //AddActorToRender(actor);
-            }
-            
         }
 
         /// <summary>
