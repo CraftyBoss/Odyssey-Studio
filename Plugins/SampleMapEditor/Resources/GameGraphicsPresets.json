@@ -1,0 +1,1462 @@
+[
+    {
+        "PresetName": "3DEditor確認用の白い空間",
+        "TranslatedName": "3D Editor White space for confirmation",
+        "Used": false
+    },
+    {
+        "PresetName": "Default",
+        "TranslatedName": "Default",
+        "Used": true
+    },
+    {
+        "PresetName": "EXキャプチャーパレード",
+        "TranslatedName": "EX Capture Parade",
+        "Used": false
+    },
+    {
+        "PresetName": "EXジッパー(サブムーンエリア)",
+        "TranslatedName": "EX zipper (sub moon area)",
+        "Used": true
+    },
+    {
+        "PresetName": "EXジッパー(鍵取得後)",
+        "TranslatedName": "EX zipper (after key acquisition)",
+        "Used": false
+    },
+    {
+        "PresetName": "EXジッパー",
+        "TranslatedName": "EX zipper",
+        "Used": true
+    },
+    {
+        "PresetName": "EX帽子回転迷路",
+        "TranslatedName": "EX Hat Rotating Labyrinth",
+        "Used": true
+    },
+    {
+        "PresetName": "EX建物回転",
+        "TranslatedName": "EX Building Rotation",
+        "Used": true
+    },
+    {
+        "PresetName": "EX棒のぼり",
+        "TranslatedName": "EX Pole Climbing",
+        "Used": false
+    },
+    {
+        "PresetName": "EX水中土管",
+        "TranslatedName": "EX Underwater clay pipe",
+        "Used": true
+    },
+    {
+        "PresetName": "EX汎用暗空",
+        "TranslatedName": "EX General Purpose Dark Sky",
+        "Used": false
+    },
+    {
+        "PresetName": "EX異次元空(グレイッシュ)",
+        "TranslatedName": "EX Different Dimension Sky (Grayish)",
+        "Used": false
+    },
+    {
+        "PresetName": "EX異次元空(シャンパンゴールド)",
+        "TranslatedName": "EX Different Dimension Sky (Champagne Gold)",
+        "Used": false
+    },
+    {
+        "PresetName": "EX異次元空(ダルトーン)",
+        "TranslatedName": "EX Different Dimension Sky (Daltone)",
+        "Used": true
+    },
+    {
+        "PresetName": "EX異次元空(パステル)",
+        "TranslatedName": "EX Different Dimension Sky (Pastel)",
+        "Used": false
+    },
+    {
+        "PresetName": "EX異次元空(明るい)",
+        "TranslatedName": "EX Different Dimension Sky (Bright)",
+        "Used": false
+    },
+    {
+        "PresetName": "EX異次元空(暗い空)",
+        "TranslatedName": "EX Different Dimension Sky (Dark Sky)",
+        "Used": false
+    },
+    {
+        "PresetName": "EX異次元空(青い空間)",
+        "TranslatedName": "EX Different Dimension Sky (Blue Space)",
+        "Used": false
+    },
+    {
+        "PresetName": "クッパ戦Lv3(クリア後)",
+        "TranslatedName": "Bowser Battle Lv3 (after clearing)",
+        "Used": false
+    },
+    {
+        "PresetName": "ショップ(暖色)",
+        "TranslatedName": "Shop (warm colors)",
+        "Used": true
+    },
+    {
+        "PresetName": "スタッフロール",
+        "TranslatedName": "Staff roll",
+        "Used": true
+    },
+    {
+        "PresetName": "スロット部屋",
+        "TranslatedName": "Slot room",
+        "Used": true
+    },
+    {
+        "PresetName": "デモエンディング月面(飛び立ちジャンプ)",
+        "TranslatedName": "Demo Ending Moon (Flying Jump)",
+        "Used": false
+    },
+    {
+        "PresetName": "デモエンディング月面",
+        "TranslatedName": "Demo ending lunar surface",
+        "Used": true
+    },
+    {
+        "PresetName": "デモエンディング月面飛び立ち",
+        "TranslatedName": "Demo ending Moon takeoff",
+        "Used": false
+    },
+    {
+        "PresetName": "デモオープニング",
+        "TranslatedName": "Demo opening",
+        "Used": true
+    },
+    {
+        "PresetName": "デモキャップと出会い(クッパ)",
+        "TranslatedName": "Encounter with Demo Cap (Kuppa)",
+        "Used": false
+    },
+    {
+        "PresetName": "デモクッパの攻撃ホーム転落(ティアラアップ)",
+        "TranslatedName": "Demo Kuppa's Attack Home Fall (Tiara Up)",
+        "Used": false
+    },
+    {
+        "PresetName": "デモクッパの攻撃ホーム転落(雲昼空)",
+        "TranslatedName": "Demo Kuppa's Attack Home Fall (Cloud Day Sky)",
+        "Used": true
+    },
+    {
+        "PresetName": "デモクッパキャプチャー",
+        "TranslatedName": "Demo Bowser Capture",
+        "Used": false
+    },
+    {
+        "PresetName": "デモクッパ戦艦発見(ホーム内部カット)",
+        "TranslatedName": "Demo Kuppa Battleship Discovered (Cut Inside Home)",
+        "Used": false
+    },
+    {
+        "PresetName": "デモクッパ戦艦発見(雲昼空)",
+        "TranslatedName": "Demo Kuppa Battleship Discovery (Cloud Day Sky)",
+        "Used": true
+    },
+    {
+        "PresetName": "デモダイバー白空間",
+        "TranslatedName": "Demo Diver White Space",
+        "Used": false
+    },
+    {
+        "PresetName": "デモホーム移動(帰り)",
+        "TranslatedName": "Demo Home Move (Return)",
+        "Used": true
+    },
+    {
+        "PresetName": "デモワールドワープ",
+        "TranslatedName": "Demo World Warp",
+        "Used": true
+    },
+    {
+        "PresetName": "デモワールド移動(ホーム内部)",
+        "TranslatedName": "Demo World Move (Inside Home)",
+        "Used": false
+    },
+    {
+        "PresetName": "デモワールド移動(夕方)",
+        "TranslatedName": "Demo World Move (Evening)",
+        "Used": true
+    },
+    {
+        "PresetName": "デモワールド移動(夜)",
+        "TranslatedName": "Demo World Move (Night)",
+        "Used": true
+    },
+    {
+        "PresetName": "デモワールド移動(宇宙)",
+        "TranslatedName": "Demo World Movement (Space)",
+        "Used": true
+    },
+    {
+        "PresetName": "デモワールド移動(嵐)",
+        "TranslatedName": "Demo World Move (Storm)",
+        "Used": true
+    },
+    {
+        "PresetName": "デモワールド移動(昼)",
+        "TranslatedName": "Demo World Move (Day)",
+        "Used": true
+    },
+    {
+        "PresetName": "デモワールド移動(曇り)",
+        "TranslatedName": "Demo World Move (Cloudy)",
+        "Used": true
+    },
+    {
+        "PresetName": "デモワールド移動(月と地球の間)",
+        "TranslatedName": "Demo World Move (between the moon and the earth)",
+        "Used": true
+    },
+    {
+        "PresetName": "デモ初キャプチャ(塔内部後半)",
+        "TranslatedName": "First demo capture (second half inside the tower)",
+        "Used": false
+    },
+    {
+        "PresetName": "デモ初キャプチャー蛙の記憶(塔内部)",
+        "TranslatedName": "Demonstration first capture Frog memory (inside the tower)",
+        "Used": false
+    },
+    {
+        "PresetName": "デモ初キャプチャー蛙の記憶",
+        "TranslatedName": "Demo first capture frog memory",
+        "Used": true
+    },
+    {
+        "PresetName": "デモ滝ワールドへ電線移動",
+        "TranslatedName": "Electric wire move to demo waterfall world",
+        "Used": false
+    },
+    {
+        "PresetName": "デモ砂漠ボスナックル",
+        "TranslatedName": "Demonstration Desert Boss Knuckle",
+        "Used": false
+    },
+    {
+        "PresetName": "デモ襲撃ボス攻撃",
+        "TranslatedName": "Demonstration Raid Boss Attack",
+        "Used": true
+    },
+    {
+        "PresetName": "ピーチ(64中庭)",
+        "TranslatedName": "Peach (64 courtyard)",
+        "Used": true
+    },
+    {
+        "PresetName": "ピーチEXヨッシークラウド",
+        "TranslatedName": "Peach EX Yoshi Cloud",
+        "Used": true
+    },
+    {
+        "PresetName": "ピーチEX福笑い",
+        "TranslatedName": "Peach EX Fukuwarai",
+        "Used": true
+    },
+    {
+        "PresetName": "ピーチワールド(ピーチ城広間)",
+        "TranslatedName": "Peach World (Peach Castle Hall)",
+        "Used": true
+    },
+    {
+        "PresetName": "ピーチワールド(小部屋ボス入口)",
+        "TranslatedName": "Peach World (Small Room Boss Entrance)",
+        "Used": true
+    },
+    {
+        "PresetName": "ピーチワールド(屋外)",
+        "TranslatedName": "Peach World (Outdoor)",
+        "Used": true
+    },
+    {
+        "PresetName": "ピーチワールド(屋外コンプリート用)",
+        "TranslatedName": "Peach World (for outdoor complete)",
+        "Used": false
+    },
+    {
+        "PresetName": "ピーチ城コスチューム部屋",
+        "TranslatedName": "Peach Castle Costume Room",
+        "Used": false
+    },
+    {
+        "PresetName": "ピーチ城ワールドEX高難度ドット",
+        "TranslatedName": "Peach Castle World EX High Difficulty Dot",
+        "Used": true
+    },
+    {
+        "PresetName": "プレイガイド",
+        "TranslatedName": "Play guide",
+        "Used": false
+    },
+    {
+        "PresetName": "プレイヤーライト(クローゼット) ",
+        "TranslatedName": "Player Light (Closet) "
+,
+"Used": false    },
+    {
+        "PresetName": "プレイヤーライト(ショップ) ",
+        "TranslatedName": "Player Light (Shop) "
+,
+"Used": false    },
+    {
+        "PresetName": "プレイヤーライト(ポーズ) ",
+        "TranslatedName": "Player Light (Pose) "
+,
+"Used": false    },
+    {
+        "PresetName": "プレイヤーライト(ムーンゲット) ",
+        "TranslatedName": "Player Light (Moon Get) "
+,
+"Used": false    },
+    {
+        "PresetName": "プログラマ確認用(TREX実験)",
+        "TranslatedName": "For programmer confirmation (TREX experiment)",
+        "Used": false
+    },
+    {
+        "PresetName": "プログラマ確認用",
+        "TranslatedName": "Programmer confirmation",
+        "Used": false
+    },
+    {
+        "PresetName": "プログラマ確認用その2",
+        "TranslatedName": "Programmer confirmation part 2",
+        "Used": false
+    },
+    {
+        "PresetName": "プログラマ確認用その3",
+        "TranslatedName": "Programmer confirmation part 3",
+        "Used": false
+    },
+    {
+        "PresetName": "プログラマ確認用その4",
+        "TranslatedName": "Programmer confirmation part 4",
+        "Used": false
+    },
+    {
+        "PresetName": "プログラマ確認用その5",
+        "TranslatedName": "Programmer confirmation part 5",
+        "Used": false
+    },
+    {
+        "PresetName": "プログラマ確認用その6",
+        "TranslatedName": "Programmer confirmation part 6",
+        "Used": false
+    },
+    {
+        "PresetName": "プログラマ確認用その7",
+        "TranslatedName": "Programmer confirmation part 7",
+        "Used": false
+    },
+    {
+        "PresetName": "ヘルプ撮影用空間",
+        "TranslatedName": "Help shooting space",
+        "Used": false
+    },
+    {
+        "PresetName": "ベース環境(夜)",
+        "TranslatedName": "Base environment (night)",
+        "Used": false
+    },
+    {
+        "PresetName": "ベース環境2D洞窟",
+        "TranslatedName": "Base environment 2D cave",
+        "Used": false
+    },
+    {
+        "PresetName": "ベース環境：夜",
+        "TranslatedName": "Base environment: Night",
+        "Used": false
+    },
+    {
+        "PresetName": "ベース環境：室内暖色",
+        "TranslatedName": "Base environment: indoor warm colors",
+        "Used": false
+    },
+    {
+        "PresetName": "ホーム内部",
+        "TranslatedName": "Inside the home",
+        "Used": true
+    },
+    {
+        "PresetName": "ワールドマップ",
+        "TranslatedName": "World map",
+        "Used": true
+    },
+    {
+        "PresetName": "墜落EXイモムーポイズン",
+        "TranslatedName": "Crash EX Imomu Poison",
+        "Used": true
+    },
+    {
+        "PresetName": "墜落EXジャンゴ",
+        "TranslatedName": "Crash EX Django",
+        "Used": true
+    },
+    {
+        "PresetName": "墜落夜空",
+        "TranslatedName": "Crash night sky",
+        "Used": true
+    },
+    {
+        "PresetName": "多面図撮影用",
+        "TranslatedName": "For multi-view photography",
+        "Used": false
+    },
+    {
+        "PresetName": "帽子EX押し出しブロック",
+        "TranslatedName": "Hat EX Extruded Block",
+        "Used": true
+    },
+    {
+        "PresetName": "帽子EX転がり",
+        "TranslatedName": "Hat EX Rolling",
+        "Used": true
+    },
+    {
+        "PresetName": "帽子の里(塔内部)",
+        "TranslatedName": "Hat no Sato (inside the tower)",
+        "Used": true
+    },
+    {
+        "PresetName": "帽子の里EXカエルの探し物",
+        "TranslatedName": "Hat no Sato EX Frog Search",
+        "Used": true
+    },
+    {
+        "PresetName": "帽子の里EX毒波",
+        "TranslatedName": "Hat no Sato EX Poison Wave",
+        "Used": true
+    },
+    {
+        "PresetName": "帽子の里満月",
+        "TranslatedName": "Hat no Sato Full Moon",
+        "Used": true
+    },
+    {
+        "PresetName": "帽子満月空(塔の後ろ)",
+        "TranslatedName": "Hat full moon sky (behind the tower)",
+        "Used": true
+    },
+    {
+        "PresetName": "平原EXリフト2D",
+        "TranslatedName": "Plain EX Lift 2D",
+        "Used": true
+    },
+    {
+        "PresetName": "平原EX帽子出現足場(デフォルメ)",
+        "TranslatedName": "Plain EX Hat Appearance Scaffolding (Deformed)",
+        "Used": true
+    },
+    {
+        "PresetName": "平原EX帽子出現足場",
+        "TranslatedName": "Plain EX Hat Appearance Scaffolding",
+        "Used": false
+    },
+    {
+        "PresetName": "平原EX恐竜とポップン",
+        "TranslatedName": "Plain EX Dinosaurs and Pop'n",
+        "Used": true
+    },
+    {
+        "PresetName": "平原青空(E3PV恐竜デモ)",
+        "TranslatedName": "Plain Blue Sky (E3PV Dinosaur Demo)",
+        "Used": false
+    },
+    {
+        "PresetName": "平原青空(制作テスト用)",
+        "TranslatedName": "Plain blue sky (for production test)",
+        "Used": false
+    },
+    {
+        "PresetName": "平原青空",
+        "TranslatedName": "Plain blue sky",
+        "Used": true
+    },
+    {
+        "PresetName": "月EXキャプチャーパレード",
+        "TranslatedName": "Moon EX Capture Parade",
+        "Used": true
+    },
+    {
+        "PresetName": "月EX月重力アスレチック",
+        "TranslatedName": "Moon EX Moon Gravity Athletic",
+        "Used": true
+    },
+    {
+        "PresetName": "月キャプチャパレード(ThankYouエリア)",
+        "TranslatedName": "Moon Capture Parade (Thank You Area)",
+        "Used": true
+    },
+    {
+        "PresetName": "月キャプチャパレード(森)",
+        "TranslatedName": "Moon Capture Parade (Forest)",
+        "Used": true
+    },
+    {
+        "PresetName": "月キャプチャパレード(溶岩)",
+        "TranslatedName": "Moon Capture Parade (Lava)",
+        "Used": true
+    },
+    {
+        "PresetName": "月キャプチャパレード(滝)",
+        "TranslatedName": "Moon Capture Parade (Waterfall)",
+        "Used": true
+    },
+    {
+        "PresetName": "月キャプチャパレード(真ベース)",
+        "TranslatedName": "Moon Capture Parade (True Base)",
+        "Used": true
+    },
+    {
+        "PresetName": "月キャプチャパレード(砂)",
+        "TranslatedName": "Moon Capture Parade (Sand)",
+        "Used": true
+    },
+    {
+        "PresetName": "月キャプチャパレード(都市)",
+        "TranslatedName": "Moon Capture Parade (City)",
+        "Used": true
+    },
+    {
+        "PresetName": "月キャプチャパレード",
+        "TranslatedName": "Moon Capture Parade",
+        "Used": true
+    },
+    {
+        "PresetName": "月クッパ戦(クリア後)",
+        "TranslatedName": "Moon Bowser Battle (after clearing)",
+        "Used": true
+    },
+    {
+        "PresetName": "月クッパ戦(１ダメージ後)",
+        "TranslatedName": "Moon Bowser Battle (after 1 damage)",
+        "Used": true
+    },
+    {
+        "PresetName": "月クッパ戦(２ダメージ後)",
+        "TranslatedName": "Moon Bowser Battle (after 2 damage)",
+        "Used": true
+    },
+    {
+        "PresetName": "月クッパ戦",
+        "TranslatedName": "Moon Bowser Battle",
+        "Used": true
+    },
+    {
+        "PresetName": "月クッパ戦Lv3(クリア後)",
+        "TranslatedName": "Moon Bowser Battle Lv3 (after clearing)",
+        "Used": true
+    },
+    {
+        "PresetName": "月クッパ戦Lv3(１ダメージ後)",
+        "TranslatedName": "Moon Bowser Battle Lv3 (after 1 damage)",
+        "Used": true
+    },
+    {
+        "PresetName": "月クッパ戦Lv3(２ダメージ後)",
+        "TranslatedName": "Moon Bowser Battle Lv3 (after 2 damage)",
+        "Used": true
+    },
+    {
+        "PresetName": "月クッパ戦Lv3",
+        "TranslatedName": "Moon Bowser Battle Lv3",
+        "Used": true
+    },
+    {
+        "PresetName": "月宇宙空(GK４連戦)",
+        "TranslatedName": "Moon Space Sky (GK 4 consecutive battles)",
+        "Used": true
+    },
+    {
+        "PresetName": "月宇宙空(逆光)",
+        "TranslatedName": "Moon Space Sky (Backlight)",
+        "Used": true
+    },
+    {
+        "PresetName": "月宇宙空",
+        "TranslatedName": "Moon Space Sky",
+        "Used": false
+    },
+    {
+        "PresetName": "月宇宙空真キャプチャパレード",
+        "TranslatedName": "Moon Space Sky True Capture Parade",
+        "Used": true
+    },
+    {
+        "PresetName": "月宝箱部屋",
+        "TranslatedName": "Moon Treasure Chest Room",
+        "Used": true
+    },
+    {
+        "PresetName": "月崩落(中間エリア)",
+        "TranslatedName": "Moon collapse (intermediate area)",
+        "Used": true
+    },
+    {
+        "PresetName": "月崩落(最終エリア)",
+        "TranslatedName": "Moon collapse (final area)",
+        "Used": true
+    },
+    {
+        "PresetName": "月崩落",
+        "TranslatedName": "Moon collapse",
+        "Used": true
+    },
+    {
+        "PresetName": "月教会内部",
+        "TranslatedName": "Inside the Moon Church",
+        "Used": true
+    },
+    {
+        "PresetName": "月裏EXギャラクシー2",
+        "TranslatedName": "Farside EX Galaxy 2",
+        "Used": true
+    },
+    {
+        "PresetName": "月裏EXシューティングシティー",
+        "TranslatedName": "Farside EX Shooting City",
+        "Used": true
+    },
+    {
+        "PresetName": "月裏EXバイク",
+        "TranslatedName": "Farside EX Bike",
+        "Used": true
+    },
+    {
+        "PresetName": "月裏EXポイズンパックンEX",
+        "TranslatedName": "Farside EX Poison Pakkun EX",
+        "Used": true
+    },
+    {
+        "PresetName": "月裏EX浮き沈み",
+        "TranslatedName": "Dark side EX ups and downs",
+        "Used": true
+    },
+    {
+        "PresetName": "月裏GK4連戦ボス部屋",
+        "TranslatedName": "Dark side of the moon GK 4 consecutive battle boss room",
+        "Used": true
+    },
+    {
+        "PresetName": "月裏真キャプチャ星雲宇宙空",
+        "TranslatedName": "Moon Back True Capture Nebula Space Sky",
+        "Used": false
+    },
+    {
+        "PresetName": "月裏雲海",
+        "TranslatedName": "Sea of ​​the Moon",
+        "Used": true
+    },
+    {
+        "PresetName": "森(樹海エリア)",
+        "TranslatedName": "Forest (Jukai area)",
+        "Used": true
+    },
+    {
+        "PresetName": "森EXキラーロード",
+        "TranslatedName": "Mori EX Killer Road",
+        "Used": true
+    },
+    {
+        "PresetName": "森EXシューティングエレベーター",
+        "TranslatedName": "Mori EX Shooting Elevator",
+        "Used": true
+    },
+    {
+        "PresetName": "森EXセノビー雲ボーナス",
+        "TranslatedName": "Forest EX Senoby Cloud Bonus",
+        "Used": true
+    },
+    {
+        "PresetName": "森EXポイズンパックン",
+        "TranslatedName": "Mori EX Poison Pakkun",
+        "Used": true
+    },
+    {
+        "PresetName": "森EXレール生成",
+        "TranslatedName": "Forest EX rail generation",
+        "Used": true
+    },
+    {
+        "PresetName": "森EX羊飼い",
+        "TranslatedName": "Forest EX Shepherd",
+        "Used": true
+    },
+    {
+        "PresetName": "森EX霧の山",
+        "TranslatedName": "Forest EX Fog Mountain",
+        "Used": true
+    },
+    {
+        "PresetName": "森アスレチック報酬部屋",
+        "TranslatedName": "Forest Athletic Reward Room",
+        "Used": true
+    },
+    {
+        "PresetName": "森コスチューム部屋",
+        "TranslatedName": "Forest Costume Room",
+        "Used": true
+    },
+    {
+        "PresetName": "森タワー内部",
+        "TranslatedName": "Inside Mori Tower",
+        "Used": true
+    },
+    {
+        "PresetName": "森曇り空(トンネル内)",
+        "TranslatedName": "Forest cloudy sky (in the tunnel)",
+        "Used": true
+    },
+    {
+        "PresetName": "森曇り空(森エリア)",
+        "TranslatedName": "Forest cloudy sky (forest area)",
+        "Used": true
+    },
+    {
+        "PresetName": "森曇り空(機械エリア)",
+        "TranslatedName": "Forest cloudy sky (mechanical area)",
+        "Used": true
+    },
+    {
+        "PresetName": "森樹海宝箱部屋",
+        "TranslatedName": "Moriki Kaiho Box Room",
+        "Used": true
+    },
+    {
+        "PresetName": "森青空(トンネル内)",
+        "TranslatedName": "Forest blue sky (inside the tunnel)",
+        "Used": true
+    },
+    {
+        "PresetName": "森青空(ブロックボス)",
+        "TranslatedName": "Mori Aozora (Block Boss)",
+        "Used": false
+    },
+    {
+        "PresetName": "森青空(ボス)",
+        "TranslatedName": "Forest blue sky (boss)",
+        "Used": true
+    },
+    {
+        "PresetName": "森青空(森エリア)",
+        "TranslatedName": "Forest blue sky (forest area)",
+        "Used": true
+    },
+    {
+        "PresetName": "森青空(機械エリア)",
+        "TranslatedName": "Forest blue sky (machine area)",
+        "Used": true
+    },
+    {
+        "PresetName": "森青空",
+        "TranslatedName": "Forest blue sky",
+        "Used": false
+    },
+    {
+        "PresetName": "森青空花咲き後(トンネル内)",
+        "TranslatedName": "After the forest blue sky flowers bloom (in the tunnel)",
+        "Used": true
+    },
+    {
+        "PresetName": "森青空花咲き後(森エリア)",
+        "TranslatedName": "Forest blue sky after flower bloom (forest area)",
+        "Used": true
+    },
+    {
+        "PresetName": "森青空花咲き後(機械エリア)",
+        "TranslatedName": "After the forest blue sky flowers bloom (mechanical area)",
+        "Used": true
+    },
+    {
+        "PresetName": "汎用EXキューブ(暗い)",
+        "TranslatedName": "General-purpose EX cube (dark)",
+        "Used": false
+    },
+    {
+        "PresetName": "海(コスチューム部屋)",
+        "TranslatedName": "Sea (costume room)",
+        "Used": true
+    },
+    {
+        "PresetName": "海(小部屋)",
+        "TranslatedName": "Sea (small room)",
+        "Used": false
+    },
+    {
+        "PresetName": "海(振動小部屋)",
+        "TranslatedName": "Sea (vibration small room)",
+        "Used": true
+    },
+    {
+        "PresetName": "海(水中小部屋)",
+        "TranslatedName": "Sea (small room underwater)",
+        "Used": true
+    },
+    {
+        "PresetName": "海EXコソコソくん部屋",
+        "TranslatedName": "Umi EX Kosokoso-kun Room",
+        "Used": true
+    },
+    {
+        "PresetName": "海EXセノビータワー",
+        "TranslatedName": "Sea EX Senoby Tower",
+        "Used": true
+    },
+    {
+        "PresetName": "海EXホウスイ谷(谷底エリア)",
+        "TranslatedName": "Sea EX Hosui Valley (valley bottom area)",
+        "Used": true
+    },
+    {
+        "PresetName": "海EXホウスイ谷",
+        "TranslatedName": "Sea EX Hosui Valley",
+        "Used": true
+    },
+    {
+        "PresetName": "海EX帽子回転トゲゾー",
+        "TranslatedName": "Sea EX Hat Rotating Spiny",
+        "Used": true
+    },
+    {
+        "PresetName": "海EX雲海",
+        "TranslatedName": "Sea EX Sea of ​​Clouds",
+        "Used": true
+    },
+    {
+        "PresetName": "海夕焼け(水中なのでゴッドレイなし)",
+        "TranslatedName": "Sea sunset (no godley because it is underwater)",
+        "Used": true
+    },
+    {
+        "PresetName": "海夕焼け",
+        "TranslatedName": "Sea sunset",
+        "Used": true
+    },
+    {
+        "PresetName": "海天気雨空(ボス再戦)",
+        "TranslatedName": "Sea weather rain sky (boss rematch)",
+        "Used": true
+    },
+    {
+        "PresetName": "海洞窟",
+        "TranslatedName": "Sea cave",
+        "Used": true
+    },
+    {
+        "PresetName": "海青空",
+        "TranslatedName": "Sea blue sky",
+        "Used": true
+    },
+    {
+        "PresetName": "海青空EX反射爆弾",
+        "TranslatedName": "Sea Blue Sky EX Reflective Bomb",
+        "Used": true
+    },
+    {
+        "PresetName": "湖EXトランポリンぶら下がり",
+        "TranslatedName": "Lake EX trampoline hanging",
+        "Used": true
+    },
+    {
+        "PresetName": "湖カエル毒沼",
+        "TranslatedName": "Lake Frog Poison Swamp",
+        "Used": true
+    },
+    {
+        "PresetName": "湖ゴトゴトン",
+        "TranslatedName": "Lake Gotogoton",
+        "Used": true
+    },
+    {
+        "PresetName": "湖夜(水中)",
+        "TranslatedName": "Lake night (underwater)",
+        "Used": true
+    },
+    {
+        "PresetName": "湖夜",
+        "TranslatedName": "Lake night",
+        "Used": true
+    },
+    {
+        "PresetName": "湖昼",
+        "TranslatedName": "Lake day",
+        "Used": true
+    },
+    {
+        "PresetName": "溶岩EXガブゾウロック",
+        "TranslatedName": "Lava EX Gab Elephant Rock",
+        "Used": true
+    },
+    {
+        "PresetName": "溶岩EXクロック",
+        "TranslatedName": "Lava EX clock",
+        "Used": true
+    },
+    {
+        "PresetName": "溶岩EXフォーク",
+        "TranslatedName": "Lava EX Fork",
+        "Used": true
+    },
+    {
+        "PresetName": "溶岩EXペチョの細道",
+        "TranslatedName": "Lava EX Pecho's Path",
+        "Used": true
+    },
+    {
+        "PresetName": "溶岩EX共通",
+        "TranslatedName": "Lava EX common",
+        "Used": false
+    },
+    {
+        "PresetName": "溶岩EX掘削",
+        "TranslatedName": "Lava EX excavation",
+        "Used": true
+    },
+    {
+        "PresetName": "溶岩EX浮き沈み",
+        "TranslatedName": "Lava EX ups and downs",
+        "Used": true
+    },
+    {
+        "PresetName": "溶岩EX溶岩クルーズ",
+        "TranslatedName": "Lava EX Lava Cruise",
+        "Used": true
+    },
+    {
+        "PresetName": "溶岩EX金網リフト",
+        "TranslatedName": "Lava EX Wire Mesh Lift",
+        "Used": true
+    },
+    {
+        "PresetName": "溶岩コスチューム部屋",
+        "TranslatedName": "Lava Costume Room",
+        "Used": true
+    },
+    {
+        "PresetName": "溶岩デモシナリオ1終了",
+        "TranslatedName": "Lava Demo Scenario 1 End",
+        "Used": true
+    },
+    {
+        "PresetName": "溶岩噴火中",
+        "TranslatedName": "Lava erupting",
+        "Used": false
+    },
+    {
+        "PresetName": "溶岩噴火前(影の向き調整用垂直ライト)",
+        "TranslatedName": "Before lava eruption (vertical light for adjusting shadow orientation)",
+        "Used": true
+    },
+    {
+        "PresetName": "溶岩噴火前",
+        "TranslatedName": "Before lava eruption",
+        "Used": true
+    },
+    {
+        "PresetName": "溶岩噴火最中(影の向き調整用垂直ライト)",
+        "TranslatedName": "During lava eruption (vertical light for adjusting shadow orientation)",
+        "Used": true
+    },
+    {
+        "PresetName": "溶岩噴火最中",
+        "TranslatedName": "During a lava eruption",
+        "Used": true
+    },
+    {
+        "PresetName": "溶岩宝箱部屋",
+        "TranslatedName": "Lava treasure chest room",
+        "Used": true
+    },
+    {
+        "PresetName": "溶岩洞窟",
+        "TranslatedName": "Lava cave",
+        "Used": true
+    },
+    {
+        "PresetName": "滝EX横向き上昇気流",
+        "TranslatedName": "Waterfall EX Sideways Updraft",
+        "Used": true
+    },
+    {
+        "PresetName": "砂EXホウスイ水路",
+        "TranslatedName": "Sand EX Hosui Channel",
+        "Used": true
+    },
+    {
+        "PresetName": "砂EX振動小部屋",
+        "TranslatedName": "Sand EX Vibration Small Room",
+        "Used": true
+    },
+    {
+        "PresetName": "砂漠EXキラー",
+        "TranslatedName": "Desert EX Killer",
+        "Used": true
+    },
+    {
+        "PresetName": "砂漠EXスフィンクスラン",
+        "TranslatedName": "Desert EX Sphinx Run",
+        "Used": true
+    },
+    {
+        "PresetName": "砂漠EXメガネー",
+        "TranslatedName": "Desert EX Glasses",
+        "Used": true
+    },
+    {
+        "PresetName": "砂漠EXメガネーリフト",
+        "TranslatedName": "Desert EX Glasses Lift",
+        "Used": true
+    },
+    {
+        "PresetName": "砂漠コスチューム部屋",
+        "TranslatedName": "Desert Costume Room",
+        "Used": true
+    },
+    {
+        "PresetName": "砂漠ピラミッド内部",
+        "TranslatedName": "Inside the Desert Pyramid",
+        "Used": true
+    },
+    {
+        "PresetName": "砂漠ボスナックル",
+        "TranslatedName": "Desert Boss Knuckle",
+        "Used": true
+    },
+    {
+        "PresetName": "砂漠ボスナックルOmitDof",
+        "TranslatedName": "Desert Boss Knuckle OmitDof",
+        "Used": false
+    },
+    {
+        "PresetName": "砂漠夜空",
+        "TranslatedName": "Desert Night Sky",
+        "Used": true
+    },
+    {
+        "PresetName": "砂漠昼",
+        "TranslatedName": "Desert day",
+        "Used": false
+    },
+    {
+        "PresetName": "砂漠昼逆光(2016_10映像用)",
+        "TranslatedName": "Desert daylight (for 2016_10 video)",
+        "Used": true
+    },
+    {
+        "PresetName": "砂漠昼逆光",
+        "TranslatedName": "Desert daylight",
+        "Used": true
+    },
+    {
+        "PresetName": "砂漠曇り",
+        "TranslatedName": "Desert cloudy",
+        "Used": false
+    },
+    {
+        "PresetName": "砂漠朝",
+        "TranslatedName": "Desert Morning",
+        "Used": false
+    },
+    {
+        "PresetName": "砂漠氷地下",
+        "TranslatedName": "Desert Ice Underground",
+        "Used": true
+    },
+    {
+        "PresetName": "砂漠黄金部屋",
+        "TranslatedName": "Desert Golden Room",
+        "Used": true
+    },
+    {
+        "PresetName": "空EXツックンクライム",
+        "TranslatedName": "Sky EX Tukkun Climb",
+        "Used": true
+    },
+    {
+        "PresetName": "空EXツックン回転",
+        "TranslatedName": "Sky EX Tukkun Rotation",
+        "Used": true
+    },
+    {
+        "PresetName": "空EXパタカロン",
+        "TranslatedName": "Sky EX Patakaron",
+        "Used": true
+    },
+    {
+        "PresetName": "空EX地蔵",
+        "TranslatedName": "Sky EX Jizo",
+        "Used": true
+    },
+    {
+        "PresetName": "空EX雲ボーナス",
+        "TranslatedName": "Sky EX Cloud Bonus",
+        "Used": true
+    },
+    {
+        "PresetName": "空夕焼け空",
+        "TranslatedName": "Sky Sunset Sky",
+        "Used": false
+    },
+    {
+        "PresetName": "空夜空(クリア後)",
+        "TranslatedName": "Sky Night Sky (after clearing)",
+        "Used": true
+    },
+    {
+        "PresetName": "空夜空(クリア後月の石解放デモ)",
+        "TranslatedName": "Sky Night Sky (Demonstration of Moon Rock Release after Clearing)",
+        "Used": true
+    },
+    {
+        "PresetName": "空夜空",
+        "TranslatedName": "Sky Night Sky",
+        "Used": true
+    },
+    {
+        "PresetName": "空屏風部屋",
+        "TranslatedName": "Empty folding screen room",
+        "Used": true
+    },
+    {
+        "PresetName": "空曇り空(月の石解放デモ)",
+        "TranslatedName": "Sky Cloudy Sky (Moon Rock Liberation Demo)",
+        "Used": false
+    },
+    {
+        "PresetName": "空曇り空",
+        "TranslatedName": "Sky Cloudy Sky",
+        "Used": false
+    },
+    {
+        "PresetName": "空青空",
+        "TranslatedName": "Sky blue sky",
+        "Used": false
+    },
+    {
+        "PresetName": "空黄金部屋",
+        "TranslatedName": "Sky Golden Room",
+        "Used": true
+    },
+    {
+        "PresetName": "襲撃EXドットタワー",
+        "TranslatedName": "Raid EX Dot Tower",
+        "Used": true
+    },
+    {
+        "PresetName": "襲撃EXブルラン",
+        "TranslatedName": "Raid EX Bull Run",
+        "Used": true
+    },
+    {
+        "PresetName": "襲撃嵐空(クリア後ゴッドレイ消し)",
+        "TranslatedName": "Raid Storm Sky (Erase Godley after clearing)",
+        "Used": true
+    },
+    {
+        "PresetName": "襲撃嵐空(ハイコントラスト)",
+        "TranslatedName": "Raid Storm Sky (High Contrast)",
+        "Used": false
+    },
+    {
+        "PresetName": "襲撃嵐空(月の石デモのゴッドレイ消し)",
+        "TranslatedName": "Raid Storm Sky (Moon Rock Demo Godley Eraser)",
+        "Used": true
+    },
+    {
+        "PresetName": "襲撃嵐空(氷再戦)",
+        "TranslatedName": "Raid Storm Sky (Ice Rematch)",
+        "Used": true
+    },
+    {
+        "PresetName": "襲撃嵐空(氷再戦ゴッドレイオフ)",
+        "TranslatedName": "Raid Storm Sky (Ice Rematch God Layoff)",
+        "Used": true
+    },
+    {
+        "PresetName": "襲撃嵐空(演出重視)",
+        "TranslatedName": "Raid Arashi Sky (focusing on production)",
+        "Used": true
+    },
+    {
+        "PresetName": "襲撃嵐空",
+        "TranslatedName": "Raid Storm Sky",
+        "Used": true
+    },
+    {
+        "PresetName": "都市EX2D試写室",
+        "TranslatedName": "City EX 2D Preview Room",
+        "Used": true
+    },
+    {
+        "PresetName": "都市EXぶらさがり",
+        "TranslatedName": "City EX hanging",
+        "Used": true
+    },
+    {
+        "PresetName": "都市EXグラグラ鉄骨",
+        "TranslatedName": "City EX wobbly steel frame",
+        "Used": true
+    },
+    {
+        "PresetName": "都市EXシューティングシティー",
+        "TranslatedName": "City EX Shooting City",
+        "Used": true
+    },
+    {
+        "PresetName": "都市EXバイク",
+        "TranslatedName": "City EX Bike",
+        "Used": true
+    },
+    {
+        "PresetName": "都市EX恐竜とバイク",
+        "TranslatedName": "City EX Dinosaurs and Bikes",
+        "Used": true
+    },
+    {
+        "PresetName": "都市EX棒のぼり",
+        "TranslatedName": "City EX Pole Climbing",
+        "Used": true
+    },
+    {
+        "PresetName": "都市EX群衆",
+        "TranslatedName": "City EX Crowd",
+        "Used": true
+    },
+    {
+        "PresetName": "都市EX電線",
+        "TranslatedName": "City EX Electric Wire",
+        "Used": true
+    },
+    {
+        "PresetName": "都市EX音符部屋",
+        "TranslatedName": "City EX Musical Note Room",
+        "Used": true
+    },
+    {
+        "PresetName": "都市コンサート会場",
+        "TranslatedName": "City Concert Venue",
+        "Used": true
+    },
+    {
+        "PresetName": "都市ビル内部(昼)",
+        "TranslatedName": "Inside the City building (daytime)",
+        "Used": false
+    },
+    {
+        "PresetName": "都市ビル内部夜",
+        "TranslatedName": "City building interior night",
+        "Used": true
+    },
+    {
+        "PresetName": "都市ビル内部昼",
+        "TranslatedName": "Inside the City building noon",
+        "Used": true
+    },
+    {
+        "PresetName": "都市ラジコン部屋",
+        "TranslatedName": "City radio control room",
+        "Used": true
+    },
+    {
+        "PresetName": "都市地下工場(コアエリア)",
+        "TranslatedName": "City Underground Factory (Core Area)",
+        "Used": true
+    },
+    {
+        "PresetName": "都市地下工場(回転足場エリア)",
+        "TranslatedName": "City underground factory (rotary scaffolding area)",
+        "Used": true
+    },
+    {
+        "PresetName": "都市地下工場(通路エリア)",
+        "TranslatedName": "City underground factory (passage area)",
+        "Used": true
+    },
+    {
+        "PresetName": "都市夜セレモニーライブ(ムーンゲット)",
+        "TranslatedName": "City Night Ceremony Live (Moon Get)",
+        "Used": true
+    },
+    {
+        "PresetName": "都市夜セレモニーライブ",
+        "TranslatedName": "City Night Ceremony Live",
+        "Used": true
+    },
+    {
+        "PresetName": "都市夜空(スタート地点)",
+        "TranslatedName": "City night sky (starting point)",
+        "Used": false
+    },
+    {
+        "PresetName": "都市夜空",
+        "TranslatedName": "City night sky",
+        "Used": true
+    },
+    {
+        "PresetName": "都市夜空明るめ(地面付近2Dエリア)",
+        "TranslatedName": "Bright City night sky (2D area near the ground)",
+        "Used": true
+    },
+    {
+        "PresetName": "都市夜空明るめ",
+        "TranslatedName": "Brightening the City night sky",
+        "Used": true
+    },
+    {
+        "PresetName": "都市昼雨空",
+        "TranslatedName": "City daytime rainy sky",
+        "Used": true
+    },
+    {
+        "PresetName": "都市青空(DiverデモＡ)",
+        "TranslatedName": "City Blue Sky (Diver Demo A)",
+        "Used": false
+    },
+    {
+        "PresetName": "都市青空(Diver静止画用)",
+        "TranslatedName": "City blue sky (for Diver still images)",
+        "Used": false
+    },
+    {
+        "PresetName": "都市青空(スタート地点：自動露出無し)",
+        "TranslatedName": "City blue sky (starting point: no automatic exposure)",
+        "Used": true
+    },
+    {
+        "PresetName": "都市青空(プレイヤーライト検証)",
+        "TranslatedName": "City blue sky (player light verification)",
+        "Used": false
+    },
+    {
+        "PresetName": "都市青空(メインビジュアル)",
+        "TranslatedName": "City Blue Sky (Main Visual)",
+        "Used": false
+    },
+    {
+        "PresetName": "都市青空(写真テスト)",
+        "TranslatedName": "City blue sky (photo test)",
+        "Used": false
+    },
+    {
+        "PresetName": "都市青空",
+        "TranslatedName": "City blue sky",
+        "Used": true
+    },
+    {
+        "PresetName": "雪EXアイスウォーカー",
+        "TranslatedName": "Snow EX Ice Walker",
+        "Used": true
+    },
+    {
+        "PresetName": "雪EXキラーレール生成",
+        "TranslatedName": "Snow EX killer rail generation",
+        "Used": true
+    },
+    {
+        "PresetName": "雪EXドット円塔",
+        "TranslatedName": "Snow EX Dot Round Tower",
+        "Used": true
+    },
+    {
+        "PresetName": "雪EXビューゴーパズル",
+        "TranslatedName": "Snow EX View Go Puzzle",
+        "Used": true
+    },
+    {
+        "PresetName": "雪EX氷ダッシュ",
+        "TranslatedName": "Snow EX Ice Dash",
+        "Used": true
+    },
+    {
+        "PresetName": "雪EX氷水ブロック",
+        "TranslatedName": "Snow EX Ice Water Block",
+        "Used": true
+    },
+    {
+        "PresetName": "雪サーキット撮影用",
+        "TranslatedName": "For snow circuit photography",
+        "Used": false
+    },
+    {
+        "PresetName": "雪夜空(サーキット)",
+        "TranslatedName": "Snowy night sky (circuit)",
+        "Used": true
+    },
+    {
+        "PresetName": "雪室内(レース入場口)",
+        "TranslatedName": "Snow room (race entrance)",
+        "Used": true
+    },
+    {
+        "PresetName": "雪室内",
+        "TranslatedName": "Snow room",
+        "Used": true
+    },
+    {
+        "PresetName": "雪曇り空(サーキット)",
+        "TranslatedName": "Snow cloudy sky (circuit)",
+        "Used": true
+    },
+    {
+        "PresetName": "雪曇り空(濃霧)",
+        "TranslatedName": "Snow cloudy sky (dense fog)",
+        "Used": true
+    },
+    {
+        "PresetName": "雪曇り空(ＧＫ戦)",
+        "TranslatedName": "Snow cloudy sky (GK battle)",
+        "Used": true
+    },
+    {
+        "PresetName": "雪雲ボーナストランポリン",
+        "TranslatedName": "Snow Cloud Bonus Trampoline",
+        "Used": true
+    },
+    {
+        "PresetName": "雪青空",
+        "TranslatedName": "Snow blue sky",
+        "Used": true
+    },
+    {
+        "PresetName": "雪ＥＸツララ洞窟",
+        "TranslatedName": "Snow EX Tsurara Cave",
+        "Used": true
+    },
+    {
+        "PresetName": "雪ＥＸビューゴー",
+        "TranslatedName": "Snow EX View Go",
+        "Used": true
+    },
+    {
+        "PresetName": "雲EXドットオンキューブ",
+        "TranslatedName": "Cloud EX Dot on Cube",
+        "Used": true
+    },
+    {
+        "PresetName": "雲EX福笑い",
+        "TranslatedName": "Cloud EX Fukuwarai",
+        "Used": true
+    },
+    {
+        "PresetName": "雲昼空",
+        "TranslatedName": "Cloud day sky",
+        "Used": true
+    },
+    {
+        "PresetName": "ＥＸドンスケ",
+        "TranslatedName": "EX Donsuke",
+        "Used": true
+    },
+    {
+        "PresetName": "ＥＸ暗闇(ファイバー)",
+        "TranslatedName": "EX Darkness (Fiber)",
+        "Used": false
+    }
+]

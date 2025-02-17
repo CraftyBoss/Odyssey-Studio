@@ -23,6 +23,7 @@ using RedStarLibrary.MapData.Camera;
 using System.Text.Encodings.Web;
 using System.Text.Unicode;
 using RedStarLibrary.Helpers;
+using RedStarLibrary.MapData.Graphics;
 
 namespace RedStarLibrary
 {
@@ -36,33 +37,26 @@ namespace RedStarLibrary
         /// The description of the file extension of the plugin.
         /// </summary>
         public string[] Description => new string[] { "Map Data" };
-
         /// <summary>
         /// The extension of the plugin. This should match whatever file you plan to open.
         /// </summary>
         public string[] Extension => new string[] { "*.szs" };
-
         /// <summary>
         /// Determines if the plugin can save or not.
         /// </summary>
         public bool CanSave { get; set; } = true;
-
         /// <summary>
         /// File info of the loaded file format.
         /// </summary>
         public File_Info FileInfo { get; set; }
-
         public int Priority => -1;
-
-        public Dictionary<string, dynamic> MapGraphicsPreset;
-
-        public int MapActorCount;
-
+        public int MapActorCount { get; private set; }
+        public bool HasDesignFile => designArc != null;
+        public bool HasSoundFile => soundArc != null;
         /// <summary>
         /// Name of the currently loaded map without the Design/Map/Sound prefix
         /// </summary>
-        public static string PlacementFileName { get; set; }
-
+        public string PlacementFileName { get; set; }
         /// <summary>
         /// Used to prevent LiveActors from removing/adding themselves from the layer config during stage loading.
         /// </summary>
@@ -77,6 +71,8 @@ namespace RedStarLibrary
         /// SARC containing all data used in the map
         /// </summary>
         private SARC mapArc;
+        private SARC designArc;
+        private SARC soundArc;
         private string ThumbnailPath => $"{Runtime.ExecutableDir}\\Lib\\Images\\ActorThumbnails";
 
         public static Dictionary<string, Dictionary<string, string>> TempCameraParamCollection = new();
@@ -101,20 +97,17 @@ namespace RedStarLibrary
         /// </summary>
         public void Load(Stream stream)
         {
-            foreach (var stageFilePath in Directory.GetFiles("F:\\Users\\Talib\\Downloads\\ModdingStuff\\SwitchHacks\\SuperMarioOdysseyDump\\NCAExtracted\\StageData", "*Map.szs"))
-            {
-                SarcData stageSarc = new SarcData();
-                var cameraParamData = SARC.TryGetFile(stageFilePath, "CameraParam.byml");
-                if (cameraParamData.Length == 0)
-                    continue;
-
-                var cameraParamIter = new BymlIter(cameraParamData);
-
-                var cameraParam = new CameraParam();
-                cameraParam.DeserializeByml(cameraParamIter);
-            }
-
-            File.WriteAllText("FoundParams.json", JsonSerializer.Serialize(TempCameraParamCollection, new JsonSerializerOptions() { WriteIndented = true, Encoder = JavaScriptEncoder.Create(UnicodeRanges.All)}));
+            //foreach (var stageFilePath in Directory.GetFiles(ResourceManager.FindResourcePath($"StageData"), "*Map.szs"))
+            //{
+            //    SarcData stageSarc = new SarcData();
+            //    var cameraParamData = SARC.TryGetFile(stageFilePath, "CameraParam.byml");
+            //    if (cameraParamData.Length == 0)
+            //        continue;
+            //    var cameraParamIter = new BymlIter(cameraParamData);
+            //    var cameraParam = new CameraParam();
+            //    cameraParam.DeserializeByml(cameraParamIter);
+            //}
+            //File.WriteAllText("FoundParams.json", JsonSerializer.Serialize(TempCameraParamCollection, new JsonSerializerOptions() { WriteIndented = true, Encoder = JavaScriptEncoder.Create(UnicodeRanges.All)}));
 
             //Set the game shader
             BfresLoader.TargetShader = typeof(SMORenderer);
@@ -136,15 +129,9 @@ namespace RedStarLibrary
 
             if (mapData != null)
             {
-
                 PlacementFileName = mapData.FileName.Replace("Map.byml", "");
 
                 BymlIter iter = new BymlIter(mapData.AsBytes());
-
-                string designPath = ResourceManager.FindResourcePath($"StageData\\{PlacementFileName}Design.szs");
-
-                if (File.Exists(designPath))
-                    LoadGraphicsData(designPath);
 
                 IsLoadingStage = true;
 
@@ -154,8 +141,15 @@ namespace RedStarLibrary
 
                 CurrentMapScene.Setup(this);
 
-                IsLoadingStage = false;
+                string designPath = Path.Combine(FileInfo.FolderPath, $"{PlacementFileName}Design.szs");
+                if (File.Exists(designPath))
+                    LoadGraphicsData(designPath);
 
+                string soundPath = Path.Combine(FileInfo.FolderPath, $"{PlacementFileName}Sound.szs");
+                if (File.Exists(soundPath))
+                    LoadSoundData(soundPath);
+
+                IsLoadingStage = false;
             }
             else
             {
@@ -169,8 +163,42 @@ namespace RedStarLibrary
         /// </summary>
         public void Save(Stream stream)
         {
-            ArchiveFileInfo mapData = mapArc.files.Find(e => e.FileName.Contains("StageMap.byml") || e.FileName.Contains("StageDesign.byml") || e.FileName.Contains("StageSound.byml"));
-            var origMapIter = new BymlIter(mapData.FileData.ToArray());
+            SaveMap(stream);
+
+            if(HasDesignFile)
+            {
+                using var designStream = new MemoryStream();
+                SaveDesign(designStream);
+                File.WriteAllBytes(Path.Combine(FileInfo.FolderPath, $"{PlacementFileName}Design.szs"), YAZ0.Compress(designStream.ToArray(), Runtime.Yaz0CompressionLevel));
+            }
+            if(HasSoundFile)
+            {
+                using var soundStream = new MemoryStream();
+                SaveSound(soundStream);
+                File.WriteAllBytes(Path.Combine(FileInfo.FolderPath, $"{PlacementFileName}Sound.szs"), YAZ0.Compress(soundStream.ToArray(), Runtime.Yaz0CompressionLevel));
+            }
+
+            //{
+            //    var origMapIter = new BymlIter(mapData.FileData.ToArray());
+            //    File.WriteAllText(Path.Combine(FileInfo.FolderPath, "OrigStageByml.yaml"), origMapIter.ToYaml());
+            //    File.WriteAllText(Path.Combine(FileInfo.FolderPath, "NewStageByml.yaml"), mapContainer.ToYaml());
+            //    if (Helpers.Placement.CompareStages(origMapIter, new BymlIter(memStream.ToArray())))
+            //    {
+            //        Console.ForegroundColor = ConsoleColor.Green;
+            //        Console.WriteLine("New Stage matches original!");
+            //    }
+            //    else
+            //    {
+            //        Console.ForegroundColor = ConsoleColor.Red;
+            //        Console.WriteLine("New Stage does not match original!");
+            //    }
+            //    Console.ForegroundColor = ConsoleColor.Gray;
+            //}
+        }
+
+        public void SaveMap(Stream stream)
+        {
+            ArchiveFileInfo mapData = mapArc.files.Find(e => e.FileName.Contains("StageMap.byml"));
 
             var mapContainer = CurrentMapScene.SerializeByml();
             BymlWriter mapByml = new BymlWriter(mapContainer);
@@ -181,24 +209,29 @@ namespace RedStarLibrary
             mapArc.SetFileData(mapData.FileName, memStream);
 
             mapArc.Save(stream);
+        }
 
-            {
-                File.WriteAllText(Path.Combine(FileInfo.FolderPath, "OrigStageByml.yaml"), origMapIter.ToYaml());
-                File.WriteAllText(Path.Combine(FileInfo.FolderPath, "NewStageByml.yaml"), mapContainer.ToYaml());
+        public void SaveDesign(Stream stream)
+        {
+            if (!HasDesignFile)
+                return;
 
-                if (Helpers.Placement.CompareStages(origMapIter, new BymlIter(memStream.ToArray())))
-                {
-                    Console.ForegroundColor = ConsoleColor.Green;
-                    Console.WriteLine("New Stage matches original!");
-                }
-                else
-                {
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine("New Stage does not match original!");
-                }
+            Console.WriteLine($"Saving Graphics Area Data.");
 
-                Console.ForegroundColor = ConsoleColor.Gray;
-            }
+            BymlWriter graphicsAreaByml = new BymlWriter(CurrentMapScene.GraphicsArea.SerializeByml());
+            designArc.SetFileData("GraphicsArea.byml", new MemoryStream(graphicsAreaByml.Serialize().ToArray()));
+
+            designArc.Save(stream);
+        }
+
+        public void SaveSound(Stream stream)
+        {
+            if (!HasSoundFile)
+                return;
+
+            // we don't have anything to do here yet, so just save out the archive immediately.
+
+            soundArc.Save(stream);
         }
 
         // Iterates through every stage located within the users provided dump directory and creates a database with all objects found within the stages.
@@ -285,32 +318,32 @@ namespace RedStarLibrary
 
         private void LoadGraphicsData(string path)
         {
+            designArc = new SARC();
+            designArc.Load(new MemoryStream(YAZ0.Decompress(path)));
+            //designArc.Load(new FileStream(path, FileMode.Open));
 
-            var sarc = SARC_Parser.UnpackRamN(YAZ0.Decompress(path));
+            BymlIter gfxParam = new BymlIter(designArc.GetFileStream("GraphicsArea.byml").ToArray());
 
-            BymlIter gfxParam = new BymlIter(sarc.Files["GraphicsArea.byml"]);
+            CurrentMapScene.SetupGraphicsArea(gfxParam);
 
+            // TODO: i'd like to rework this portion eventually to allow better customization of GraphicsPresets
             var presetSarc = SARC_Parser.UnpackRamN(YAZ0.Decompress(ResourceManager.FindResourcePath("SystemData\\GraphicsPreset.szs")));
 
-            if(gfxParam.TryGetValue("GraphicsAreaParamArray", out BymlIter paramArray))
+            foreach (var areaParam in CurrentMapScene.GraphicsArea.ParamArray)
             {
-                foreach(var graphicsIter in paramArray.AsArray<BymlIter>())
+                if (presetSarc.Files.TryGetValue($"{areaParam.PresetName}.byml", out byte[] paramBytes))
                 {
-                    // TODO: we shouldnt only get the first default area as there are stages that use different graphics presets according to scenario.
-                    graphicsIter.TryGetValue("AreaName", out string areaName);
-                    if (areaName == "DefaultArea" && graphicsIter.TryGetValue("PresetName", out string presetName))
-                    {
-                        byte[] paramBytes = null;
-                        if (presetSarc.Files.TryGetValue($"{presetName}.byml", out paramBytes))
-                        {
-                            BymlFileData gfxPreset = ByamlFile.LoadN(new MemoryStream(paramBytes), false);
-                            MapGraphicsPreset = gfxPreset.RootNode;
-                            break;
-                        }
-                    }
+                    var gfxPresetIter = new BymlIter(paramBytes);
+                    areaParam.PresetData = Placement.ConvertToDict(gfxPresetIter);
+                    break;
                 }
             }
+        }
 
+        private void LoadSoundData(string path)
+        {
+            soundArc = new SARC();
+            soundArc.Load(new MemoryStream(YAZ0.Decompress(path)));
         }
 
         //Extra overrides for FileEditor you can use for custom UI
@@ -332,22 +365,19 @@ namespace RedStarLibrary
             return menuItemModels;
         }
 
-        private static bool isShowAddLayer = false;
-        private static bool isShowAddNewLayer = false;
-        private static bool isShowRemoveLayer = false;
-
         public override void DrawToolWindow()
         {
-            if(ImGui.Button("Reload Scene"))
-            {
+            System.Numerics.Vector2 btnSize = new System.Numerics.Vector2(ImGui.GetWindowWidth(), 23);
+
+            if (ImGui.Button("Reload Scene", btnSize))
                 CurrentMapScene.RestartScene(this);
-            }
 
-            if(ImGui.Button("Open Stage Settings"))
+            if(ImGui.Button("Open Stage Settings", btnSize))
             {
-                DialogHandler.Show("Stage Settings", 300, 400, () => {
+                DialogHandler.Show("Stage Settings", 500, 400, () => {
 
-                    if (ImGui.Button("Close and Reload"))
+                    System.Numerics.Vector2 settingsBtnSize = new System.Numerics.Vector2(ImGui.GetWindowWidth(), 23);
+                    if (ImGui.Button("Close and Reload", settingsBtnSize))
                         DialogHandler.ClosePopup(true);
 
                     if (ImGui.CollapsingHeader($"Layer/Scenario Settings", ImGuiTreeNodeFlags.DefaultOpen))
@@ -356,13 +386,16 @@ namespace RedStarLibrary
                     if(ImGui.CollapsingHeader("Stage World List Settings", ImGuiTreeNodeFlags.DefaultOpen))
                         DrawWorldListSettings();
 
+                    if (ImGui.CollapsingHeader("Stage Graphics Settings", ImGuiTreeNodeFlags.DefaultOpen))
+                        DrawGraphicsSettings();
+
                 }, (isDone) => {
                     if(isDone)
                         CurrentMapScene.RestartScene(this);
                 });
             }
 
-            if(ImGui.Button("Dump Stage Models"))
+            if(ImGui.Button("Dump Stage Models", btnSize))
             {
                 var dlg = new ImguiFolderDialog();
                 dlg.Title = "Select Stage Folder Output";
@@ -456,11 +489,12 @@ namespace RedStarLibrary
 
             //var usedLayers = LayerList.GetNamesInScenario(MapScenarioNo);
 
-            var scenario = StageScene.MapScenarioNo;
+            var scenario = CurrentMapScene.MapScenarioNo;
             ImGui.DragInt("Scenario", ref scenario, 1, 0, 14);
-            StageScene.MapScenarioNo = scenario;
+            CurrentMapScene.MapScenarioNo = scenario;
 
-            ImGuiHelper.BoldText("Scenario Layers:");
+            ImGuiHelper.BoldText("Scenario Layers");
+            ImGui.Separator();
 
             foreach ((var categoryName, var categoryList) in CurrentMapScene.GlobalLayers)
             {
@@ -594,6 +628,61 @@ namespace RedStarLibrary
         private void DrawWorldListSettings()
         {
 
+        }
+
+        private void DrawGraphicsSettings()
+        {
+            ImGuiHelper.BoldText("Graphics Area Parameters");
+            ImGui.Separator();
+            System.Numerics.Vector2 btnSize = new System.Numerics.Vector2(ImGui.GetWindowWidth(), 23);
+
+            if (ImGui.Button("Add Area Parameter", btnSize))
+                CurrentMapScene.GraphicsArea.AddNewParam();
+
+            if (ImGui.BeginChild("AreaParamChild", new System.Numerics.Vector2(ImGui.GetContentRegionAvail().X, 150), true))
+            {
+                List<StageGraphicsArea.AreaParam> removeParams = new List<StageGraphicsArea.AreaParam>();
+
+                int idx = 0;
+                foreach (var areaParam in CurrentMapScene.GraphicsArea.ParamArray)
+                {
+                    bool isOpen = ImGui.TreeNode($"Param {1 + (idx++)}");
+                    ImGui.SameLine();
+
+                    if (ImGui.SmallButton("Remove"))
+                        removeParams.Add(areaParam);
+
+                    if (isOpen)
+                    {
+                        ImGui.InputText("Preset Name", ref areaParam.PresetName, 0x100);
+                        ImGui.InputText("Area Name", ref areaParam.AreaName, 0x100);
+
+                        ImGui.InputText("CubeMap Unit Name", ref areaParam.CubeMapUnitName, 0x100);
+                        ImGui.InputText("Suffix", ref areaParam.SuffixName, 0x100);
+
+                        ImGui.InputText("Additional CubeMap Archive Name", ref areaParam.AdditionalCubeMapArchiveName, 0x100);
+                        ImGui.InputText("Additional CubeMap Unit Name", ref areaParam.AdditionalCubeMapUnitName, 0x100);
+
+                        var baseAngle = new System.Numerics.Vector3(areaParam.BaseAngle.X, areaParam.BaseAngle.Y, areaParam.BaseAngle.Z);
+                        if(ImGui.DragFloat3("Base Angle", ref baseAngle))
+                        {
+                            areaParam.BaseAngle.X = baseAngle.X;
+                            areaParam.BaseAngle.Y = baseAngle.Y;
+                            areaParam.BaseAngle.Z = baseAngle.Z;
+                        }
+
+                        ImGui.InputInt("Lerp Step", ref areaParam.LerpStep);
+                        ImGui.InputInt("Lerp Step Out", ref areaParam.LerpStepOut);
+
+                        ImGui.TreePop();
+                    }
+                }
+
+                foreach (var removeParam in removeParams)
+                    CurrentMapScene.GraphicsArea.ParamArray.Remove(removeParam);
+
+                ImGui.EndChild();
+            }
         }
 
         /// <summary>

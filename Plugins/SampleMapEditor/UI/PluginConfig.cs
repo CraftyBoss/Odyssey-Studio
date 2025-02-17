@@ -7,6 +7,7 @@ using Newtonsoft.Json;
 using ImGuiNET;
 using MapStudio.UI;
 using Toolbox.Core;
+using RedStarLibrary.UI;
 
 namespace RedStarLibrary
 {
@@ -67,8 +68,14 @@ namespace RedStarLibrary
                 changed = true;
             if (ImGui.InputText("FTP IP", ref configData.FTPIp, 0x100))
                 changed = true;
-            if (ImGui.InputText("FTP Port", ref configData.FTPPort, 0x100))
+
+            string ftpPortStr = configData.FTPPort;
+            if (ImGui.InputText("FTP Port", ref ftpPortStr, 0x100) && ftpPortStr.All(char.IsDigit))
+            {
+                configData.FTPPort = ftpPortStr;
                 changed = true;
+            }
+
             if (ImGui.InputText("Server Working Dir", ref configData.FTPWorkingDir, 0x100))
                 changed = true;
 
@@ -107,6 +114,17 @@ namespace RedStarLibrary
         public static void Reload()
         {
 
+        }
+
+        public static FtpInfo GetFTPInfo()
+        {
+            return new FtpInfo()
+            {
+                addr = configData.FTPIp,
+                user = configData.FTPUsername,
+                pass = configData.FTPPassword,
+                port = int.Parse(configData.FTPPort),
+            };
         }
     }
 }

@@ -22,6 +22,7 @@ using System.Linq;
 using RedStarLibrary.Helpers;
 using Discord;
 using static Toolbox.Core.GX.DisplayListHelper;
+using RedStarLibrary.MapData.Graphics;
 
 namespace RedStarLibrary
 {
@@ -29,7 +30,7 @@ namespace RedStarLibrary
     {
         #region Constants
 
-        public static int SCENARIO_COUNT = 15;
+        public static readonly int SCENARIO_COUNT = 15;
 
         #endregion
         /// <summary>
@@ -37,11 +38,12 @@ namespace RedStarLibrary
         /// TODO: remove category separation of layers
         /// </summary>
         public Dictionary<string, LayerList> GlobalLayers { get; set; } = new Dictionary<string, LayerList>();
+        public StageGraphicsArea GraphicsArea { get; private set; }
 
         /// <summary>
         /// The current Scenario selected for the loaded map.
         /// </summary>
-        public static int MapScenarioNo { get; set; } = 0;
+        public int MapScenarioNo { get; set; } = 0;
 
         // Category Name (ex: ObjectList) -> List of Actors in Layers (ex: Layer Common) -> List of Actors
         private Dictionary<string, Dictionary<string,List<LiveActor>>> SceneActors { get; set; }
@@ -76,6 +78,11 @@ namespace RedStarLibrary
             ProcessLoading.Instance.IsLoading = false;
         }
 
+        public void SetupGraphicsArea(BymlIter iter)
+        {
+            GraphicsArea = new StageGraphicsArea(iter);
+        }
+
         public void RestartScene(EditorLoader loader)
         {
             EditorLoader.IsLoadingStage = true;
@@ -94,7 +101,7 @@ namespace RedStarLibrary
 
             AddSceneRenders(loader);
 
-            TryLoadGraphicsData(loader);
+            TryCreateGraphicsDataRenders(loader);
 
             EditorLoader.IsLoadingStage = false;
         }
@@ -114,7 +121,7 @@ namespace RedStarLibrary
             PlacementInfo actorPlacement = new PlacementInfo(asset.DatabaseEntry, asset.Name);
 
             actorPlacement.LayerConfigName = actorLayer;
-            actorPlacement.PlacementFileName = EditorLoader.PlacementFileName;
+            actorPlacement.PlacementFileName = loader.PlacementFileName;
             actorPlacement.Id = "obj" + GetNextAvailableObjID();
             actorPlacement.Translate = spawnPos;
 
@@ -215,7 +222,7 @@ namespace RedStarLibrary
             AddSceneRenders(loader);
 
             // Load Skybox
-            TryLoadGraphicsData(loader);
+            TryCreateGraphicsDataRenders(loader);
         }
 
         private void LoadRendersFromList(EditorLoader loader)
@@ -292,44 +299,54 @@ namespace RedStarLibrary
             }
         }
 
-        private void TryLoadGraphicsData(EditorLoader loader)
+        private void TryCreateGraphicsDataRenders(EditorLoader loader)
         {
-            if (loader.MapGraphicsPreset != null)
-            {
-                string arcName = loader.MapGraphicsPreset["Sky"]["Name"];
+            if (GraphicsArea == null)
+                return;
 
-                string skyPath = ResourceManager.FindResourcePath($"ObjectData\\{arcName}.szs");
+            var areaParam = GraphicsArea.TryGetScenarioParam(MapScenarioNo);
+            if (areaParam == null)
+                areaParam = GraphicsArea.TryGetDefaultAreaParam();
 
-                var skySarc = ResourceManager.FindOrLoadSARC(skyPath);
+            if (areaParam == null)
+                return;
 
-                List<ActorList> graphicsObjs = new List<ActorList>();
-                ActorList skyboxList = new ActorList("Skybox");
-                graphicsObjs.Add(skyboxList);
+            string arcName = areaParam.PresetData["Sky"]["Name"];
 
-                NodeBase GraphicsObjs = new NodeBase("Graphics Objects");
-                GraphicsObjs.Tag = loader.Root.Tag;
-                GraphicsObjs.HasCheckBox = true;
-                loader.Root.AddChild(GraphicsObjs);
-                GraphicsObjs.Icon = IconManager.MODEL_ICON.ToString();
+            string skyPath = ResourceManager.FindResourcePath($"ObjectData\\{arcName}.szs");
 
-                LiveActor skyActor = new LiveActor(GraphicsObjs, arcName, skyPath);
+            if (!File.Exists(skyPath))
+                return;
 
-                skyActor.CreateBfresRenderer(skySarc.GetModelStream(arcName));
+            var skySarc = ResourceManager.FindOrLoadSARC(skyPath);
 
-                var bfresRender = ((BfresRender)skyActor.ObjectRender);
+            List<ActorList> graphicsObjs = new List<ActorList>();
+            ActorList skyboxList = new ActorList("Skybox");
+            graphicsObjs.Add(skyboxList);
 
-                bfresRender.UseDrawDistance = false;
-                bfresRender.StayInFrustum = true;
+            NodeBase GraphicsObjs = new NodeBase("Graphics Objects");
+            GraphicsObjs.Tag = loader.Root.Tag;
+            GraphicsObjs.HasCheckBox = true;
+            loader.Root.AddChild(GraphicsObjs);
+            GraphicsObjs.Icon = IconManager.MODEL_ICON.ToString();
 
-                foreach (var tex in bfresRender.Textures.Values)
-                    tex.AlphaChannel = STChannelType.One; // disable alpha channel
+            LiveActor skyActor = new LiveActor(GraphicsObjs, arcName, skyPath);
 
-                skyActor.ObjectRender.CanSelect = false;
+            skyActor.CreateBfresRenderer(skySarc.GetModelStream(arcName));
 
-                skyboxList.Add(skyActor);
+            var bfresRender = ((BfresRender)skyActor.ObjectRender);
 
-                loader.AddRender(skyActor.ObjectRender);
-            }
+            bfresRender.UseDrawDistance = false;
+            bfresRender.StayInFrustum = true;
+
+            foreach (var tex in bfresRender.Textures.Values)
+                tex.AlphaChannel = STChannelType.One; // disable alpha channel
+
+            skyActor.ObjectRender.CanSelect = false;
+
+            skyboxList.Add(skyActor);
+
+            loader.AddRender(skyActor.ObjectRender);
         }
 
         private Dictionary<string, List<ActorList>> CreateActorsFromList(Dictionary<string, LayerList> actorList)

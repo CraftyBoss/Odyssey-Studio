@@ -133,10 +133,7 @@ namespace CafeLibrary
 
             //Save data to stream
             var saved = SARC_Parser.PackN(SarcData);
-            using (var writer = new FileWriter(stream))
-            {
-                writer.Write(saved.Item2);
-            }
+            stream.Write(saved.Item2);
 
             //Save alignment to compression type yaz0
             if (FileInfo.Compression != null && FileInfo.Compression is Yaz0)

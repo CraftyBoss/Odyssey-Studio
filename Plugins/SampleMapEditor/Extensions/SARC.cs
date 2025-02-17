@@ -62,6 +62,17 @@ namespace RedStarLibrary.Extensions
             else
                 return null;
         }
+
+        public static Stream GetFileStream(this SARC arc, string fileName)
+        {
+            ArchiveFileInfo modelFile = arc.files.Find(e => e.FileName.Contains(fileName));
+
+            if (modelFile != null)
+                return modelFile.FileData;
+            else
+                return null;
+        }
+
         /// <summary>
         /// 
         /// </summary>

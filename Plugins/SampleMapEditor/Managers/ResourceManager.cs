@@ -95,15 +95,21 @@ namespace RedStarLibrary
         public static string FindResourcePath(string relativePath)
         {
             if(File.Exists($"{PluginConfig.ModPath}\\{relativePath}"))
-            {
                 return $"{PluginConfig.ModPath}\\{relativePath}";
-            } else if (File.Exists($"{PluginConfig.GamePath}\\{relativePath}"))
-            {
+            else if (File.Exists($"{PluginConfig.GamePath}\\{relativePath}"))
                 return $"{PluginConfig.GamePath}\\{relativePath}";
-            }else
-            {
+            else
                 return null;
-            }
+        }
+
+        public static string FindResourceDirectory(string relativePath)
+        {
+            if (Directory.Exists($"{PluginConfig.ModPath}\\{relativePath}"))
+                return $"{PluginConfig.ModPath}\\{relativePath}";
+            else if (Directory.Exists($"{PluginConfig.GamePath}\\{relativePath}"))
+                return $"{PluginConfig.GamePath}\\{relativePath}";
+            else
+                return null;
         }
     }
 }

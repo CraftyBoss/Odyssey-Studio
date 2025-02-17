@@ -184,6 +184,17 @@ namespace RedStarLibrary.Helpers
             return new Vector3(node["X"], node["Y"], node["Z"]);
         }
 
+        public static BymlContainer SaveVector(Vector3 vec)
+        {
+            BymlHash bymlHash = new BymlHash();
+
+            bymlHash.Add("X", vec.X);
+            bymlHash.Add("Y", vec.Y);
+            bymlHash.Add("Z", vec.Z);
+
+            return bymlHash;
+        }
+
         public static bool CompareLists(List<dynamic> origRootNode, List<dynamic> newRootNode, bool isRoot = false)
         {
             if (origRootNode.Count != newRootNode.Count)
