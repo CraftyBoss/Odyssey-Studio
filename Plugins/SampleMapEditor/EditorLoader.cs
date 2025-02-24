@@ -490,9 +490,6 @@ namespace RedStarLibrary
                     FileUtility.OpenFolder(stageDumpPath);
                 }
             }
-
-            // TEMP
-            ImGui.InputInt("Next Object ID", ref CurrentMapScene.CurrentObjectID);
         }
 
         public void DrawEditorDropdown()

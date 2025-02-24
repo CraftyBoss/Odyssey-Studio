@@ -53,7 +53,7 @@ namespace RedStarLibrary
         // Category Name (ex: ObjectList) -> List of Actors in Layers (ex: Layer Common) -> List of Actors
         private Dictionary<string, Dictionary<string,List<LiveActor>>> SceneActors { get; set; }
 
-        public int CurrentObjectID = 90000; // TODO: replace this with the next highest obj id value (not entirely needed)
+        public int CurrentObjectID = 0;
 
         #endregion
 
@@ -534,6 +534,9 @@ namespace RedStarLibrary
             int scenarioIdx = 0;
             foreach (BymlIter scenarioIter in rootNode.AsArray<BymlIter>())
                 DeserializeScenario(scenarioIter, scenarioIdx++);
+
+            // after finding the highest objid, increment it so we can use it for the next object placed down
+            CurrentObjectID++;
         }
 
         public BymlContainer SerializeByml()
@@ -586,6 +589,10 @@ namespace RedStarLibrary
                     }
                     else
                         globalList.AddObjectToLayers(actorInfo = new PlacementInfo(actorIter), scenarioIdx);
+
+                    int objId = int.Parse(actorInfo.Id.Substring(3));
+                    if (CurrentObjectID < objId)
+                        CurrentObjectID = objId;
 
                     actorInfo.SetScenarioActive(scenarioIdx, true);
 
