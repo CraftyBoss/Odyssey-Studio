@@ -42,7 +42,7 @@ namespace RedStarLibrary
         /// TODO: remove category separation of layers
         /// </summary>
         public Dictionary<string, LayerList> GlobalLayers { get; set; } = new Dictionary<string, LayerList>();
-        public StageGraphicsArea GraphicsArea { get; private set; }
+        public StageGraphicsArea GraphicsArea { get; private set; } = new StageGraphicsArea();
 
         /// <summary>
         /// The current Scenario selected for the loaded map.
@@ -61,14 +61,26 @@ namespace RedStarLibrary
 
         #endregion
 
-        public void Setup(EditorLoader loader)
+        public void Setup(PlacementFileEditor loader, bool isNew = false)
         {
             ProcessLoading.Instance.IsLoading = true;
 
             //Prepare a collision caster for snapping objects onto
             SetupSceneCollision();
+
             //Add some objects to the scene
             SetupObjects(loader);
+
+            // if the scene is being loaded as a new stage, add in some basic data to make the stage loadable in-game
+            if (isNew)
+            {
+                // add common layer with all scenarios enabled
+                var layerList = GetOrCreateLayerConfig("PlayerList", "Common");
+                layerList.SetAllScenarioActive(true);
+
+                TryAddActorByName(loader, "PlayerActorHakoniwa", category: "Player");
+                GraphicsArea.AddNewParam();
+            }
 
             var playerObj = FindActorWithClass("PlayerList", "PlayerActorHakoniwa");
             // set target position for current camera to the player
@@ -82,26 +94,18 @@ namespace RedStarLibrary
                 ctxCamera.TargetPosition = playerObj.Transform.Position + (-forwardDir * offset) + (Vector3.UnitY * offset);
 
                 ctxCamera.RotationDegreesX = rot.X;
-                ctxCamera.RotationDegreesY = rot.Y;
+                ctxCamera.RotationDegreesY = 180.0f - rot.Y;
                 ctxCamera.RotationDegreesZ = rot.Z;
             }
 
             ProcessLoading.Instance.IsLoading = false;
         }
 
-        public void SetupGraphicsArea(BymlIter iter)
+        public void LoadGraphicsArea(BymlIter iter) => GraphicsArea.DeserializeByml(iter);
+
+        public void RestartScene(PlacementFileEditor loader)
         {
-            GraphicsArea = new StageGraphicsArea(iter);
-
-            // TODO: i'd like to rework this portion eventually to allow better customization of GraphicsPresets
-            var presetSarc = SARC_Parser.UnpackRamN(YAZ0.Decompress(ResourceManager.FindResourcePath("SystemData\\GraphicsPreset.szs")));
-
-            
-        }
-
-        public void RestartScene(EditorLoader loader)
-        {
-            EditorLoader.IsLoadingStage = true;
+            PlacementFileEditor.IsLoadingStage = true;
 
             for (int i = loader.Scene.Objects.Count - 1; i >= 0; i--)
                 loader.RemoveRender(loader.Scene.Objects[i]);
@@ -119,20 +123,20 @@ namespace RedStarLibrary
 
             TryCreateGraphicsDataRenders(loader);
 
-            EditorLoader.IsLoadingStage = false;
+            PlacementFileEditor.IsLoadingStage = false;
         }
 
-        public void AddSceneRenders(EditorLoader loader)
+        public void AddSceneRenders(PlacementFileEditor loader)
         {
             SceneActors = new Dictionary<string, Dictionary<string, List<LiveActor>>>();
 
             LoadRendersFromList(loader);
         }
 
-        public void TryAddActorFromAsset(EditorLoader loader, Vector3 spawnPos, AssetMenu.LiveActorAsset asset)
+        public void AddActorFromAsset(PlacementFileEditor loader, Vector3 spawnPos, AssetMenu.LiveActorAsset asset)
         {
             string objCategory = asset.ActorCategory + "List";
-            string actorLayer = EditorLoader.SelectedLayer;
+            string actorLayer = PlacementFileEditor.SelectedLayer;
 
             PlacementInfo actorPlacement = new PlacementInfo(asset.DatabaseEntry, asset.Name);
 
@@ -143,7 +147,7 @@ namespace RedStarLibrary
 
             LayerList categoryLayers = GetOrCreateLayerList(objCategory);
 
-            LayerConfig placementLayer = categoryLayers.AddObjectToLayers(actorPlacement);
+            LayerConfig placementLayer = categoryLayers.AddObjectToLayers(actorPlacement, MapScenarioNo);
             actorPlacement.SetActiveScenarios(placementLayer);
 
             NodeBase actorList = loader.Root.GetChild(objCategory);
@@ -156,7 +160,6 @@ namespace RedStarLibrary
                 actorList.Icon = IconManager.FOLDER_ICON.ToString();
 
                 SceneActors.Add(objCategory, new Dictionary<string, List<LiveActor>>());
-
             }
 
             NodeBase layerActors = actorList.GetChild("Layer " + actorLayer);
@@ -186,6 +189,17 @@ namespace RedStarLibrary
 
         }
 
+        public bool TryAddActorByName(PlacementFileEditor loader, string className, Vector3 spawnPos = new Vector3(), string category = null)
+        {
+            var databaseEntry = ActorDataBase.GetObjectFromDatabase(className, category);
+            if (databaseEntry == null)
+                return false;
+
+            AddActorFromAsset(loader, spawnPos, new AssetMenu.LiveActorAsset(databaseEntry, className));
+
+            return true;
+        }
+
         public HashSet<string> GetLoadedLayers()
         {
             HashSet<string> layers = new HashSet<string>();
@@ -204,6 +218,13 @@ namespace RedStarLibrary
             if(!GlobalLayers.TryGetValue(objCategory, out LayerList layerList))
                 GlobalLayers.Add(objCategory, layerList = new LayerList());
             return layerList;
+        }
+
+        public LayerConfig GetOrCreateLayerConfig(string objCategory, string layerName, int useScenario = -1) 
+        {
+            var layerList = GetOrCreateLayerList(objCategory);
+
+            return layerList.FindOrCreateLayer(layerName, useScenario);
         }
 
         public List<LiveActor> GetLoadedActors()
@@ -225,7 +246,7 @@ namespace RedStarLibrary
             return actorLists.First().Value.FirstOrDefault(e=> e.Placement.ClassName == className);
         }
 
-        private NodeBase AddLayerToActorList(EditorLoader loader, NodeBase actorList, string actorLayer, string objCategory)
+        private NodeBase AddLayerToActorList(PlacementFileEditor loader, NodeBase actorList, string actorLayer, string objCategory)
         {
             string nodeName = "Layer " + actorLayer;
 
@@ -254,7 +275,7 @@ namespace RedStarLibrary
             return layerActors;
         }
 
-        private void SetupObjects(EditorLoader loader)
+        private void SetupObjects(PlacementFileEditor loader)
         {
             // Load Actor Models used in Current Scenario
             AddSceneRenders(loader);
@@ -263,7 +284,7 @@ namespace RedStarLibrary
             TryCreateGraphicsDataRenders(loader);
         }
 
-        private void LoadRendersFromList(EditorLoader loader)
+        private void LoadRendersFromList(PlacementFileEditor loader)
         {
             foreach ((string objCategory, List<ActorList> actorLists) in CreateActorsFromList(GlobalLayers))
             {
@@ -329,7 +350,7 @@ namespace RedStarLibrary
             }
         }
 
-        private void TryCreateGraphicsDataRenders(EditorLoader loader)
+        private void TryCreateGraphicsDataRenders(PlacementFileEditor loader)
         {
             if (GraphicsArea == null)
                 return;

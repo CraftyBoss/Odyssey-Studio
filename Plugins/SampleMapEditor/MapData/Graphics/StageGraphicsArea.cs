@@ -19,7 +19,7 @@ namespace RedStarLibrary.MapData.Graphics
             public string CubeMapUnitName = "Default";
             public int LerpStep = 0;
             public int LerpStepOut = -1;
-            public string PresetName = "";
+            public string PresetName = "Default";
             public string SuffixName = "";
 
             public bool IsValid => !string.IsNullOrEmpty(PresetName) && !string.IsNullOrEmpty(AreaName);
@@ -31,6 +31,7 @@ namespace RedStarLibrary.MapData.Graphics
         public List<AreaParam> ParamArray = new List<AreaParam>();
 
         public StageGraphicsArea(BymlIter iter) { DeserializeByml(iter); }
+        public StageGraphicsArea() { }
 
         public void DeserializeByml(BymlIter gfxParam)
         {

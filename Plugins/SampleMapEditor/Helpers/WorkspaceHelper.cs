@@ -27,13 +27,13 @@ namespace RedStarLibrary.Helpers
             loader.AddRender(drawable, undo);
         }
 
-        public static EditorLoader GetCurrentEditorLoader()
+        public static PlacementFileEditor GetCurrentEditorLoader()
         {
             var activeWorkspace = Workspace.ActiveWorkspace;
             if (activeWorkspace == null)
                 return null;
 
-            if(activeWorkspace.ActiveEditor is EditorLoader loader)
+            if(activeWorkspace.ActiveEditor is PlacementFileEditor loader)
                 return loader;
             else
                 return null;

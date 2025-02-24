@@ -110,7 +110,7 @@ namespace RedStarLibrary.GameTypes
         {
             parent = parentNode;
             if(parent != null)
-                curStage = (parentNode.Tag as EditorLoader).CurrentMapScene;
+                curStage = (parentNode.Tag as PlacementFileEditor).CurrentMapScene;
 
             Placement = new PlacementInfo();
 
@@ -130,7 +130,7 @@ namespace RedStarLibrary.GameTypes
         {
             parent = parentNode;
             if (parent != null)
-                curStage = (parentNode.Tag as EditorLoader).CurrentMapScene;
+                curStage = (parentNode.Tag as PlacementFileEditor).CurrentMapScene;
 
             Placement = info;
 
@@ -147,7 +147,7 @@ namespace RedStarLibrary.GameTypes
         public void SetParentNode(NodeBase parentNode)
         {
             parent = parentNode;
-            curStage = (parentNode.Tag as EditorLoader).CurrentMapScene;
+            curStage = (parentNode.Tag as PlacementFileEditor).CurrentMapScene;
 
             if (RenderMode == ActorRenderMode.EditableObj)
                 ObjectRender.ParentUINode = parent;
@@ -292,7 +292,7 @@ namespace RedStarLibrary.GameTypes
             }
         }
 
-        public void PlaceLinkedObjects(EditorLoader loader)
+        public void PlaceLinkedObjects(PlacementFileEditor loader)
         {
 
             if(Placement.isUseLinks)
@@ -451,7 +451,7 @@ namespace RedStarLibrary.GameTypes
             ObjectRender.RemoveCallback += (obj, args) =>
             {
 
-                if(actorLayer != null && !EditorLoader.IsLoadingStage && actorLayer.LayerObjects.Remove(Placement))
+                if(actorLayer != null && !PlacementFileEditor.IsLoadingStage && actorLayer.LayerObjects.Remove(Placement))
                 {
                     Console.WriteLine("Successfully removed Actor from Layer: " + actorLayer.LayerName);
                 }
@@ -465,7 +465,7 @@ namespace RedStarLibrary.GameTypes
 
             ObjectRender.AddCallback += (obj, args) =>
             {
-                if (actorLayer != null && !EditorLoader.IsLoadingStage && !actorLayer.IsInfoInLayer(Placement))
+                if (actorLayer != null && !PlacementFileEditor.IsLoadingStage && !actorLayer.IsInfoInLayer(Placement))
                 {
                     actorLayer.LayerObjects.Add(Placement);
                     Console.WriteLine("Successfully added Actor to Layer: " + actorLayer.LayerName);

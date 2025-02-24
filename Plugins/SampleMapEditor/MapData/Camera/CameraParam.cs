@@ -113,8 +113,8 @@ namespace RedStarLibrary.MapData.Camera
                 return;
             }
 
-            if(!EditorLoader.TempCameraParamCollection.TryGetValue(className, out Dictionary<string, string> paramEntries))
-                EditorLoader.TempCameraParamCollection.Add(className, paramEntries = new Dictionary<string, string>());
+            if(!PlacementFileEditor.TempCameraParamCollection.TryGetValue(className, out Dictionary<string, string> paramEntries))
+                PlacementFileEditor.TempCameraParamCollection.Add(className, paramEntries = new Dictionary<string, string>());
 
             foreach (var paramEntry in paramDict.Params)
             {

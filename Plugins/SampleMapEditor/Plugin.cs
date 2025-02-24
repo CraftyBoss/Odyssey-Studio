@@ -14,6 +14,7 @@ using ImGuiNET;
 using System.Drawing;
 using System.Numerics;
 using System.IO.Pipes;
+using CafeLibrary;
 
 namespace RedStarLibrary
 {
@@ -30,6 +31,8 @@ namespace RedStarLibrary
         public Plugin()
         {
             PluginConfig.Load();
+
+            UIManager.Subscribe(UIManager.UI_TYPE.NEW_FILE, "SMO Stage File", typeof(PlacementFileEditor));
 
             //var fileMenu = Framework.MainWindow.MenuItems.First(e=> e.Header == "File");
 
@@ -81,7 +84,7 @@ namespace RedStarLibrary
                 var editor = Workspace.ActiveWorkspace.ActiveEditor;
                 Uploader.WorkingDir = PluginConfig.FTPWorkingDir;
 
-                if (editor is EditorLoader loader)
+                if (editor is PlacementFileEditor loader)
                 {
                     // make a local save
                     //STFileSaver.SaveFileFormat(editor);

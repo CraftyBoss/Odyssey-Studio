@@ -31,10 +31,10 @@ using Newtonsoft.Json.Linq;
 namespace RedStarLibrary
 {
     /// <summary>
-    /// Represents a class used for loading files into the editor.
+    /// Represents a class used for loading SMO stages into the editor.
     /// IFileFormat determines what files to use. FileEditor is used to store all the editor information.
     /// </summary>
-    public class EditorLoader : FileEditor, IFileFormat
+    public class PlacementFileEditor : FileEditor, IFileFormat
     {
         /// <summary>
         /// The description of the file extension of the plugin.
@@ -87,7 +87,7 @@ namespace RedStarLibrary
 
         public static Dictionary<string, Dictionary<string, string>> TempCameraParamCollection = new();
 
-        public EditorLoader() : base() 
+        public PlacementFileEditor() : base() 
         { 
             Root.Tag = this;
         }
@@ -178,15 +178,19 @@ namespace RedStarLibrary
             FileInfo.FileName = PlacementFileName;
 
             if (PlacementFileName.EndsWith("Map.szs"))
+            {
+                Root.Header = PlacementFileName; // update root node name
                 PlacementFileName = PlacementFileName.Remove(PlacementFileName.LastIndexOf("Map.szs"));
+            }
             else
                 throw new Exception("Stage file must be saved with the suffix \"Map\" in order to be valid!");
+
 
             // TODO: update placementfilename entry in placementinfos when serializing
 
             SaveMap(stream);
 
-            if(HasDesignFile)
+            if (HasDesignFile)
             {
                 using var designStream = new MemoryStream();
                 SaveDesign(designStream);
@@ -217,6 +221,42 @@ namespace RedStarLibrary
             //}
         }
 
+        public override bool CreateNew(string menu_name)
+        {
+            BfresLoader.TargetShader = typeof(SMORenderer);
+            Workspace.ViewportWindow.DrawEditorDropdown += (_, _) => { DrawEditorDropdown(); };
+
+            ActorDataBase.LoadDatabase();
+
+            if (InitIcons())
+                CreateAssetCategories();
+
+            PlacementFileName = "NewStageMap";
+
+            FileInfo = new File_Info();
+            FileInfo.FilePath = PlacementFileName;
+            FileInfo.FileName = PlacementFileName;
+            FileInfo.Compression = new Yaz0();
+
+            Root.Header = $"{PlacementFileName}.szs";
+            Root.Tag = this;
+
+            mapArc = new SARC();
+
+            presetSarc = new SARC();
+            presetSarc.Load(new MemoryStream(YAZ0.Decompress(ResourceManager.FindResourcePath("SystemData\\GraphicsPreset.szs"))));
+
+            IsLoadingStage = true;
+
+            CurrentMapScene = new StageScene();
+
+            CurrentMapScene.Setup(this, true);
+
+            IsLoadingStage = false;
+
+            return true;
+        }
+
         public void SaveMap(Stream stream)
         {
             ArchiveFileInfo mapData = mapArc.files.Find(e => e.FileName.EndsWith("Map.byml"));
@@ -229,20 +269,29 @@ namespace RedStarLibrary
 
             Console.WriteLine($"Saving File: {arcName}");
 
-            if(mapData.FileName != arcName)
+            if(mapData != null)
             {
-                mapArc.DeleteFile(mapData); // remove previous file
+                if (mapData.FileName != arcName)
+                {
+                    mapArc.DeleteFile(mapData); // remove previous file
 
+                    mapArc.AddFile(arcName, memStream);
+                }
+                else
+                    mapArc.SetFileData(arcName, memStream);
+            }else
+            {
                 mapArc.AddFile(arcName, memStream);
             }
-            else
-                mapArc.SetFileData(arcName, memStream);
 
             mapArc.Save(stream);
         }
 
         public void SaveDesign(Stream stream)
         {
+            if (CurrentMapScene.GraphicsArea.ParamArray.Any() && designArc == null)
+                designArc = new SARC();
+
             if (!HasDesignFile)
                 return;
 
@@ -250,17 +299,21 @@ namespace RedStarLibrary
 
             BymlWriter graphicsAreaByml = new BymlWriter(CurrentMapScene.GraphicsArea.SerializeByml());
             designArc.SetFileData("GraphicsArea.byml", new MemoryStream(graphicsAreaByml.Serialize().ToArray()));
+            var arcName = $"{PlacementFileName}Design.byml";
 
             // update design arc with placement name
             ArchiveFileInfo designData = designArc.files.Find(e => e.FileName.EndsWith("Design.byml"));
-            designArc.RenameFile(designData, $"{PlacementFileName}Design.byml");
+            if (designData == null)
+                designArc.AddFile(arcName, new MemoryStream(new BymlWriter(BymlDataType.Array).Serialize().ToArray())); // Placeholder: place empty byml for placement design
+            else
+                designArc.RenameFile(designData, arcName);
 
             designArc.Save(stream);
         }
 
         public void SaveSound(Stream stream)
         {
-            if (!HasSoundFile)
+            if (!HasSoundFile || soundArc.files.Count == 0)
                 return;
 
             // update sound arc with placement name
@@ -386,7 +439,7 @@ namespace RedStarLibrary
 
             BymlIter gfxParam = new BymlIter(designArc.GetFileStream("GraphicsArea.byml").ToArray());
 
-            CurrentMapScene.SetupGraphicsArea(gfxParam);
+            CurrentMapScene.LoadGraphicsArea(gfxParam);
         }
 
         private void LoadSoundData(string path)
@@ -599,15 +652,10 @@ namespace RedStarLibrary
                                 if(ImGui.BeginPopupContextItem($"{layerStrId}_PopupCtx"))
                                 {
                                     if(ImGui.Button("Set All Active"))
-                                    {
-                                        for (int i = 0; i < StageScene.SCENARIO_COUNT; i++)
-                                            layer.SetScenarioActive(i, true);
-                                    }
+                                        layer.SetAllScenarioActive(true);
+
                                     if (ImGui.Button("Set All Inactive"))
-                                    {
-                                        for (int i = 0; i < StageScene.SCENARIO_COUNT; i++)
-                                            layer.SetScenarioActive(i, false);
-                                    }
+                                        layer.SetAllScenarioActive(false);
 
                                     if (ImGui.Button("Remove"))
                                         removeQueue.Add(layer);
@@ -736,7 +784,7 @@ namespace RedStarLibrary
             }
 
             if(item is AssetMenu.LiveActorAsset actorAsset)
-                CurrentMapScene.TryAddActorFromAsset(this, position, actorAsset);
+                CurrentMapScene.AddActorFromAsset(this, position, actorAsset);
         }
 
         /// <summary>

@@ -64,6 +64,13 @@ namespace RedStarLibrary.MapData
                     obj.SetActiveScenarios(this);
             }
         }
+
+        public void SetAllScenarioActive(bool active)
+        {
+            for (int i = 0; i < StageScene.SCENARIO_COUNT; i++)
+                SetScenarioActive(i, active);
+        }
+
         public bool IsScenarioActive(int idx) => activeScenarios[idx];
         public IEnumerable<PlacementInfo> GetPlacementsInScenario(int idx) => LayerObjects.Where(e=> e.IsScenarioActive(idx));
 
