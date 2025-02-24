@@ -22,9 +22,6 @@ namespace RedStarLibrary.MapData.Graphics
             public string PresetName = "";
             public string SuffixName = "";
 
-            // not actuall part of Param data
-            public Dictionary<string,dynamic> PresetData = new Dictionary<string,dynamic>();
-
             public bool IsValid => !string.IsNullOrEmpty(PresetName) && !string.IsNullOrEmpty(AreaName);
 
             public AreaParam() { }

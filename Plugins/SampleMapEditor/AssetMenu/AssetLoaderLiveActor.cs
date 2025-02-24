@@ -34,20 +34,27 @@ namespace RedStarLibrary.AssetMenu
 
             var categoryFolder = Path.Combine(Runtime.ExecutableDir, "Lib","Images","ActorThumbnails", category);
 
-            foreach (var actor in databaseCategory)
+            if(Directory.Exists(categoryFolder))
             {
-                if (actor.Models.Count > 1)
+                foreach (var actor in databaseCategory)
                 {
-                    var classFolder = Path.Combine(categoryFolder, actor.ClassName);
+                    if (actor.Models.Count > 1)
+                    {
+                        var classFolder = Path.Combine(categoryFolder, actor.ClassName);
 
-                    foreach (var item in actor.Models)
-                        iconAssets.Add(new LiveActorAsset(actor, Path.Combine(classFolder, item + ".png")));
+                        foreach (var item in actor.Models)
+                            iconAssets.Add(new LiveActorAsset(actor, Path.Combine(classFolder, item + ".png")));
+                    }
+                    else if (actor.Models.Count == 1)
+                    {
+                        iconAssets.Add(new LiveActorAsset(actor, Path.Combine(categoryFolder, actor.Models.FirstOrDefault() + ".png")));
+                    }
+                    else if (actor.Models.Count == 0)
+                        emptyAssets.Add(new LiveActorAsset(actor));
                 }
-                else if (actor.Models.Count == 1)
-                {
-                    iconAssets.Add(new LiveActorAsset(actor, Path.Combine(categoryFolder, actor.Models.FirstOrDefault() + ".png")));
-                }
-                else if (actor.Models.Count == 0)
+            }else
+            {
+                foreach (var actor in databaseCategory)
                     emptyAssets.Add(new LiveActorAsset(actor));
             }
 

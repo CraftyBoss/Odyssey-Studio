@@ -8,6 +8,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Toolbox.Core;
+using static CafeLibrary.SARC;
 
 namespace RedStarLibrary.Extensions
 {
@@ -87,6 +88,34 @@ namespace RedStarLibrary.Extensions
                 return initFile.FileData;
             else
                 return null;
+        }
+
+        public static bool RenameFile(this SARC arc, ArchiveFileInfo file, string newName)
+        {
+            if (file.FileName != newName)
+            {
+                Console.WriteLine($"Renaming {file.FileName} to {newName}.");
+
+                // remove previous file
+                arc.DeleteFile(file);
+
+                // rename info, add back to archive
+                file.FileName = newName;
+                arc.AddFile(file);
+
+                return true;
+            }
+
+            return false;
+        }
+
+        public static void AddFile(this SARC arc, string name, Stream data)
+        {
+            arc.files.Add(new FileEntry()
+            {
+                FileData = data,
+                FileName = name,
+            });
         }
     }
 }

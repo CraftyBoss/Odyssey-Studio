@@ -34,16 +34,16 @@ namespace RedStarLibrary.GameTypes
             /// placement category this info is found in.
             /// </summary>
             [BindGUI("Placement Category", Category = "Unit Config")]
-            public string GenerateCategory { get; set; }
+            public string GenerateCategory { get; set; } = "";
             /// <summary>
             /// string used for constructing LiveActor using the game's ProjectActorFactory
             /// </summary>
             [BindGUI("Class Name", Category = "Unit Config")]
-            public string ParameterConfigName { get; set; }
+            public string ParameterConfigName { get; set; } = "";
             /// <summary>
             /// suffix of stage file (used for saving placement info to the correct Map/Design/Sound file possibly?)
             /// </summary>
-            public string PlacementTargetFile { get; set; }
+            public string PlacementTargetFile { get; set; } = "";
         }
 
         // byaml dictionary data obtained from stage byml
@@ -53,31 +53,31 @@ namespace RedStarLibrary.GameTypes
         /// object ID used to differentiate actors
         /// </summary>
         [BindGUI("Object ID", Category = "Placement Info")]
-        public string Id { get; set; }
+        public string Id { get; set; } = "";
         /// <summary>
         /// Bool used to describe whether or not placement info is the destination of a link
         /// </summary>
         [BindGUI("Is Link Destination", Category = "Placement Info")]
-        public bool IsLinkDest { get; set; }
+        public bool IsLinkDest { get; set; } = false;
         /// <summary>
         /// metadata leftover from official level editor used to handle cross-scenario objects
         /// </summary>
         [BindGUI("Object Layer", Category = "Placement Info")]
-        public string LayerConfigName { get; set; }
+        public string LayerConfigName { get; set; } = "";
         /// <summary>
         /// List of all Linked objects used by actor, separated by list categories
         /// </summary>
-        public Dictionary<string,dynamic> Links { get; set; }
+        public Dictionary<string,dynamic> Links { get; set; } = new Dictionary<string,dynamic>();
         /// <summary>
         /// name of actor's model
         /// </summary>
         [BindGUI("Object Model", Category = "Placement Info")]
-        public string ModelName { get; set; }
+        public string ModelName { get; set; } = "";
         /// <summary>
         /// name of stage this placement info is found in
         /// </summary>
         [BindGUI("Placement Stage", Category = "Placement Info")]
-        public string PlacementFileName { get; set; }
+        public string PlacementFileName { get; set; } = "";
         /// <summary>
         /// object rotation
         /// </summary>
@@ -189,7 +189,7 @@ namespace RedStarLibrary.GameTypes
             {
                 var entry = param.Value;
                 if (entry.Required)
-                    ActorParams.Add(param.Key, null);
+                    ActorParams.Add(param.Key, entry.FoundValues.FirstOrDefault());
             }
         }
         public void SetScenarioActive(int idx, bool active) => activeLayers[idx] = active;
@@ -199,6 +199,24 @@ namespace RedStarLibrary.GameTypes
             for (int i = 0; i < activeLayers.Length; i++)
                 activeLayers[i] = config.IsScenarioActive(i);
         }
+        public bool IsScenariosMatch(bool[] activeList)
+        {
+            if(activeList.Length != activeLayers.Length) return false;
+
+            bool isMatch = true;
+
+            for (int i = 0; i < activeLayers.Length; i++)
+            {
+                if(activeLayers[i] != activeList[i])
+                {
+                    isMatch = false; 
+                    break;
+                }
+            }
+
+            return isMatch;
+        }
+
         private Dictionary<string, dynamic> GetActorParams(BymlIter iter)
         {
             Dictionary<string, dynamic> dict = new Dictionary<string, dynamic>();
@@ -346,7 +364,7 @@ namespace RedStarLibrary.GameTypes
 
             ActorParams = GetActorParams(rootNode);
 
-            isUseLinks = Links.Count > 0;
+            isUseLinks = Links?.Count > 0;
         }
 
         public BymlContainer SerializeByml()

@@ -3,6 +3,7 @@ using CafeLibrary;
 using CafeLibrary.Rendering;
 using GLFrameworkEngine;
 using RedStarLibrary.Extensions;
+using RedStarLibrary.Helpers;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -98,6 +99,8 @@ namespace RedStarLibrary
                 return $"{PluginConfig.ModPath}\\{relativePath}";
             else if (File.Exists($"{PluginConfig.GamePath}\\{relativePath}"))
                 return $"{PluginConfig.GamePath}\\{relativePath}";
+            else if(File.Exists($"{WorkspaceHelper.WorkingDirectory}\\{relativePath}"))
+                return $"{WorkspaceHelper.WorkingDirectory}\\{relativePath}";
             else
                 return null;
         }
@@ -108,6 +111,8 @@ namespace RedStarLibrary
                 return $"{PluginConfig.ModPath}\\{relativePath}";
             else if (Directory.Exists($"{PluginConfig.GamePath}\\{relativePath}"))
                 return $"{PluginConfig.GamePath}\\{relativePath}";
+            else if (File.Exists($"{WorkspaceHelper.WorkingDirectory}\\{relativePath}"))
+                return $"{WorkspaceHelper.WorkingDirectory}\\{relativePath}";
             else
                 return null;
         }

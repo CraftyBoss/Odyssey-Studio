@@ -83,6 +83,9 @@ namespace RedStarLibrary
 
                 if (editor is EditorLoader loader)
                 {
+                    // make a local save
+                    //STFileSaver.SaveFileFormat(editor);
+
                     using var mapDesign = new MemoryStream();
                     loader.SaveMap(mapDesign);
                     Uploader.UploadFileToServerAsync(YAZ0.Compress(mapDesign.ToArray(), Runtime.Yaz0CompressionLevel), loader.FileInfo.FileName);

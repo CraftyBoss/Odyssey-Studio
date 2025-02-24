@@ -296,24 +296,24 @@
     },
     {
         "PresetName": "プレイヤーライト(クローゼット) ",
-        "TranslatedName": "Player Light (Closet) "
-,
-"Used": false    },
+        "TranslatedName": "Player Light (Closet) ",
+        "Used": false
+    },
     {
         "PresetName": "プレイヤーライト(ショップ) ",
-        "TranslatedName": "Player Light (Shop) "
-,
-"Used": false    },
+        "TranslatedName": "Player Light (Shop) ",
+        "Used": false
+    },
     {
         "PresetName": "プレイヤーライト(ポーズ) ",
-        "TranslatedName": "Player Light (Pose) "
-,
-"Used": false    },
+        "TranslatedName": "Player Light (Pose) ",
+        "Used": false
+    },
     {
         "PresetName": "プレイヤーライト(ムーンゲット) ",
-        "TranslatedName": "Player Light (Moon Get) "
-,
-"Used": false    },
+        "TranslatedName": "Player Light (Moon Get) ",
+        "Used": false
+    },
     {
         "PresetName": "プログラマ確認用(TREX実験)",
         "TranslatedName": "For programmer confirmation (TREX experiment)",

@@ -23,6 +23,7 @@ using RedStarLibrary.Helpers;
 using Discord;
 using static Toolbox.Core.GX.DisplayListHelper;
 using RedStarLibrary.MapData.Graphics;
+using static RedStarLibrary.MapData.Graphics.StageGraphicsArea;
 
 namespace RedStarLibrary
 {
@@ -33,6 +34,9 @@ namespace RedStarLibrary
         public static readonly int SCENARIO_COUNT = 15;
 
         #endregion
+
+        #region StageData
+
         /// <summary>
         /// Every layer that is shared between scenarios will be used here
         /// TODO: remove category separation of layers
@@ -44,11 +48,18 @@ namespace RedStarLibrary
         /// The current Scenario selected for the loaded map.
         /// </summary>
         public int MapScenarioNo { get; set; } = 0;
+        public bool IsUseClipDist { get; set; } = false;
 
         // Category Name (ex: ObjectList) -> List of Actors in Layers (ex: Layer Common) -> List of Actors
         private Dictionary<string, Dictionary<string,List<LiveActor>>> SceneActors { get; set; }
 
-        private int CurrentObjectID = 90000; // TODO: replace this with the next highest obj id value (not entirely needed)
+        public int CurrentObjectID = 90000; // TODO: replace this with the next highest obj id value (not entirely needed)
+
+        #endregion
+
+        #region Misc
+
+        #endregion
 
         public void Setup(EditorLoader loader)
         {
@@ -81,6 +92,11 @@ namespace RedStarLibrary
         public void SetupGraphicsArea(BymlIter iter)
         {
             GraphicsArea = new StageGraphicsArea(iter);
+
+            // TODO: i'd like to rework this portion eventually to allow better customization of GraphicsPresets
+            var presetSarc = SARC_Parser.UnpackRamN(YAZ0.Decompress(ResourceManager.FindResourcePath("SystemData\\GraphicsPreset.szs")));
+
+            
         }
 
         public void RestartScene(EditorLoader loader)
@@ -143,22 +159,15 @@ namespace RedStarLibrary
 
             }
 
-            // TODO: not this
-            string nodeName = "Scenario Layer " + actorLayer;
-
-            NodeBase layerActors = actorList.GetChild(nodeName);
+            NodeBase layerActors = actorList.GetChild("Layer " + actorLayer);
 
             if (layerActors == null)
-            {
-                layerActors = new NodeBase(nodeName);
-                layerActors.HasCheckBox = true;
-                actorList.AddChild(layerActors);
-                layerActors.Icon = IconManager.FOLDER_ICON.ToString();
-
-                SceneActors[objCategory].TryAdd(actorLayer, new List<LiveActor>());
-            }
+                layerActors = AddLayerToActorList(loader, actorList, actorLayer, objCategory);
 
             LiveActor actor = LoadActorFromPlacement(actorPlacement, placementLayer);
+
+            if(actor.ObjectRender is TransformableObject)
+                actor.Placement.ModelName = ""; // if we didn't find a model to load, clear the model name
 
             actor.ResetLinkedActors();
 
@@ -208,12 +217,41 @@ namespace RedStarLibrary
             return liveActors;
         }
 
-        private LiveActor? FindActorWithClass(string objCategory, string className)
+        public LiveActor? FindActorWithClass(string objCategory, string className)
         {
             if(!SceneActors.TryGetValue(objCategory, out var actorLists))
                 return null;
 
             return actorLists.First().Value.FirstOrDefault(e=> e.Placement.ClassName == className);
+        }
+
+        private NodeBase AddLayerToActorList(EditorLoader loader, NodeBase actorList, string actorLayer, string objCategory)
+        {
+            string nodeName = "Layer " + actorLayer;
+
+            var layerActors = new NodeBase(nodeName);
+            layerActors.HasCheckBox = true;
+            layerActors.Tag = loader;
+            actorList.AddChild(layerActors);
+            layerActors.Icon = IconManager.FOLDER_ICON.ToString();
+
+            layerActors.ContextMenus.Add(new MenuItemModel("Clear", () =>
+            {
+                for (int x = layerActors.Children.Count - 1; x >= 0; x--)
+                {
+                    var actorNode = layerActors.Children[x];
+
+                    if (actorNode is EditableObjectNode editNode)
+                        loader.RemoveRender(editNode.Object);
+                }
+
+                if (layerActors.Children.Count == 0)
+                    actorList.Children.Remove(layerActors);
+            }));
+
+            SceneActors[objCategory].TryAdd(actorLayer, new List<LiveActor>());
+
+            return layerActors;
         }
 
         private void SetupObjects(EditorLoader loader)
@@ -268,15 +306,7 @@ namespace RedStarLibrary
                     NodeBase layerActors = actorList.GetChild(nodeName);
 
                     if (layerActors == null)
-                    {
-                        layerActors = new NodeBase(nodeName);
-                        layerActors.Tag = actorList.Tag;
-                        layerActors.HasCheckBox = true;
-                        actorList.AddChild(layerActors);
-                        layerActors.Icon = IconManager.FOLDER_ICON.ToString();
-
-                        SceneActors[objCategory].TryAdd(mapActors.ActorListName, new List<LiveActor>());
-                    }
+                        layerActors = AddLayerToActorList(loader, actorList, mapActors.ActorListName, objCategory);
 
                     foreach (var actor in mapActors)
                     {
@@ -311,7 +341,10 @@ namespace RedStarLibrary
             if (areaParam == null)
                 return;
 
-            string arcName = areaParam.PresetData["Sky"]["Name"];
+            if (!loader.TryGetPresetFromArc(areaParam.PresetName, out var presetData))
+                return;
+
+            string arcName = presetData["Sky"]["Name"];
 
             string skyPath = ResourceManager.FindResourcePath($"ObjectData\\{arcName}.szs");
 
@@ -406,41 +439,7 @@ namespace RedStarLibrary
 
             if (actor.hasArchive)
             {
-                var modelARC = ResourceManager.FindOrLoadSARC(actor.modelPath);
-                var modelName = Path.GetFileNameWithoutExtension(actor.modelPath);
-
-                using var modelStream = modelARC.GetModelStream(modelName);
-
-                if (modelStream != null)
-                {
-                    var fileStream = modelARC.GetInitFileStream("InitClipping");
-
-                    actor.CreateBfresRenderer(modelStream, modelARC.GetTexArchive());
-
-                    if (fileStream != null)
-                    {
-                        BymlFileData clippingData = ByamlFile.LoadN(modelARC.GetInitFileStream("InitClipping"));
-
-                        if (((Dictionary<string, dynamic>)clippingData.RootNode).TryGetValue("Radius", out dynamic dist))
-                        {
-                            actor.IsInvalidateClipping = false;
-                            actor.ClippingDist = dist;
-                        }
-                        else if (((Dictionary<string, dynamic>)clippingData.RootNode).TryGetValue("Invalidate", out dynamic isInvalid))
-                        {
-                            actor.IsInvalidateClipping = clippingData.RootNode["Invalidate"];
-                        }
-                    }
-
-                    actor.SetActorIcon(Rendering.MapEditorIcons.OBJECT_ICON);
-                }
-                else
-                {
-                    actor.CreateBasicRenderer();
-                    actor.SetActorIcon(Rendering.MapEditorIcons.OBJECT_ICON);
-                }
-
-
+                actor.TryLoadModelRenderer();
             }
             else
             {
