@@ -20,6 +20,8 @@ using CafeLibrary.ModelConversion;
 using RedStarLibrary.Extensions;
 using UIFramework;
 using Newtonsoft.Json.Linq;
+using RedStarLibrary.Helpers;
+using System.IO.Pipes;
 
 namespace RedStarLibrary.GameTypes
 {
@@ -135,7 +137,7 @@ namespace RedStarLibrary.GameTypes
             linkedObjs = new Dictionary<string, List<LiveActor>>();
             destLinkObjs = new Dictionary<string, List<LiveActor>>();
 
-            ArchiveName = info.ModelName != null ? info.ModelName : info.UnitConfigName;
+            ArchiveName = !string.IsNullOrEmpty(info.ModelName) ? info.ModelName : info.UnitConfigName;
 
             modelPath = ResourceManager.FindResourcePath($"ObjectData\\{ArchiveName}.szs");
 
@@ -371,6 +373,27 @@ namespace RedStarLibrary.GameTypes
             return false;
         }
 
+        public void LoadModel(SARC modelARC, Stream modelStream)
+        {
+            CreateBfresRenderer(modelStream, modelARC.GetTexArchive());
+            SetActorIcon(MapEditorIcons.OBJECT_ICON);
+        }
+
+        public void SetClippingData(Stream fileStream)
+        {
+            BymlFileData clippingData = ByamlFile.LoadN(fileStream);
+
+            if (((Dictionary<string, dynamic>)clippingData.RootNode).TryGetValue("Radius", out dynamic dist))
+            {
+                IsInvalidateClipping = false;
+                ClippingDist = dist;
+            }
+            else if (((Dictionary<string, dynamic>)clippingData.RootNode).TryGetValue("Invalidate", out dynamic isInvalid))
+            {
+                IsInvalidateClipping = clippingData.RootNode["Invalidate"];
+            }
+        }
+
         private List<string> GetUsedTextureNames()
         {
             if (ObjectRender is not BfresRender bfresRender)
@@ -406,13 +429,17 @@ namespace RedStarLibrary.GameTypes
             ObjectRender.Transform.Position = Placement.Translate;
             ObjectRender.Transform.Scale = Placement.Scale;
             ObjectRender.Transform.RotationEulerDegrees = Placement.Rotate;
-            ObjectRender.Transform.UpdateMatrix(true);
 
-            if (ObjectRender is BfresRender)
-                ObjectRender.UINode.TagUI.UIDrawer += DrawModelProperties;
+            ObjectRender.Transform.PropertyChanged +=
+                (sender, args) => { ((GLTransform)sender).UpdateMatrix(); };
+
+            ObjectRender.Transform.UpdateMatrix(true);
 
             ObjectRender.UINode.TagUI.UIDrawer += (o, e) => PropertyDrawer.Draw(Placement.ActorParams);
             ObjectRender.UINode.TagUI.UIDrawer += DrawLayerConfig;
+
+            if (ObjectRender is BfresRender)
+                ObjectRender.UINode.TagUI.UIDrawer += DrawModelProperties;
 
             ObjectRender.Transform.TransformUpdated += delegate
             {
@@ -468,6 +495,21 @@ namespace RedStarLibrary.GameTypes
 
                     if (dlg.ShowDialog())
                         TryExportModel(dlg.SelectedPath);
+                }
+
+                if(ImGui.Button("Reload Model", btnSize))
+                {
+                    var arcName = !string.IsNullOrEmpty(Placement.ModelName) ? Placement.ModelName : Placement.UnitConfigName;
+                    var arcPath = ResourceManager.FindResourcePath($"ObjectData\\{arcName}.szs");
+
+                    if(File.Exists(arcPath)) {
+                        ArchiveName = arcName;
+                        modelPath = arcPath;
+
+                        TryLoadModelRenderer();
+                        SetParentNode(parent);
+                        WorkspaceHelper.AddRendererToLoader(ObjectRender);
+                    }
                 }
             }
         }
@@ -533,7 +575,7 @@ namespace RedStarLibrary.GameTypes
             if (render.IsSelected)
                 return true;
 
-            if (render.UseDrawDistance)
+            if (render.UseDrawDistance && WorkspaceHelper.GetCurrentStageScene().IsUseClipDist)
                 return context.Camera.InRange(Transform.Position, render.renderDistanceSquared);
 
             return true;
@@ -561,6 +603,36 @@ namespace RedStarLibrary.GameTypes
                 point.UpdateMatrices();
 
                 PathRender.AddPoint(point);
+            }
+        }
+
+        internal void TryLoadModelRenderer()
+        {
+            if(ObjectRender != null)
+                WorkspaceHelper.RemoveRendererFromActiveScene(ObjectRender);
+
+            var modelARC = ResourceManager.FindOrLoadSARC(modelPath);
+            var modelName = Path.GetFileNameWithoutExtension(modelPath);
+
+            using var modelStream = modelARC.GetModelStream(modelName);
+
+            if (modelStream != null)
+            {
+                LoadModel(modelARC, modelStream);
+
+                var fileStream = modelARC.GetInitFileStream("InitClipping");
+
+                CreateBfresRenderer(modelStream, modelARC.GetTexArchive());
+
+                if (fileStream != null)
+                    SetClippingData(fileStream);
+
+                SetActorIcon(Rendering.MapEditorIcons.OBJECT_ICON);
+            }
+            else
+            {
+                CreateBasicRenderer();
+                SetActorIcon(Rendering.MapEditorIcons.OBJECT_ICON);
             }
         }
     }

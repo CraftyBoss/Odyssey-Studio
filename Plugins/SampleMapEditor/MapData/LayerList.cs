@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using RedStarLibrary.GameTypes;
+using static Toolbox.Core.GX.DisplayListHelper;
 
 namespace RedStarLibrary.MapData
 {
@@ -32,7 +33,29 @@ namespace RedStarLibrary.MapData
                 return config;
             }
 
-            config = new LayerConfig(actorPlacement);
+            return CreateLayer(actorPlacement, useScenario);
+        }
+
+        public LayerConfig FindOrCreateLayer(string layerName, int useScenario = -1)
+        {
+            LayerConfig config = _layerList.Find(e => e.LayerName == layerName);
+
+            if(config != null)
+                return config;
+
+            config = new LayerConfig(layerName);
+
+            if (useScenario != -1)
+                config.SetScenarioActive(useScenario, true);
+
+            _layerList.Add(config);
+
+            return config;
+        }
+
+        public LayerConfig CreateLayer(PlacementInfo actorPlacement, int useScenario = -1)
+        {
+            var config = new LayerConfig(actorPlacement);
 
             if (useScenario != -1)
                 config.SetScenarioActive(useScenario, true);
@@ -49,13 +72,28 @@ namespace RedStarLibrary.MapData
             if (info != null)
                 if (info.LayerObjects.Contains(placement))
                     info.LayerObjects.Remove(placement);
-
         }
 
         public LayerConfig GetLayerByName(string name)
         {
             return _layerList.Find(e => e.LayerName == name);
+        }
 
+        public void RemoveLayer(LayerConfig layer) => _layerList.Remove(layer);
+
+        public void RemoveLayerByName(string layerName)
+        {
+            var config = GetLayerByName(layerName);
+
+            if (config == null)
+                return;
+
+            _layerList.Remove(config);
+        }
+
+        public IEnumerable<LayerConfig> GetLayersBySubString(string name)
+        {
+            return _layerList.Where(e => e.LayerName.Contains(name));
         }
 
         public bool IsInfoInAnyLayer(PlacementInfo info)

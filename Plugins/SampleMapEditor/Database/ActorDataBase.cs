@@ -60,7 +60,7 @@ namespace RedStarLibrary
 
     public class ActorDataBase
     {
-        private static List<ObjectDatabaseEntry> ObjDatabase = null; // game has 570 actors in 1.0, this should have most, if not all, of them
+        public static List<ObjectDatabaseEntry> ObjDatabase { get; private set; } = null; // game has 570 actors in 1.0, this should have most, if not all, of them
 
         private static HashSet<string> UnusedObjs = new HashSet<string>();
 
@@ -76,6 +76,19 @@ namespace RedStarLibrary
                 LoadDatabase();
 
             return ObjDatabase;
+        }
+
+        public static ObjectDatabaseEntry GetObjectFromDatabase(string databaseName, string category = null)
+        {
+            if(ObjDatabase != null)
+            {
+                if(string.IsNullOrEmpty(databaseName))
+                    return ObjDatabase.FirstOrDefault(e => e.ClassName.Equals(databaseName) || e.Models.Contains(databaseName));
+                else
+                    return ObjDatabase.FirstOrDefault(e => e.ActorCategory == category && (e.ClassName.Equals(databaseName) || e.Models.Contains(databaseName)));
+            }
+            else 
+                return null;
         }
 
         public static List<string> GetAllLoadableModels()
@@ -98,12 +111,39 @@ namespace RedStarLibrary
             if (ObjDatabase != null) 
                 return;
 
-            var dictDatabase = JsonConvert.DeserializeObject<List<ObjectDatabaseEntry>>(File.ReadAllText("ObjectDatabase.json"));
-
-            if(dictDatabase != null)
-                ObjDatabase = dictDatabase;
+            ReloadDataBase();
 
             // OrganizeThumbnails();
+        }
+
+        public static void ReloadDataBase()
+        {
+            var dictDatabase = JsonConvert.DeserializeObject<List<ObjectDatabaseEntry>>(File.ReadAllText("ObjectDatabase.json"));
+
+            if (dictDatabase != null)
+                ObjDatabase = dictDatabase;
+
+            // TEMP: JsonConvert parses integer values as int64, so we need to iterate through the entire database and fix those values
+            foreach (var entry in ObjDatabase)
+            {
+                foreach (var param in entry.ActorParams)
+                {
+                    for (var i = 0; i < param.Value.FoundValues.Count; i++)
+                    {
+                        var val = param.Value.FoundValues.ElementAt(i);
+
+                        if (val is long longVal)
+                        {
+                            param.Value.FoundValues.Remove(val);
+                            param.Value.FoundValues.Add(Convert.ToInt32(longVal));
+                        }else if(val is double doubleVal)
+                        {
+                            param.Value.FoundValues.Remove(val);
+                            param.Value.FoundValues.Add((float)doubleVal);
+                        }
+                    }
+                }
+            }
         }
 
         private static void OrganizeThumbnails()

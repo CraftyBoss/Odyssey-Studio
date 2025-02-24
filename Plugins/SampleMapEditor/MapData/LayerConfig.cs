@@ -13,7 +13,7 @@ namespace RedStarLibrary.MapData
         /// <summary>
         /// Name of the config.
         /// </summary>
-        public string LayerName { get;}
+        public string LayerName { get; private set; }
         /// <summary>
         /// List of every PlacementInfo found within a certain layer.
         /// </summary>
@@ -42,8 +42,28 @@ namespace RedStarLibrary.MapData
             IsEnabled = true;
         }
 
+        public void SetLayerName(string layerName)
+        {
+            LayerName = layerName;
+
+            foreach (var obj in LayerObjects)
+                obj.LayerConfigName = LayerName;
+        }
+
         public bool IsInfoInLayer(PlacementInfo info) => LayerObjects.Any(e => e == info);
-        public void SetScenarioActive(int idx, bool active) => activeScenarios[idx] = active;
+        public void SetScenarioActive(int idx, bool active)
+        {
+            bool[] prevValues = new bool[activeScenarios.Length];
+            Array.Copy(activeScenarios, prevValues, activeScenarios.Length);
+
+            activeScenarios[idx] = active;
+
+            foreach (var obj in LayerObjects)
+            {
+                if(obj.IsScenariosMatch(prevValues))
+                    obj.SetActiveScenarios(this);
+            }
+        }
         public bool IsScenarioActive(int idx) => activeScenarios[idx];
         public IEnumerable<PlacementInfo> GetPlacementsInScenario(int idx) => LayerObjects.Where(e=> e.IsScenarioActive(idx));
 
