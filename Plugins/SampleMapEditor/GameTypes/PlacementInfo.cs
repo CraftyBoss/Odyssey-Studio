@@ -170,7 +170,6 @@ namespace RedStarLibrary.GameTypes
 
         public PlacementInfo(ObjectDatabaseEntry objEntry, string assetName)
         {
-
             UnitConfig = new PlacementUnitConfig();
             ActorParams = new Dictionary<string, dynamic>();
             sourceLinks = new Dictionary<string, List<PlacementInfo>>();
@@ -192,6 +191,42 @@ namespace RedStarLibrary.GameTypes
                     ActorParams.Add(param.Key, entry.FoundValues.FirstOrDefault());
             }
         }
+
+        public PlacementInfo(PlacementInfo other)
+        {
+            Id = other.Id;
+            IsLinkDest = other.IsLinkDest;
+            LayerConfigName = other.LayerConfigName;
+            Links = Helpers.Placement.CopyNode(other.Links);
+            ModelName = other.ModelName;
+            PlacementFileName = other.PlacementFileName;
+            Rotate = other.Rotate;
+            Scale = other.Scale;
+            Translate = other.Translate;
+
+            UnitConfig = new PlacementUnitConfig();
+            UnitConfig.DisplayName = other.UnitConfig.DisplayName;
+            UnitConfig.DisplayRotate = other.UnitConfig.DisplayRotate;
+            UnitConfig.DisplayScale = other.UnitConfig.DisplayScale;
+            UnitConfig.DisplayTranslate = other.UnitConfig.DisplayTranslate;
+            UnitConfig.GenerateCategory = other.UnitConfig.GenerateCategory;
+            UnitConfig.ParameterConfigName = other.UnitConfig.ParameterConfigName;
+            UnitConfig.PlacementTargetFile = other.UnitConfig.PlacementTargetFile;
+
+            UnitConfigName = other.UnitConfigName;
+            Comment = other.Comment;
+            ActorParams = Helpers.Placement.CopyNode(other.ActorParams);
+            sourceLinks = Helpers.Placement.CopyNode(other.sourceLinks);
+            destLinks = Helpers.Placement.CopyNode(other.destLinks);
+            isActorLoaded = other.isActorLoaded;
+            isUseLinks = other.isUseLinks;
+            isLinkedInfo = other.isLinkedInfo;
+            isSyncInfoToLayer = other.isSyncInfoToLayer;
+            Array.Copy(other.activeLayers, activeLayers, activeLayers.Length);
+
+            loadedParams = Helpers.Placement.CopyNode(other.loadedParams);
+        }
+
         public void SetScenarioActive(int idx, bool active) => activeLayers[idx] = active;
         public bool IsScenarioActive(int idx) => activeLayers[idx];
         public void SetActiveScenarios(LayerConfig config)
@@ -241,6 +276,7 @@ namespace RedStarLibrary.GameTypes
 
             return dict;
         }
+
         private static Dictionary<string,dynamic> SaveValues(object obj)
         {
 

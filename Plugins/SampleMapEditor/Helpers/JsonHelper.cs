@@ -10,7 +10,7 @@ namespace RedStarLibrary.Helpers
 {
     public class JsonHelper
     {
-        public static void WriteToJSON(dynamic value, string filename, Formatting format = Formatting.None, JsonConverter converter = null)
+        public static void WriteToJSON(dynamic value, string filename, Formatting format = Formatting.Indented, JsonConverter converter = null)
         {
             string json;
 
@@ -28,7 +28,7 @@ namespace RedStarLibrary.Helpers
         public static dynamic CreateDictCopy(object input)
         {
 
-            string serializedInput = JsonConvert.SerializeObject(input, Formatting.Indented);
+            string serializedInput = JsonConvert.SerializeObject(input, Formatting.None);
 
             dynamic output = DeserializeToDictionaryOrList(serializedInput);
 

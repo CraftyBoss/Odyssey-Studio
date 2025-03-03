@@ -12,48 +12,34 @@ namespace RedStarLibrary.Helpers
 {
     public class Placement
     {
-        public static dynamic CopyNode(Dictionary<string, object> node)
+        public static dynamic CopyNode<K,V>(Dictionary<K, V> node)
         {
-
-            Dictionary<string, object> copy = new Dictionary<string, object>();
+            Dictionary<K, V> copy = new();
 
             foreach (var kvp in node)
             {
                 if (kvp.Value is Dictionary<string, object> dict)
-                {
                     copy.Add(kvp.Key, CopyNode(dict));
-                }
                 else if (kvp.Value is List<object> list)
-                {
                     copy.Add(kvp.Key, CopyNode(list));
-                }
                 else
-                {
                     copy.Add(kvp.Key, kvp.Value);
-                }
             }
 
             return copy;
         }
-        public static dynamic CopyNode(List<object> node)
+        public static dynamic CopyNode<V>(List<V> node)
         {
-
-            List<object> copy = new List<object>();
+            List<V> copy = new List<V>();
 
             foreach (var val in node)
             {
                 if (val is Dictionary<string, object> dict)
-                {
                     copy.Add(CopyNode(dict));
-                }
                 else if (val is List<object> list)
-                {
                     copy.Add(CopyNode(list));
-                }
                 else
-                {
                     copy.Add(val);
-                }
             }
 
             return copy;
@@ -193,6 +179,19 @@ namespace RedStarLibrary.Helpers
             bymlHash.Add("Z", vec.Z);
 
             return bymlHash;
+        }
+
+        public static Dictionary<string, dynamic> GetActorParamsFromDatabaseEntry(ObjectDatabaseEntry objEntry)
+        {
+            Dictionary<string, dynamic> actorParams = new Dictionary<string, dynamic>();
+
+            foreach (var param in objEntry.ActorParams)
+            {
+                var entry = param.Value;
+                actorParams.Add(param.Key, entry.FoundValues.FirstOrDefault());
+            }
+
+            return actorParams;
         }
 
         public static bool CompareLists(List<dynamic> origRootNode, List<dynamic> newRootNode, bool isRoot = false)

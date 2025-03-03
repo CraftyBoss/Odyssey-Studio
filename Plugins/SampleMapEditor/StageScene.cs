@@ -49,6 +49,7 @@ namespace RedStarLibrary
         /// </summary>
         public int MapScenarioNo { get; set; } = 0;
         public bool IsUseClipDist { get; set; } = false;
+        public string SelectedLayer { get; set; } = "Common";
 
         // Category Name (ex: ObjectList) -> List of Actors in Layers (ex: Layer Common) -> List of Actors
         private Dictionary<string, Dictionary<string,List<LiveActor>>> SceneActors { get; set; }
@@ -58,6 +59,8 @@ namespace RedStarLibrary
         #endregion
 
         #region Misc
+
+        private List<LiveActor> copyBuffer = new();
 
         #endregion
 
@@ -135,15 +138,45 @@ namespace RedStarLibrary
 
         public void AddActorFromAsset(PlacementFileEditor loader, Vector3 spawnPos, AssetMenu.LiveActorAsset asset)
         {
-            string objCategory = asset.ActorCategory + "List";
-            string actorLayer = PlacementFileEditor.SelectedLayer;
+            var assetName = asset.Name;
 
-            PlacementInfo actorPlacement = new PlacementInfo(asset.DatabaseEntry, asset.Name);
+            if(asset.DatabaseEntry.ActorCategory == "Area")
+                assetName = "AreaCubeBase";
 
-            actorPlacement.LayerConfigName = actorLayer;
+            PlacementInfo actorPlacement = new PlacementInfo(asset.DatabaseEntry, assetName);
+            actorPlacement.Translate = spawnPos;
+
+            AddActorFromPlacementInfo(loader, actorPlacement, SelectedLayer);
+        }
+
+        public bool TryAddActorByName(PlacementFileEditor loader, string className, Vector3 spawnPos = new Vector3(), string category = null)
+        {
+            var databaseEntry = ActorDataBase.GetObjectFromDatabase(className, category);
+            if (databaseEntry == null)
+                return false;
+
+            var assetName = className;
+            if (databaseEntry.ActorCategory == "Area")
+                assetName = "AreaCubeBase";
+
+            var placementInfo = new PlacementInfo(databaseEntry, assetName);
+            placementInfo.Translate = spawnPos;
+
+            AddActorFromPlacementInfo(loader, placementInfo);
+
+            return true;
+        }
+
+        public LiveActor AddActorFromPlacementInfo(PlacementFileEditor loader, PlacementInfo actorPlacement, string actorLayer = "")
+        {
+            if (string.IsNullOrEmpty(actorLayer))
+                actorLayer = SelectedLayer;
+
+            var objCategory = actorPlacement.UnitConfig.GenerateCategory;
+
+            actorPlacement.LayerConfigName = SelectedLayer;
             actorPlacement.PlacementFileName = loader.PlacementFileName;
             actorPlacement.Id = "obj" + GetNextAvailableObjID();
-            actorPlacement.Translate = spawnPos;
 
             LayerList categoryLayers = GetOrCreateLayerList(objCategory);
 
@@ -169,35 +202,20 @@ namespace RedStarLibrary
 
             LiveActor actor = LoadActorFromPlacement(actorPlacement, placementLayer);
 
-            if(actor.ObjectRender is TransformableObject)
+            if (actor.RenderMode != ActorRenderMode.Bfres)
                 actor.Placement.ModelName = ""; // if we didn't find a model to load, clear the model name
 
             actor.ResetLinkedActors();
 
             actor.SetParentNode(layerActors);
 
-            if (actor.ObjectDrawer != null)
-                loader.AddRender(actor.ObjectDrawer);
-            else
-                loader.AddRender(actor.ObjectRender);
-
-            actor.actorLayer = placementLayer;
+            loader.AddRender(actor.GetDrawer());
 
             actor.isPlaced = true;
 
-            SceneActors[objCategory][actorLayer].Add(actor);
+            SceneActors[objCategory][SelectedLayer].Add(actor);
 
-        }
-
-        public bool TryAddActorByName(PlacementFileEditor loader, string className, Vector3 spawnPos = new Vector3(), string category = null)
-        {
-            var databaseEntry = ActorDataBase.GetObjectFromDatabase(className, category);
-            if (databaseEntry == null)
-                return false;
-
-            AddActorFromAsset(loader, spawnPos, new AssetMenu.LiveActorAsset(databaseEntry, className));
-
-            return true;
+            return actor;
         }
 
         public HashSet<string> GetLoadedLayers()
@@ -238,12 +256,63 @@ namespace RedStarLibrary
             return liveActors;
         }
 
+        public List<LiveActor> GetSelectedActors()
+        {
+            List<LiveActor> liveActors = new List<LiveActor>();
+
+            foreach (var categoryList in SceneActors)
+            {
+                foreach (var layerList in categoryList.Value)
+                {
+                    foreach (var actor in layerList.Value)
+                    {
+                        if(actor.IsRendererSelected())
+                            liveActors.Add(actor);
+                    }
+                }
+            }
+
+            return liveActors;
+        }
+
         public LiveActor? FindActorWithClass(string objCategory, string className)
         {
             if(!SceneActors.TryGetValue(objCategory, out var actorLists))
                 return null;
 
             return actorLists.First().Value.FirstOrDefault(e=> e.Placement.ClassName == className);
+        }
+
+        public void CopySelectedActors(List<LiveActor> buffer = null)
+        {
+            if (buffer == null)
+                buffer = copyBuffer;
+
+            buffer.Clear();
+
+            foreach (var actor in GetSelectedActors())
+                buffer.Add(actor);
+        }
+
+        public void PasteActorCopyBuffer(PlacementFileEditor editor, List<LiveActor> buffer = null)
+        {
+            if (buffer == null)
+                buffer = copyBuffer;
+
+            GLContext.ActiveContext.Scene.DeselectAll(GLContext.ActiveContext);
+
+            foreach (var actor in buffer)
+            {
+                var copyActor = actor.Clone();
+
+                copyActor.Placement.Id = "obj" + GetNextAvailableObjID(); // update objId with new one
+
+                editor.AddRender(copyActor.GetDrawer());
+
+                copyActor.GetTransformObj().IsSelected = true;
+
+                SceneActors[copyActor.Placement.UnitConfig.GenerateCategory][copyActor.Placement.LayerConfigName].Add(copyActor);
+            }
         }
 
         private NodeBase AddLayerToActorList(PlacementFileEditor loader, NodeBase actorList, string actorLayer, string objCategory)
@@ -335,10 +404,7 @@ namespace RedStarLibrary
 
                         actor.SetParentNode(layerActors);
 
-                        if (actor.ObjectDrawer != null)
-                            loader.AddRender(actor.ObjectDrawer);
-                        else
-                            loader.AddRender(actor.ObjectRender);
+                        loader.AddRender(actor.GetDrawer());
 
                         actor.isPlaced = true;
 
@@ -388,7 +454,7 @@ namespace RedStarLibrary
 
             skyActor.CreateBfresRenderer(skySarc.GetModelStream(arcName));
 
-            var bfresRender = ((BfresRender)skyActor.ObjectRender);
+            var bfresRender = ((BfresRender)skyActor.GetEditObj());
 
             bfresRender.UseDrawDistance = false;
             bfresRender.StayInFrustum = true;
@@ -396,11 +462,11 @@ namespace RedStarLibrary
             foreach (var tex in bfresRender.Textures.Values)
                 tex.AlphaChannel = STChannelType.One; // disable alpha channel
 
-            skyActor.ObjectRender.CanSelect = false;
+            bfresRender.CanSelect = false;
 
             skyboxList.Add(skyActor);
 
-            loader.AddRender(skyActor.ObjectRender);
+            loader.AddRender(skyActor.GetDrawer());
         }
 
         private Dictionary<string, List<ActorList>> CreateActorsFromList(Dictionary<string, LayerList> actorList)
@@ -458,29 +524,7 @@ namespace RedStarLibrary
 
             actor.actorLayer = list;
 
-            if (actor.hasArchive)
-            {
-                actor.TryLoadModelRenderer();
-            }
-            else
-            {
-                if (actor.Placement.ClassName.Contains("Area") && actor.Placement.ModelName != null && actor.Placement.ModelName.StartsWith("Area"))
-                {
-                    actor.ArchiveName = actor.Placement.ClassName;
-                    actor.CreateAreaRenderer();
-                    actor.SetActorIcon(Rendering.MapEditorIcons.AREA_BOX);
-                }
-                else if (actor.Placement.Id.Contains("rail")) // all rails use "rail" instead of "obj" for the id prefix
-                {
-                    actor.CreateRailRenderer();
-                    actor.SetActorIcon(Rendering.MapEditorIcons.POINT_ICON);
-                }
-                else
-                {
-                    actor.CreateBasicRenderer();
-                    actor.SetActorIcon(Rendering.MapEditorIcons.OBJECT_ICON);
-                }
-            }
+            actor.SetupRenderer();
 
             if (actor.Placement.IsLinkDest)
             {
@@ -492,14 +536,14 @@ namespace RedStarLibrary
                     {
                         var destActor = LoadActorFromPlacement(actorPlacement);
 
-                        if (destActor != null && destActor.ObjectRender != null && actor.ObjectRender != null)
-                        {
-                            if (!actor.ObjectRender.DestObjectLinks.Contains(destActor.ObjectRender))
-                                actor.ObjectRender.DestObjectLinks.Add(destActor.ObjectRender);
+                        //if (destActor != null && destActor.objectRender != null && actor.objectRender != null)
+                        //{
+                        //    if (!actor.ObjectRender.DestObjectLinks.Contains(destActor.objectRender))
+                        //        actor.ObjectRender.DestObjectLinks.Add(destActor.objectRender);
 
-                            if (!destActor.ObjectRender.SourceObjectLinks.Contains(actor.ObjectRender))
-                                destActor.ObjectRender.SourceObjectLinks.Add(actor.ObjectRender);
-                        }
+                        //    if (!destActor.ObjectRender.SourceObjectLinks.Contains(actor.objectRender))
+                        //        destActor.ObjectRender.SourceObjectLinks.Add(actor.objectRender);
+                        //}
                     }
                 }
             }

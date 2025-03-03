@@ -3,6 +3,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using RedStarLibrary.Extensions;
 using RedStarLibrary.GameTypes;
+using RedStarLibrary.JsonConverters;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -19,6 +20,12 @@ namespace RedStarLibrary
         public class ParamEntry
         {
             /// <summary>
+            /// Stringified name of the param's type (used to differentiate things like longs, doubles, etc)
+            /// </summary>
+            [JsonProperty]
+            public Type ParamType;
+
+            /// <summary>
             /// Determines if the parameter is required to create the actor in game (will need to be determined manually)
             /// </summary>
             [JsonProperty]
@@ -28,6 +35,31 @@ namespace RedStarLibrary
             /// </summary>
             [JsonProperty]
             public HashSet<dynamic> FoundValues = new HashSet<dynamic>();
+
+            public ParamEntry() { }
+
+            public ParamEntry(object value)
+            {
+                if (value != null)
+                    ParamType = value.GetType();
+                FoundValues.Add(value);
+            }
+
+            public void AddValue(object value)
+            {
+                if(value != null)
+                {
+                    if (ParamType != null)
+                    {
+                        if (value.GetType() != ParamType)
+                            throw new Exception("Supplied value differs from parameter type!");
+                    }
+                    else
+                        ParamType = value.GetType();
+                }
+
+                FoundValues.Add(value);
+            }
         }
 
         /// <summary>
@@ -70,6 +102,18 @@ namespace RedStarLibrary
             "ChangeStageName"
         };
 
+        public static readonly List<string> AreaModelNames = new()
+        {
+            "AreaCubeBase",
+            "AreaCubeTop",
+            "AreaCubeCenter",
+            "AreaCylinder",
+            "AreaCylinderTop",
+            "AreaCylinderCenter",
+            "AreaSphere",
+            "AreaInfinite"
+        };
+
         public static List<ObjectDatabaseEntry> GetDataBase()
         {
             if(ObjDatabase == null)
@@ -91,6 +135,27 @@ namespace RedStarLibrary
                 return null;
         }
 
+        public static List<ObjectDatabaseEntry> GetObjectsByCategory(string category)
+        {
+            if (ObjDatabase == null)
+                return null;
+
+            return ObjDatabase.Where(e => e.ActorCategory == category).ToList();
+        }
+
+        public static List<string> GetClassNamesByCategory(string category)
+        {
+            if (ObjDatabase == null)
+                return new List<string>();
+
+            HashSet<string> classes = new HashSet<string>();
+
+            foreach (var entry in GetObjectsByCategory(category))
+                classes.Add(entry.ClassName);
+
+            return classes.ToList();
+        }
+
         public static List<string> GetAllLoadableModels()
         {
             if (ObjDatabase == null)
@@ -102,6 +167,18 @@ namespace RedStarLibrary
                 models.Add(entry.Models.FirstOrDefault());
             //foreach (var modelString in entry.Models)
 
+            return models.ToList();
+        }
+
+        public static List<string> GetAllCategories()
+        {
+            if (ObjDatabase == null)
+                return new List<string>();
+
+            HashSet<string> models = new HashSet<string>();
+
+            foreach (var entry in ObjDatabase)
+                models.Add(entry.ActorCategory);
 
             return models.ToList();
         }
@@ -118,7 +195,7 @@ namespace RedStarLibrary
 
         public static void ReloadDataBase()
         {
-            var dictDatabase = JsonConvert.DeserializeObject<List<ObjectDatabaseEntry>>(File.ReadAllText("ObjectDatabase.json"));
+            var dictDatabase = JsonConvert.DeserializeObject<List<ObjectDatabaseEntry>>(File.ReadAllText("ObjectDatabase.json"), new ObjectDatabaseEntryConverter());
 
             if (dictDatabase != null)
                 ObjDatabase = dictDatabase;
@@ -135,11 +212,11 @@ namespace RedStarLibrary
                         if (val is long longVal)
                         {
                             param.Value.FoundValues.Remove(val);
-                            param.Value.FoundValues.Add(Convert.ToInt32(longVal));
+                            param.Value.AddValue(Convert.ToInt32(longVal));
                         }else if(val is double doubleVal)
                         {
                             param.Value.FoundValues.Remove(val);
-                            param.Value.FoundValues.Add((float)doubleVal);
+                            param.Value.AddValue((float)doubleVal);
                         }
                     }
                 }
@@ -233,17 +310,17 @@ namespace RedStarLibrary
 
                     var copy = Helpers.Placement.CopyNode(info.ActorParams);
 
-                    foreach (var kvp in copy)
+                    foreach (var param in copy)
                     {
-                        if (kvp.Key == "SrcUnitLayerList")
+                        if (param.Key == "SrcUnitLayerList")
                             continue;
 
-                        if(kvp.Value is float)
-                            entry.ActorParams.Add(kvp.Key, new ObjectDatabaseEntry.ParamEntry() { FoundValues = new HashSet<dynamic>() { 0.0f } });
-                        else if(ParamsUseEmptyString.Contains(kvp.Key))
-                            entry.ActorParams.Add(kvp.Key, new ObjectDatabaseEntry.ParamEntry() { FoundValues = new HashSet<dynamic>() { "" } });
+                        if(param.Value is float)
+                            entry.ActorParams.Add(param.Key, new ObjectDatabaseEntry.ParamEntry(0.0f));
+                        else if(ParamsUseEmptyString.Contains(param.Key))
+                            entry.ActorParams.Add(param.Key, new ObjectDatabaseEntry.ParamEntry(""));
                         else
-                            entry.ActorParams.Add(kvp.Key, new ObjectDatabaseEntry.ParamEntry() { FoundValues = new HashSet<dynamic>() { kvp.Value } });
+                            entry.ActorParams.Add(param.Key, new ObjectDatabaseEntry.ParamEntry(param.Value));
                     }
 
                     Console.WriteLine($"Added {info.ClassName} to Database.");
@@ -260,20 +337,20 @@ namespace RedStarLibrary
                         if (!entry.ActorParams.ContainsKey(param.Key))
                         {
                             if (param.Value is float)
-                                entry.ActorParams.Add(param.Key, new ObjectDatabaseEntry.ParamEntry() { FoundValues = new HashSet<dynamic>() { 0.0f } });
+                                entry.ActorParams.Add(param.Key, new ObjectDatabaseEntry.ParamEntry(0.0f));
                             else if (ParamsUseEmptyString.Contains(param.Key))
-                                entry.ActorParams.Add(param.Key, new ObjectDatabaseEntry.ParamEntry() { FoundValues = new HashSet<dynamic>() { "" } });
+                                entry.ActorParams.Add(param.Key, new ObjectDatabaseEntry.ParamEntry(""));
                             else
-                                entry.ActorParams.Add(param.Key, new ObjectDatabaseEntry.ParamEntry() { FoundValues = new HashSet<dynamic>() { param.Value } });
+                                entry.ActorParams.Add(param.Key, new ObjectDatabaseEntry.ParamEntry(param.Value));
                         }
                         else
                         {
                             if (param.Value is float)
-                                entry.ActorParams[param.Key].FoundValues.Add(0.0f);
+                                entry.ActorParams[param.Key].AddValue(0.0f);
                             else if (ParamsUseEmptyString.Contains(param.Key))
-                                entry.ActorParams[param.Key].FoundValues.Add("");
+                                entry.ActorParams[param.Key].AddValue("");
                             else
-                                entry.ActorParams[param.Key].FoundValues.Add(param.Value);
+                                entry.ActorParams[param.Key].AddValue(param.Value);
                         }
                     }
                 }
@@ -295,6 +372,10 @@ namespace RedStarLibrary
                             if (entry.Models.Add(modelName))
                                 Console.WriteLine($"Added the Model {modelName} to {entry.ClassName}.");
                         }
+                    }else
+                    {
+                        if(modelName.StartsWith("Area"))
+                            AreaModelNames.Add(modelName);
                     }
                 }else
                 {
@@ -308,9 +389,7 @@ namespace RedStarLibrary
         {
             ObjDatabase = ObjDatabase.OrderBy(e => e.ClassName).ToList();
 
-            Helpers.JsonHelper.WriteToJSON(ObjDatabase, "ObjectDatabase.json");
-
+            Helpers.JsonHelper.WriteToJSON(ObjDatabase, Path.Combine(Directory.GetParent(Environment.CurrentDirectory).Parent.Parent.Parent.FullName, "Plugins", "SampleMapEditor", "Resources", "ObjectDatabaseNew.json"));
         }
-
     }
 }

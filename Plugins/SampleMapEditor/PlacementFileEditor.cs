@@ -5,7 +5,6 @@ using MapStudio.UI;
 using OpenTK;
 using GLFrameworkEngine;
 using CafeLibrary;
-using ByamlExt.Byaml;
 using System.Collections.Generic;
 using RedStarLibrary.GameTypes;
 using RedStarLibrary.Rendering;
@@ -19,13 +18,9 @@ using HakoniwaByml.Writer;
 using System.Linq;
 using System.Text.Json;
 using CafeLibrary.Rendering;
-using RedStarLibrary.MapData.Camera;
-using System.Text.Encodings.Web;
-using System.Text.Unicode;
 using RedStarLibrary.Helpers;
 using RedStarLibrary.MapData.Graphics;
-using BfresLibrary;
-using Newtonsoft.Json.Linq;
+using RedStarLibrary.UI;
 
 
 namespace RedStarLibrary
@@ -36,6 +31,8 @@ namespace RedStarLibrary
     /// </summary>
     public class PlacementFileEditor : FileEditor, IFileFormat
     {
+        public static string ThumbnailPath => $"{Runtime.ExecutableDir}\\Lib\\Images\\ActorThumbnails";
+
         /// <summary>
         /// The description of the file extension of the plugin.
         /// </summary>
@@ -64,10 +61,6 @@ namespace RedStarLibrary
         /// Used to prevent LiveActors from removing/adding themselves from the layer config during stage loading.
         /// </summary>
         public static bool IsLoadingStage { get; set; }
-        /// <summary>
-        /// Currently selected Layer used for placing new objects into the scene.
-        /// </summary>
-        public static string SelectedLayer { get; set; } = "Common";
         public StageScene CurrentMapScene { get; private set; }
 
         /// <summary>
@@ -83,7 +76,9 @@ namespace RedStarLibrary
         private string newLayerName = "";
         private bool isLayerEditTakeFocus = false;
 
-        private string ThumbnailPath => $"{Runtime.ExecutableDir}\\Lib\\Images\\ActorThumbnails";
+        // misc
+
+        private AddObjectMenu addObjMenu;
 
         public static Dictionary<string, Dictionary<string, string>> TempCameraParamCollection = new();
 
@@ -107,6 +102,12 @@ namespace RedStarLibrary
         /// </summary>
         public void Load(Stream stream)
         {
+            //{
+            //    ActorDataBase.LoadDatabase();
+            //    GenerateActorDataBase();
+            //    return;
+            //}
+
             //foreach (var stageFilePath in Directory.GetFiles(ResourceManager.FindResourcePath($"StageData"), "*Map.szs"))
             //{
             //    SarcData stageSarc = new SarcData();
@@ -130,6 +131,8 @@ namespace RedStarLibrary
 
             if (InitIcons())
                 CreateAssetCategories();
+
+            addObjMenu = new AddObjectMenu();
 
             mapArc = new SARC();
 
@@ -358,6 +361,8 @@ namespace RedStarLibrary
                 {
                     StageScene curStage = new StageScene();
 
+                    Console.WriteLine("Collecting Actors in Stage: " + fileName);
+
                     curStage.DeserializeByml(new BymlIter(mapData.AsBytes()));
 
                     //foreach (var layer in LayerList.LayerList)
@@ -402,7 +407,6 @@ namespace RedStarLibrary
                         if (File.Exists(fullPath))
                             IconManager.LoadTextureFile(fullPath, 64, 64);
                     }
-                    
                 }
 
                 return true;
@@ -455,7 +459,18 @@ namespace RedStarLibrary
         /// </summary>
         public override void DrawViewportMenuBar()
         {
-
+            if (ImguiCustomWidgets.MenuItemTooltip($"   {IconManager.ADD_ICON}   ", "ADD", InputSettings.INPUT.Scene.Create))
+                OpenAddObjectMenu();
+            if (ImguiCustomWidgets.MenuItemTooltip($"   {IconManager.DELETE_ICON}   ", "REMOVE", InputSettings.INPUT.Scene.Delete))
+            {
+                Scene.BeginUndoCollection();
+                Scene.DeleteSelected();
+                Scene.EndUndoCollection();
+            }
+            if (ImguiCustomWidgets.MenuItemTooltip($"   {IconManager.COPY_ICON}   ", "COPY", InputSettings.INPUT.Scene.Copy))
+                CurrentMapScene.CopySelectedActors();
+            if (ImguiCustomWidgets.MenuItemTooltip($"   {IconManager.PASTE_ICON}   ", "PASTE", InputSettings.INPUT.Scene.Paste))
+                CurrentMapScene.PasteActorCopyBuffer(this);
         }
 
         public override List<MenuItemModel> GetViewMenuItems()
@@ -465,6 +480,19 @@ namespace RedStarLibrary
             menuItemModels.AddRange(new BFRES().GetViewMenuItems());
 
             return menuItemModels;
+        }
+
+        public override List<MenuItemModel> GetEditMenuItems()
+        {
+            List<MenuItemModel> items = new List<MenuItemModel>();
+            bool hasSelection = CurrentMapScene.GetSelectedActors().Count > 0; // is there really no better way to do this?
+
+            items.Add(new MenuItemModel(""));
+            items.Add(new MenuItemModel($"   {IconManager.COPY_ICON}   {TranslationSource.GetText("COPY")}", () => CurrentMapScene.CopySelectedActors()) { IsEnabled = hasSelection, ToolTip = $"Copy ({InputSettings.INPUT.Scene.Copy})" });
+            items.Add(new MenuItemModel($"   {IconManager.PASTE_ICON}   {TranslationSource.GetText("PASTE")}", () => CurrentMapScene.PasteActorCopyBuffer(this)) { IsEnabled = hasSelection, ToolTip = $"Paste ({InputSettings.INPUT.Scene.Paste})" });
+            items.Add(new MenuItemModel($"   {IconManager.DELETE_ICON}   {TranslationSource.GetText("REMOVE")}", GLContext.ActiveContext.Scene.DeleteSelected) { IsEnabled = hasSelection, ToolTip = $" Delete ({InputSettings.INPUT.Scene.Delete})" });
+
+            return items;
         }
 
         public override void DrawToolWindow()
@@ -517,7 +545,7 @@ namespace RedStarLibrary
                     List<string> exportedModels = new List<string>();
                     stageData.Add("ExportedModels", exportedModels);
 
-                    foreach (var actor in stageActors.Where(e => e.ObjectRender is BfresRender))
+                    foreach (var actor in stageActors.Where(e => e.GetEditObj() is BfresRender))
                     {
                         var placementInfo = actor.Placement;
                         var collectionName = $"{actor.ArchiveName}_{placementInfo.Id}";
@@ -545,13 +573,29 @@ namespace RedStarLibrary
             }
         }
 
+        public override void OnKeyDown(KeyEventInfo keyInfo)
+        {
+            if (!keyInfo.KeyCtrl && keyInfo.IsKeyDown(InputSettings.INPUT.Scene.Create))
+                OpenAddObjectMenu();
+            if (keyInfo.IsKeyDown(InputSettings.INPUT.Scene.Copy))
+                CurrentMapScene.CopySelectedActors();
+            if (keyInfo.IsKeyDown(InputSettings.INPUT.Scene.Paste))
+                CurrentMapScene.PasteActorCopyBuffer(this);
+            if (keyInfo.IsKeyDown(InputSettings.INPUT.Scene.Dupe))
+            {
+                List<LiveActor> copyActors = new List<LiveActor>();
+                CurrentMapScene.CopySelectedActors(copyActors);
+                CurrentMapScene.PasteActorCopyBuffer(this, copyActors);
+            }
+        }
+
         public void DrawEditorDropdown()
         {
             var w = ImGui.GetCursorPosX();
 
             var size = new System.Numerics.Vector2(160, ImGui.GetWindowHeight() - 1);
             ImGui.PushStyleColor(ImGuiCol.Button, ImGui.GetStyle().Colors[(int)ImGuiCol.FrameBg]);
-            if (ImGui.Button($"Selected Layer: {SelectedLayer}"))
+            if (ImGui.Button($"Selected Layer: {CurrentMapScene.SelectedLayer}"))
             {
                 ImGui.OpenPopup("LayerList");
             }
@@ -569,6 +613,18 @@ namespace RedStarLibrary
             }
         }
 
+        private void OpenAddObjectMenu()
+        {
+            DialogHandler.Show("Add Object", 400, 800, () =>
+            {
+                addObjMenu.Draw();
+            }, (result) =>
+            {
+                if(result)
+                    CurrentMapScene.AddActorFromPlacementInfo(this, addObjMenu.GetPlacementInfo());
+            });
+        }
+
         private List<MenuItemModel> GetLayerMenuItems()
         {
             List<MenuItemModel> layerModels = new List<MenuItemModel>();
@@ -577,8 +633,8 @@ namespace RedStarLibrary
             {
                 layerModels.Add(new MenuItemModel(layer, () =>
                 {
-                    SelectedLayer = layer;
-                }, "", SelectedLayer == layer));
+                    CurrentMapScene.SelectedLayer = layer;
+                }, "", CurrentMapScene.SelectedLayer == layer));
             }
 
             return layerModels;
@@ -826,7 +882,5 @@ namespace RedStarLibrary
         //    var context = GLContext.ActiveContext;
         //    context.Camera.FocusOnObject(actor.Transform);
         //}
-
-        
     }
 }

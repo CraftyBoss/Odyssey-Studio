@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using ImGuiNET;
 using MapStudio.UI;
 using System.Numerics;
+using Newtonsoft.Json.Linq;
 
 namespace RedStarLibrary
 {
@@ -40,6 +41,13 @@ namespace RedStarLibrary
                 LoadProperties(properties, callback);
                 ImGui.Columns(1);
             }
+        }
+
+        public static void DrawProperties(IDictionary<string, dynamic> properties)
+        {
+            ImGui.Columns(2);
+            LoadProperties(properties);
+            ImGui.Columns(1);
         }
 
         static List<string> removedProperties = new List<string>();
@@ -92,7 +100,6 @@ namespace RedStarLibrary
             }
             if (ImGui.CollapsingHeader("Properties", ImGuiTreeNodeFlags.DefaultOpen))
             {
-                float window_width = ImGui.GetWindowWidth();
                 ImGui.Columns(3);
                 foreach (var pair in properties)
                 {

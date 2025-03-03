@@ -27,13 +27,21 @@ namespace RedStarLibrary.GameTypes
 {
     public enum ActorRenderMode
     {
-        EditableObj,
-        Drawable
+        Basic,
+        Bfres,
+        Area,
+        Rail
     };
 
     public class LiveActor
     {
-        private NodeBase parent;
+        private NodeBase parent = null;
+
+        private enum RenderTarget
+        {
+            EditableObj,
+            Rail // TODO: remove rail distinction
+        }
 
 
         [BindGUI()]
@@ -56,12 +64,9 @@ namespace RedStarLibrary.GameTypes
 
         public Dictionary<string, List<LiveActor>> destLinkObjs;
 
-        public EditableObject ObjectRender;
-
-        public IDrawable ObjectDrawer;
         public GLTransform Transform
         {
-            get { return ObjectRender.Transform; }
+            get { return objectRender.Transform; }
         }
 
         public ActorRenderMode RenderMode { get; private set; }
@@ -77,9 +82,9 @@ namespace RedStarLibrary.GameTypes
             {
                 invalidateClip = value;
 
-                if (ObjectRender is BfresRender)
+                if (objectRender is BfresRender)
                 {
-                    ((BfresRender)ObjectRender).UseDrawDistance = !value;
+                    ((BfresRender)objectRender).UseDrawDistance = !value;
                 }
             }
         }
@@ -94,7 +99,7 @@ namespace RedStarLibrary.GameTypes
             set
             {
                 clipRadius = value;
-                if(ObjectRender is BfresRender render)
+                if(objectRender is BfresRender render)
                 {
                     render.renderDistance = value * 10000;
                     render.renderDistanceSquared = (value * 10) * 10000;
@@ -106,7 +111,13 @@ namespace RedStarLibrary.GameTypes
 
         private StageScene curStage;
 
-        public LiveActor(NodeBase parentNode, string actorName, string path)
+        private EditableObject objectRender;
+
+        private RenderablePath pathRender; // Why. Is. RenderablePath. Not. An. EditableObject.
+
+        private RenderTarget renderTarget;
+
+        public LiveActor(NodeBase parentNode, string actorName, string path = "")
         {
             parent = parentNode;
             if(parent != null)
@@ -121,12 +132,15 @@ namespace RedStarLibrary.GameTypes
 
             ArchiveName = actorName;
 
-            modelPath = path;
+            if (string.IsNullOrEmpty(path))
+                modelPath = ResourceManager.FindResourcePath($"ObjectData\\{ArchiveName}.szs");
+            else
+                modelPath = path;
 
             hasArchive = File.Exists(modelPath);
         }
 
-        public LiveActor(NodeBase parentNode, PlacementInfo info)
+        public LiveActor(NodeBase parentNode, PlacementInfo info, string path = "")
         {
             parent = parentNode;
             if (parent != null)
@@ -139,9 +153,25 @@ namespace RedStarLibrary.GameTypes
 
             ArchiveName = !string.IsNullOrEmpty(info.ModelName) ? info.ModelName : info.UnitConfigName;
 
-            modelPath = ResourceManager.FindResourcePath($"ObjectData\\{ArchiveName}.szs");
+            if (string.IsNullOrEmpty(path))
+                modelPath = ResourceManager.FindResourcePath($"ObjectData\\{ArchiveName}.szs");
+            else
+                modelPath = path;
 
             hasArchive = File.Exists(modelPath);
+        }
+
+        public LiveActor Clone()
+        {
+            LiveActor actor = new LiveActor(null, new PlacementInfo(Placement), modelPath);
+            actor.actorLayer = actorLayer;
+            actor.isPlaced = isPlaced;
+
+            actor.SetupRenderer();
+
+            actor.SetParentNode(parent);
+
+            return actor;
         }
 
         public void SetParentNode(NodeBase parentNode)
@@ -149,30 +179,56 @@ namespace RedStarLibrary.GameTypes
             parent = parentNode;
             curStage = (parentNode.Tag as PlacementFileEditor).CurrentMapScene;
 
-            if (RenderMode == ActorRenderMode.EditableObj)
-                ObjectRender.ParentUINode = parent;
-            else if (RenderMode == ActorRenderMode.Drawable)
-                parent.AddChild(((RenderablePath)ObjectDrawer).UINode);
+            if (renderTarget == RenderTarget.EditableObj)
+                objectRender.ParentUINode = parent;
+            else if (renderTarget == RenderTarget.Rail)
+                parent.AddChild(pathRender.UINode);
+        }
+
+        public void SetupRenderer()
+        {
+            if (hasArchive)
+            {
+                TryLoadModelRenderer();
+                return;
+            }
+
+            if (Placement.UnitConfig.GenerateCategory == "AreaList")
+            {
+                ArchiveName = Placement.ClassName;
+                CreateAreaRenderer();
+                SetActorIcon(MapEditorIcons.AREA_BOX);
+            }
+            else if (Placement.Id.Contains("rail")) // all rails use "rail" instead of "obj" for the id prefix
+            {
+                CreateRailRenderer();
+                SetActorIcon(MapEditorIcons.POINT_ICON);
+            }
+            else
+            {
+                CreateBasicRenderer();
+                SetActorIcon(MapEditorIcons.OBJECT_ICON);
+            }
         }
 
         public void SetActorIcon(char icon)
         {
-            if (ObjectDrawer != null)
+            if (pathRender != null)
             {
-                if (ObjectDrawer is RenderablePath path)
+                if (pathRender is RenderablePath path)
                     path.UINode.Icon = icon.ToString();
             }
             else
             {
-                ObjectRender.UINode.Icon = icon.ToString();
+                objectRender.UINode.Icon = icon.ToString();
             }
         }
 
         public void CreateBasicRenderer()
         {
             Console.WriteLine($"Creating Basic Render of Actor: {Placement.Id} {Placement.UnitConfigName}");
-            ObjectRender = new TransformableObject(null);
-            RenderMode = ActorRenderMode.EditableObj;
+            objectRender = new TransformableObject(null);
+            RenderMode = ActorRenderMode.Basic;
             UpdateRenderer();
         }
 
@@ -182,7 +238,7 @@ namespace RedStarLibrary.GameTypes
 
             var bfresRender = new BfresRender(modelStream, ArchiveName);
 
-            ObjectRender = bfresRender;
+            objectRender = bfresRender;
 
             if (textureList != null)
             {
@@ -203,10 +259,10 @@ namespace RedStarLibrary.GameTypes
             bfresRender.UseDrawDistance = !IsInvalidateClipping;
 
             bfresRender.FrustumCullingCallback = () => {
-                return FrustumCullActor((BfresRender)ObjectRender);
+                return FrustumCullActor((BfresRender)objectRender);
             };
 
-            RenderMode = ActorRenderMode.EditableObj;
+            RenderMode = ActorRenderMode.Bfres;
             UpdateRenderer();
         }
 
@@ -229,48 +285,33 @@ namespace RedStarLibrary.GameTypes
                     break;
             }
 
-            ObjectRender = new AreaRender(null, ColorUtility.ToVector4(areaColor));
+            objectRender = new AreaRender(null, ColorUtility.ToVector4(areaColor));
+            RenderMode = ActorRenderMode.Area;
 
-            switch (Placement.ModelName)
-            {
-                case string a when a.Contains("Cube"):
-                    ((AreaRender)ObjectRender).AreaShape = AreaRender.AreaType.CubeBase;
-                    break;
-                case string b when b.Contains("Sphere"):
-                    ((AreaRender)ObjectRender).AreaShape = AreaRender.AreaType.Sphere;
-                    break;
-                case string c when c.Contains("Cylinder"):
-                    ((AreaRender)ObjectRender).AreaShape = AreaRender.AreaType.CylinderBase;
-                    break;
-                default:
-                    ((AreaRender)ObjectRender).AreaShape = AreaRender.AreaType.CubeBase;
-                    break;
-            }
-
-            RenderMode = ActorRenderMode.EditableObj;
+            UpdateAreaShape();
             UpdateRenderer();
         }
 
         public void CreateRailRenderer()
         {
+            // TODO: create a wrapper EditableObject for RenderablePath
+
             Console.WriteLine($"Creating Rail Render of Actor: {Placement.Id} {Placement.UnitConfigName}");
 
-            var rail = new RenderablePath();
+            pathRender = new RenderablePath();
 
-            rail.UINode.Header = ArchiveName;
-            rail.UINode.Icon = IconManager.MESH_ICON.ToString();
-            rail.UINode.Tag = this;
-            ObjectRender.UINode.TagUI.UIDrawer += (o, e) => PropertyDrawer.Draw(Placement.ActorParams);
-            rail.Transform.Position = Placement.Translate;
-            rail.Transform.Scale = Placement.Scale;
-            rail.Transform.RotationEulerDegrees = Placement.Rotate;
-            rail.Transform.UpdateMatrix(true);
+            pathRender.UINode.Header = ArchiveName;
+            pathRender.UINode.Icon = IconManager.MESH_ICON.ToString();
+            pathRender.UINode.Tag = this;
+            objectRender.UINode.TagUI.UIDrawer += (o, e) => PropertyDrawer.Draw(Placement.ActorParams);
+            pathRender.Transform.Position = Placement.Translate;
+            pathRender.Transform.Scale = Placement.Scale;
+            pathRender.Transform.RotationEulerDegrees = Placement.Rotate;
+            pathRender.Transform.UpdateMatrix(true);
 
-            RenderMode = ActorRenderMode.Drawable;
+            RenderMode = ActorRenderMode.Rail;
 
-            SetupRail(rail, Placement);
-
-            ObjectDrawer = rail;
+            SetupRail(pathRender, Placement);
         }
 
         public void ResetLinkedActors()
@@ -282,11 +323,7 @@ namespace RedStarLibrary.GameTypes
                     foreach (var actor in linkList.Value)
                     {
                         actor.isPlaced = false;
-
-                        if (RenderMode == ActorRenderMode.EditableObj)
-                            ObjectRender.UINode.Children.Clear();
-                        else if (RenderMode == ActorRenderMode.Drawable)
-                            ((RenderablePath)ObjectDrawer).UINode.Children.Clear();
+                        GetRenderNode().UINode.Children.Clear();
                     }
                 }
             }
@@ -306,22 +343,22 @@ namespace RedStarLibrary.GameTypes
 
                     foreach (var linkedActor in linkList.Value)
                     {
-                        if(linkedActor.ObjectDrawer != null)
+                        if(linkedActor.pathRender != null)
                         {
-                            if (linkedActor.ObjectDrawer is RenderablePath path)
+                            if (linkedActor.pathRender is RenderablePath path)
                                 linkNode.AddChild(path.UINode);
                         }
                         else
                         {
-                            linkNode.AddChild(linkedActor.ObjectRender.UINode);
+                            linkNode.AddChild(linkedActor.objectRender.UINode);
                         }
 
                         if (!linkedActor.isPlaced)
                         {
-                            if (linkedActor.ObjectDrawer != null)
-                                loader.AddRender(linkedActor.ObjectDrawer);
+                            if (linkedActor.pathRender != null)
+                                loader.AddRender(linkedActor.pathRender);
                             else
-                                loader.AddRender(linkedActor.ObjectRender);
+                                loader.AddRender(linkedActor.objectRender);
                             
                             linkedActor.isPlaced = true;
                         }
@@ -334,17 +371,13 @@ namespace RedStarLibrary.GameTypes
 
                 }
 
-                if (RenderMode == ActorRenderMode.EditableObj)
-                    ObjectRender.UINode.AddChild(rootLinkNode);
-                else if (RenderMode == ActorRenderMode.Drawable)
-                    ((RenderablePath)ObjectDrawer).UINode.AddChild(rootLinkNode);
-                    
+                GetRenderNode().UINode.AddChild(rootLinkNode);
             }
         }
 
         public bool TryExportModel(string outPath)
         {
-            if (ObjectRender is BfresRender bfresRender)
+            if (objectRender is BfresRender bfresRender)
             {
                 outPath = Path.Combine(outPath, ArchiveName);
                 if (!Directory.Exists(outPath))
@@ -394,9 +427,44 @@ namespace RedStarLibrary.GameTypes
             }
         }
 
+        public bool IsRendererSelected()
+        {
+            if(renderTarget == RenderTarget.EditableObj)
+                return objectRender.IsSelected;
+            else if(renderTarget == RenderTarget.Rail)
+                return pathRender.IsSelected;
+            return false;
+        }
+
+        public IDrawable GetDrawer()
+        {
+            if (renderTarget == RenderTarget.EditableObj)
+                return objectRender;
+            else
+                return pathRender;
+        }
+
+        public IRenderNode GetRenderNode()
+        {
+            if (renderTarget == RenderTarget.EditableObj)
+                return objectRender;
+            else
+                return pathRender;
+        }
+
+        public ITransformableObject GetTransformObj()
+        {
+            if (renderTarget == RenderTarget.EditableObj)
+                return objectRender;
+            else
+                return pathRender;
+        }
+
+        public EditableObject GetEditObj() => objectRender;
+
         private List<string> GetUsedTextureNames()
         {
-            if (ObjectRender is not BfresRender bfresRender)
+            if (objectRender is not BfresRender bfresRender)
                 return new List<string>();
 
             List<string> result = new List<string>();
@@ -421,34 +489,36 @@ namespace RedStarLibrary.GameTypes
 
         private void UpdateRenderer()
         {
-            ObjectRender.ParentUINode = parent;
-            ObjectRender.UINode.Header = ArchiveName;
-            ObjectRender.UINode.Icon = IconManager.MESH_ICON.ToString();
-            ObjectRender.UINode.Tag = this;
+            objectRender.ParentUINode = parent;
+            objectRender.UINode.Header = ArchiveName;
+            objectRender.UINode.Icon = IconManager.MESH_ICON.ToString();
+            objectRender.UINode.Tag = this;
 
-            ObjectRender.Transform.Position = Placement.Translate;
-            ObjectRender.Transform.Scale = Placement.Scale;
-            ObjectRender.Transform.RotationEulerDegrees = Placement.Rotate;
+            objectRender.Transform.Position = Placement.Translate;
+            objectRender.Transform.Scale = Placement.Scale;
+            objectRender.Transform.RotationEulerDegrees = Placement.Rotate;
 
-            ObjectRender.Transform.PropertyChanged +=
+            objectRender.Transform.PropertyChanged +=
                 (sender, args) => { ((GLTransform)sender).UpdateMatrix(); };
 
-            ObjectRender.Transform.UpdateMatrix(true);
+            objectRender.Transform.UpdateMatrix(true);
 
-            ObjectRender.UINode.TagUI.UIDrawer += (o, e) => PropertyDrawer.Draw(Placement.ActorParams);
-            ObjectRender.UINode.TagUI.UIDrawer += DrawLayerConfig;
+            objectRender.UINode.TagUI.UIDrawer += (o, e) => PropertyDrawer.Draw(Placement.ActorParams);
+            objectRender.UINode.TagUI.UIDrawer += DrawLayerConfig;
 
-            if (ObjectRender is BfresRender)
-                ObjectRender.UINode.TagUI.UIDrawer += DrawModelProperties;
+            if (RenderMode == ActorRenderMode.Bfres)
+                objectRender.UINode.TagUI.UIDrawer += DrawModelProperties;
+            else if (RenderMode == ActorRenderMode.Area)
+                objectRender.UINode.TagUI.UIDrawer += DrawAreaProperties;
 
-            ObjectRender.Transform.TransformUpdated += delegate
+            objectRender.Transform.TransformUpdated += delegate
             {
-                Placement.Translate = ObjectRender.Transform.Position;
-                Placement.Scale = ObjectRender.Transform.Scale;
-                Placement.Rotate = ObjectRender.Transform.RotationEulerDegrees;
+                Placement.Translate = objectRender.Transform.Position;
+                Placement.Scale = objectRender.Transform.Scale;
+                Placement.Rotate = objectRender.Transform.RotationEulerDegrees;
             };
 
-            ObjectRender.RemoveCallback += (obj, args) =>
+            objectRender.RemoveCallback += (obj, args) =>
             {
 
                 if(actorLayer != null && !PlacementFileEditor.IsLoadingStage && actorLayer.LayerObjects.Remove(Placement))
@@ -463,7 +533,7 @@ namespace RedStarLibrary.GameTypes
                 //}
             };
 
-            ObjectRender.AddCallback += (obj, args) =>
+            objectRender.AddCallback += (obj, args) =>
             {
                 if (actorLayer != null && !PlacementFileEditor.IsLoadingStage && !actorLayer.IsInfoInLayer(Placement))
                 {
@@ -497,7 +567,7 @@ namespace RedStarLibrary.GameTypes
                         TryExportModel(dlg.SelectedPath);
                 }
 
-                if(ImGui.Button("Reload Model", btnSize))
+                if (ImGui.Button("Reload Model", btnSize))
                 {
                     var arcName = !string.IsNullOrEmpty(Placement.ModelName) ? Placement.ModelName : Placement.UnitConfigName;
                     var arcPath = ResourceManager.FindResourcePath($"ObjectData\\{arcName}.szs");
@@ -506,10 +576,30 @@ namespace RedStarLibrary.GameTypes
                         ArchiveName = arcName;
                         modelPath = arcPath;
 
-                        TryLoadModelRenderer();
+                        TryLoadModelRenderer(); // if a model fails to load, it wont be possible to try reloading this actors model again
                         SetParentNode(parent);
-                        WorkspaceHelper.AddRendererToLoader(ObjectRender);
+                        WorkspaceHelper.AddRendererToLoader(objectRender);
                     }
+                }
+            }
+        }
+
+        private void DrawAreaProperties(object sender, EventArgs e)
+        {
+            if (ImGui.CollapsingHeader("Area Properties", ImGuiTreeNodeFlags.DefaultOpen))
+            {
+                if (ImGui.BeginCombo("Area Model", Placement.ModelName))
+                {
+                    foreach (var model in ActorDataBase.AreaModelNames)
+                    {
+                        if (ImGui.Selectable(model, Placement.ModelName == model))
+                        {
+                            Placement.ModelName = model;
+                            UpdateAreaShape();
+                        }
+                    }
+
+                    ImGui.EndCombo();
                 }
             }
         }
@@ -608,8 +698,8 @@ namespace RedStarLibrary.GameTypes
 
         internal void TryLoadModelRenderer()
         {
-            if(ObjectRender != null)
-                WorkspaceHelper.RemoveRendererFromActiveScene(ObjectRender);
+            if(objectRender != null)
+                WorkspaceHelper.RemoveRendererFromActiveScene(objectRender);
 
             var modelARC = ResourceManager.FindOrLoadSARC(modelPath);
             var modelName = Path.GetFileNameWithoutExtension(modelPath);
@@ -634,6 +724,22 @@ namespace RedStarLibrary.GameTypes
                 CreateBasicRenderer();
                 SetActorIcon(Rendering.MapEditorIcons.OBJECT_ICON);
             }
+        }
+
+        private void UpdateAreaShape()
+        {
+            if (RenderMode != ActorRenderMode.Area)
+                return;
+            var areaShape = AreaRender.AreaType.CubeBase;
+
+            if(!string.IsNullOrWhiteSpace(Placement.ModelName))
+            {
+                // all area models start with "AreaX", so remove Area from string before parsing to enum type
+                if (!Enum.TryParse(Placement.ModelName.Substring(4), out areaShape))
+                    throw new InvalidOperationException("Invalid ModelName for Area! Name: " + Placement.ObjectName);
+            }
+
+            ((AreaRender)objectRender).AreaShape = areaShape;
         }
     }
 }
