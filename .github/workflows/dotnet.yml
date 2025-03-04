@@ -5,9 +5,9 @@ name: .NET
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ "master" ]
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
@@ -40,4 +40,4 @@ jobs:
     - uses: actions/upload-artifact@v4.6.1
       with:
         name: ${{ matrix.runtime }}
-        path: Track Studio/bin/Release/net8.0/${{ matrix.runtime }}/publish
+        path: Track Studio/bin/Release/net8.0/${{ matrix.runtime }}
