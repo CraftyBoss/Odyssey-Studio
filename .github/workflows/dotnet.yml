@@ -35,7 +35,7 @@ jobs:
       run: dotnet build -c Release --no-restore MapStudio.sln
 
     - name: Publish
-      run: dotnet publish -c Release -r ${{ matrix.runtime }} --no-restore MapStudio
+      run: dotnet publish -c Release -r ${{ matrix.runtime }} --no-restore MapStudio.sln
 
     - uses: actions/upload-artifact@v4.6.1
       with:
