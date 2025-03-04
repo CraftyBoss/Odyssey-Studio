@@ -95,24 +95,24 @@ namespace RedStarLibrary
 
         public static string FindResourcePath(string relativePath)
         {
-            if (File.Exists($"{WorkspaceHelper.WorkingDirectory}\\{relativePath}"))
-                return $"{WorkspaceHelper.WorkingDirectory}\\{relativePath}";
-            if (File.Exists($"{PluginConfig.ModPath}\\{relativePath}"))
-                return $"{PluginConfig.ModPath}\\{relativePath}";
-            else if (File.Exists($"{PluginConfig.GamePath}\\{relativePath}"))
-                return $"{PluginConfig.GamePath}\\{relativePath}";
+            if (File.Exists(Path.Combine(WorkspaceHelper.WorkingDirectory, relativePath)))
+                return Path.Combine(WorkspaceHelper.WorkingDirectory, relativePath);
+            if (File.Exists(Path.Combine(PluginConfig.ModPath, relativePath)))
+                return Path.Combine(PluginConfig.ModPath, relativePath);
+            else if (File.Exists(Path.Combine(PluginConfig.GamePath, relativePath)))
+                return Path.Combine(PluginConfig.GamePath, relativePath);
             else
                 return null;
         }
 
         public static string FindResourceDirectory(string relativePath)
         {
-            if (File.Exists($"{WorkspaceHelper.WorkingDirectory}\\{relativePath}"))
-                return $"{WorkspaceHelper.WorkingDirectory}\\{relativePath}";
-            if (Directory.Exists($"{PluginConfig.ModPath}\\{relativePath}"))
-                return $"{PluginConfig.ModPath}\\{relativePath}";
-            else if (Directory.Exists($"{PluginConfig.GamePath}\\{relativePath}"))
-                return $"{PluginConfig.GamePath}\\{relativePath}";
+            if (File.Exists(Path.Combine(WorkspaceHelper.WorkingDirectory, relativePath)))
+                return Path.Combine(WorkspaceHelper.WorkingDirectory, relativePath);
+            if (Directory.Exists(Path.Combine(PluginConfig.ModPath, relativePath)))
+                return Path.Combine(PluginConfig.ModPath, relativePath);
+            else if (Directory.Exists(Path.Combine(PluginConfig.GamePath, relativePath)))
+                return Path.Combine(PluginConfig.GamePath, relativePath);
             else
                 return null;
         }

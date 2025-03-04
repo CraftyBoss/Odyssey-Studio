@@ -31,7 +31,7 @@ namespace RedStarLibrary
     /// </summary>
     public class PlacementFileEditor : FileEditor, IFileFormat
     {
-        public static string ThumbnailPath => $"{Runtime.ExecutableDir}\\Lib\\Images\\ActorThumbnails";
+        public static string ThumbnailPath => Path.Combine(Runtime.ExecutableDir, "Lib", "Images", "ActorThumbnails");
 
         /// <summary>
         /// The description of the file extension of the plugin.
@@ -205,23 +205,6 @@ namespace RedStarLibrary
                 SaveSound(soundStream);
                 File.WriteAllBytes(Path.Combine(FileInfo.FolderPath, $"{PlacementFileName}Sound.szs"), YAZ0.Compress(soundStream.ToArray(), Runtime.Yaz0CompressionLevel));
             }
-
-            //{
-            //    var origMapIter = new BymlIter(mapData.FileData.ToArray());
-            //    File.WriteAllText(Path.Combine(FileInfo.FolderPath, "OrigStageByml.yaml"), origMapIter.ToYaml());
-            //    File.WriteAllText(Path.Combine(FileInfo.FolderPath, "NewStageByml.yaml"), mapContainer.ToYaml());
-            //    if (Helpers.Placement.CompareStages(origMapIter, new BymlIter(memStream.ToArray())))
-            //    {
-            //        Console.ForegroundColor = ConsoleColor.Green;
-            //        Console.WriteLine("New Stage matches original!");
-            //    }
-            //    else
-            //    {
-            //        Console.ForegroundColor = ConsoleColor.Red;
-            //        Console.WriteLine("New Stage does not match original!");
-            //    }
-            //    Console.ForegroundColor = ConsoleColor.Gray;
-            //}
         }
 
         public override bool CreateNew(string menu_name)
@@ -247,7 +230,7 @@ namespace RedStarLibrary
             mapArc = new SARC();
 
             presetSarc = new SARC();
-            presetSarc.Load(new MemoryStream(YAZ0.Decompress(ResourceManager.FindResourcePath("SystemData\\GraphicsPreset.szs"))));
+            presetSarc.Load(new MemoryStream(YAZ0.Decompress(ResourceManager.FindResourcePath(Path.Combine("SystemData", "GraphicsPreset.szs")))));
 
             IsLoadingStage = true;
 
@@ -288,6 +271,23 @@ namespace RedStarLibrary
             }
 
             mapArc.Save(stream);
+
+            //{
+            //    var origMapIter = new BymlIter(mapData.FileData.ToArray());
+            //    File.WriteAllText(Path.Combine(FileInfo.FolderPath, "OrigStageByml.yaml"), origMapIter.ToYaml());
+            //    File.WriteAllText(Path.Combine(FileInfo.FolderPath, "NewStageByml.yaml"), mapContainer.ToYaml());
+            //    if (Helpers.Placement.CompareStages(origMapIter, new BymlIter(memStream.ToArray())))
+            //    {
+            //        Console.ForegroundColor = ConsoleColor.Green;
+            //        Console.WriteLine("New Stage matches original!");
+            //    }
+            //    else
+            //    {
+            //        Console.ForegroundColor = ConsoleColor.Red;
+            //        Console.WriteLine("New Stage does not match original!");
+            //    }
+            //    Console.ForegroundColor = ConsoleColor.Gray;
+            //}
         }
 
         public void SaveDesign(Stream stream)
@@ -345,7 +345,7 @@ namespace RedStarLibrary
         {
             // TODO: re-generate database with type info for each parameter
 
-            var stageDirectory = new List<string>(Directory.GetFiles($"{PluginConfig.GamePath}\\StageData"));
+            var stageDirectory = new List<string>(Directory.GetFiles(Path.Combine(PluginConfig.GamePath, "StageData")));
 
             foreach (var stagePath in stageDirectory.FindAll(e => Path.GetFileNameWithoutExtension(e).Contains("StageMap")))
             {
@@ -397,12 +397,11 @@ namespace RedStarLibrary
                 {
                     foreach (var modelName in entry.Models)
                     {
-                        string fullPath = ThumbnailPath + $"\\{entry.ActorCategory}\\{entry.ClassName}\\{modelName}.png";
-
+                        string fullPath;
                         if (entry.Models.Count > 1)
-                            fullPath = ThumbnailPath + $"\\{entry.ActorCategory}\\{entry.ClassName}\\{modelName}.png";
+                            fullPath = Path.Combine(ThumbnailPath, entry.ActorCategory, entry.ClassName, $"{modelName}.png");
                         else
-                            fullPath = ThumbnailPath + $"\\{entry.ActorCategory}\\{modelName}.png";
+                            fullPath = Path.Combine(ThumbnailPath, entry.ActorCategory, $"{modelName}.png");
 
                         if (File.Exists(fullPath))
                             IconManager.LoadTextureFile(fullPath, 64, 64);
@@ -435,8 +434,13 @@ namespace RedStarLibrary
             designArc.Load(new MemoryStream(YAZ0.Decompress(path)));
             //designArc.Load(new FileStream(path, FileMode.Open));
 
+            string presetPath = ResourceManager.FindResourcePath(Path.Combine("SystemData", "GraphicsPreset.szs"));
+
+            if (!File.Exists(presetPath))
+                throw new FileNotFoundException("Failed to find Graphics Preset file at path: " + presetPath);
+
             presetSarc = new SARC();
-            presetSarc.Load(new MemoryStream(YAZ0.Decompress(ResourceManager.FindResourcePath("SystemData\\GraphicsPreset.szs"))));
+            presetSarc.Load(new MemoryStream(YAZ0.Decompress(presetPath)));
 
             if (!designArc.files.Any(e => e.FileName == "GraphicsArea.byml"))
                 return;

@@ -24,6 +24,13 @@ namespace RedStarLibrary.GameTypes
             rootNode.TryGetValue("LayerConfigName", out LayerConfigName);
         }
 
+        public PlacementId(PlacementInfo info)
+        {
+            Id = info.Id;
+            UnitConfigName = info.UnitConfigName;
+            LayerConfigName = info.LayerConfigName;
+        }
+
         public static bool operator ==(PlacementId obj1, PlacementId obj2)
         {
             if (ReferenceEquals(obj1, obj2))

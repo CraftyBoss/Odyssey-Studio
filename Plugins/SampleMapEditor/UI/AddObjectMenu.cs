@@ -133,7 +133,7 @@ namespace RedStarLibrary.UI
         private List<string> DrawModelSearchBar(List<string> models)
         {
             if(ImGui.InputText("Search/Set Model(s)##addobj_search_model_box", ref searchModelText, 200))
-                doesModelExist = File.Exists(ResourceManager.FindResourcePath($"ObjectData\\{searchModelText}.szs"));
+                doesModelExist = File.Exists(ResourceManager.FindResourcePath(Path.Combine("ObjectData", $"{searchModelText}.szs")));
 
             if (!string.IsNullOrWhiteSpace(searchModelText))
                 return models.Where(e => e.IndexOf(searchModelText, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
@@ -175,7 +175,7 @@ namespace RedStarLibrary.UI
                 if (ImGui.CollapsingHeader("Object Model", ImGuiTreeNodeFlags.DefaultOpen))
                 {
                     if(ImGui.InputText("Set Actor Model##addobj_set_model_box", ref curModelName, 200) && !string.IsNullOrWhiteSpace(curModelName))
-                        doesModelExist = File.Exists(ResourceManager.FindResourcePath($"ObjectData\\{curModelName}.szs"));
+                        doesModelExist = File.Exists(ResourceManager.FindResourcePath(Path.Combine("ObjectData", $"{curModelName}.szs")));
 
                     if(!string.IsNullOrWhiteSpace(curModelName) && !doesModelExist)
                         ImGui.Text("Warning: Model does not exist in game/current working directory!");
@@ -208,9 +208,9 @@ namespace RedStarLibrary.UI
             {
                 string fullPath;
                 if (curEntry.Models.Count > 1)
-                    fullPath = PlacementFileEditor.ThumbnailPath + $"\\{curEntry.ActorCategory}\\{curEntry.ClassName}\\{modelName}.png";
+                    fullPath = Path.Combine(PlacementFileEditor.ThumbnailPath, curEntry.ActorCategory, curEntry.ClassName, $"{modelName}.png");
                 else
-                    fullPath = PlacementFileEditor.ThumbnailPath + $"\\{curEntry.ActorCategory}\\{modelName}.png";
+                    fullPath = Path.Combine(PlacementFileEditor.ThumbnailPath, curEntry.ActorCategory, $"{modelName}.png");
 
                 var icon = IconManager.GetTextureIcon("Node");
                 if (IconManager.HasIcon(fullPath))

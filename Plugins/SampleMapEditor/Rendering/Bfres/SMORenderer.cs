@@ -143,7 +143,7 @@ namespace RedStarLibrary.Rendering
         {
            //SMOCubemapLoader.LoadCubemap();
 
-            MaterialLightCube = GLTextureCube.FromDDS(new DDS($"Resources\\CubemapHDR2.dds"), false, true);
+            MaterialLightCube = GLTextureCube.FromDDS(new DDS(Path.Combine("Resources", "CubemapHDR2.dds")), false, true);
 
             MaterialLightSphere = GLTexture2D.CreateConstantColorTexture(4, 4, 0, 0, 0, 1);
             DirectionalLightTexture = GLTexture2D.FromGeneric(

@@ -60,9 +60,9 @@ namespace RedStarLibrary.GameTypes
 
         public string textureArcName;
 
-        public Dictionary<string, List<LiveActor>> linkedObjs;
+        public List<ActorList> linkedObjs;
 
-        public Dictionary<string, List<LiveActor>> destLinkObjs;
+        public List<ActorList> destLinkObjs;
 
         public GLTransform Transform
         {
@@ -115,7 +115,7 @@ namespace RedStarLibrary.GameTypes
 
         private RenderablePath pathRender; // Why. Is. RenderablePath. Not. An. EditableObject.
 
-        private RenderTarget renderTarget;
+        private RenderTarget renderTarget = RenderTarget.EditableObj;
 
         public LiveActor(NodeBase parentNode, string actorName, string path = "")
         {
@@ -127,20 +127,20 @@ namespace RedStarLibrary.GameTypes
 
             Placement.ModelName = actorName;
 
-            linkedObjs = new Dictionary<string, List<LiveActor>>();
-            destLinkObjs = new Dictionary<string, List<LiveActor>>();
+            linkedObjs = new();
+            destLinkObjs = new();
 
             ArchiveName = actorName;
 
             if (string.IsNullOrEmpty(path))
-                modelPath = ResourceManager.FindResourcePath($"ObjectData\\{ArchiveName}.szs");
+                modelPath = ResourceManager.FindResourcePath(Path.Combine("ObjectData", $"{ArchiveName}.szs"));
             else
                 modelPath = path;
 
             hasArchive = File.Exists(modelPath);
         }
 
-        public LiveActor(NodeBase parentNode, PlacementInfo info, string path = "")
+        public LiveActor(NodeBase parentNode, PlacementInfo info, string modelPath = "")
         {
             parent = parentNode;
             if (parent != null)
@@ -148,17 +148,17 @@ namespace RedStarLibrary.GameTypes
 
             Placement = info;
 
-            linkedObjs = new Dictionary<string, List<LiveActor>>();
-            destLinkObjs = new Dictionary<string, List<LiveActor>>();
+            linkedObjs = new();
+            destLinkObjs = new();
 
             ArchiveName = !string.IsNullOrEmpty(info.ModelName) ? info.ModelName : info.UnitConfigName;
 
-            if (string.IsNullOrEmpty(path))
-                modelPath = ResourceManager.FindResourcePath($"ObjectData\\{ArchiveName}.szs");
+            if (string.IsNullOrEmpty(modelPath))
+                this.modelPath = ResourceManager.FindResourcePath(Path.Combine("ObjectData", $"{ArchiveName}.szs"));
             else
-                modelPath = path;
+                this.modelPath = modelPath;
 
-            hasArchive = File.Exists(modelPath);
+            hasArchive = File.Exists(this.modelPath);
         }
 
         public LiveActor Clone()
@@ -227,7 +227,7 @@ namespace RedStarLibrary.GameTypes
         public void CreateBasicRenderer()
         {
             Console.WriteLine($"Creating Basic Render of Actor: {Placement.Id} {Placement.UnitConfigName}");
-            objectRender = new TransformableObject(null);
+            objectRender = new TransformableObject(null, 5);
             RenderMode = ActorRenderMode.Basic;
             UpdateRenderer();
         }
@@ -303,13 +303,14 @@ namespace RedStarLibrary.GameTypes
             pathRender.UINode.Header = ArchiveName;
             pathRender.UINode.Icon = IconManager.MESH_ICON.ToString();
             pathRender.UINode.Tag = this;
-            objectRender.UINode.TagUI.UIDrawer += (o, e) => PropertyDrawer.Draw(Placement.ActorParams);
+            pathRender.UINode.TagUI.UIDrawer += (o, e) => PropertyDrawer.Draw(Placement.ActorParams);
             pathRender.Transform.Position = Placement.Translate;
             pathRender.Transform.Scale = Placement.Scale;
             pathRender.Transform.RotationEulerDegrees = Placement.Rotate;
             pathRender.Transform.UpdateMatrix(true);
 
             RenderMode = ActorRenderMode.Rail;
+            renderTarget = RenderTarget.Rail;
 
             SetupRail(pathRender, Placement);
         }
@@ -320,55 +321,52 @@ namespace RedStarLibrary.GameTypes
             {
                 foreach (var linkList in linkedObjs)
                 {
-                    foreach (var actor in linkList.Value)
-                    {
-                        actor.isPlaced = false;
-                        GetRenderNode().UINode.Children.Clear();
-                    }
+                    //foreach (var actor in linkList.Value)
+                    //{
+                    //    actor.isPlaced = false;
+                    //    GetRenderNode().UINode.Children.Clear();
+                    //}
                 }
+            }
+        }
+
+        public void LoadLinks(StageScene scene)
+        {
+            foreach(var link in Placement.Links)
+            {
+                ActorList linkList = new(link.Key);
+                linkedObjs.Add(linkList);
+
+                foreach (var placementLink in link.Value)
+                    linkList.Add(scene.GetOrCreateLinkActor(placementLink));
             }
         }
 
         public void PlaceLinkedObjects(PlacementFileEditor loader)
         {
-
             if(Placement.isUseLinks)
             {
-                NodeBase rootLinkNode = new NodeBase("Linked Objects");
+                NodeBase rootLinkNode = new NodeBase("Links");
                 rootLinkNode.Icon = IconManager.LINK_ICON.ToString();
 
                 foreach (var linkList in linkedObjs)
                 {
-                    NodeBase linkNode = new NodeBase(linkList.Key);
+                    NodeBase linkNode = new NodeBase(linkList.ActorListName);
 
-                    foreach (var linkedActor in linkList.Value)
+                    foreach (var linkedActor in linkList)
                     {
-                        if(linkedActor.pathRender != null)
-                        {
-                            if (linkedActor.pathRender is RenderablePath path)
-                                linkNode.AddChild(path.UINode);
-                        }
-                        else
-                        {
-                            linkNode.AddChild(linkedActor.objectRender.UINode);
-                        }
+                        linkNode.AddChild(linkedActor.GetRenderNode().UINode);
 
                         if (!linkedActor.isPlaced)
                         {
-                            if (linkedActor.pathRender != null)
-                                loader.AddRender(linkedActor.pathRender);
-                            else
-                                loader.AddRender(linkedActor.objectRender);
-                            
+                            loader.AddRender(linkedActor.GetDrawer());
                             linkedActor.isPlaced = true;
                         }
 
                         linkedActor.PlaceLinkedObjects(loader);
-
                     }
 
                     rootLinkNode.AddChild(linkNode);
-
                 }
 
                 GetRenderNode().UINode.AddChild(rootLinkNode);
@@ -399,7 +397,7 @@ namespace RedStarLibrary.GameTypes
                 }
 
                 foreach ((var texName, var arcTex) in bfresRender.Textures)
-                    arcTex.OriginalSource.Export($"{outPath}\\{texName}.png", new TextureExportSettings());
+                    arcTex.OriginalSource.Export(Path.Combine(outPath, $"{texName}.png"), new TextureExportSettings());
 
                 return true;
             }
@@ -570,7 +568,7 @@ namespace RedStarLibrary.GameTypes
                 if (ImGui.Button("Reload Model", btnSize))
                 {
                     var arcName = !string.IsNullOrEmpty(Placement.ModelName) ? Placement.ModelName : Placement.UnitConfigName;
-                    var arcPath = ResourceManager.FindResourcePath($"ObjectData\\{arcName}.szs");
+                    var arcPath = ResourceManager.FindResourcePath(Path.Combine("ObjectData", $"{arcName}.szs"));
 
                     if(File.Exists(arcPath)) {
                         ArchiveName = arcName;
@@ -677,12 +675,17 @@ namespace RedStarLibrary.GameTypes
 
             PathRender.Loop = actorPlacement.ActorParams["IsClosed"];
 
+            RenderablePathPoint parentPoint = null;
+
             foreach (Dictionary<string, dynamic> railPoint in actorPlacement.ActorParams["RailPoints"])
             {
 
                 var trans = Helpers.Placement.LoadVector(railPoint, "Translate");
 
                 var point = PathRender.CreatePoint(trans);
+
+                if(parentPoint != null)
+                    parentPoint.AddChild(point);
 
                 if (PathRender.InterpolationMode == RenderablePath.Interpolation.Bezier)
                 {
@@ -693,6 +696,8 @@ namespace RedStarLibrary.GameTypes
                 point.UpdateMatrices();
 
                 PathRender.AddPoint(point);
+
+                parentPoint = point;
             }
         }
 

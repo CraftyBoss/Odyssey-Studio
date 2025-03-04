@@ -2,6 +2,7 @@
 using MapStudio.UI;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -16,7 +17,7 @@ namespace RedStarLibrary.Extensions
             foreach (var tex in folder.Children)
             {
                 var texData = tex.Tag as STGenericTexture;
-                texData.Export($"{path}\\{tex.Header}{ext}", new TextureExportSettings());
+                texData.Export(Path.Combine(path, $"{tex.Header}{ext}"), new TextureExportSettings());
             }
 
             if(isOpenFolder)

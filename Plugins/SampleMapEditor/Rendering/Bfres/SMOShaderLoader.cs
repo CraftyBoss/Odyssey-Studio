@@ -25,12 +25,12 @@ namespace RedStarLibrary.Rendering
                 }
             }
 
-           return TryLoadPath($"{GamePath}\\ShaderData", archive);
+           return TryLoadPath(Path.Combine(GamePath, "ShaderData"), archive);
         }
 
         private static BfshaLibrary.BfshaFile TryLoadPath(string folder, string fileName)
         {
-            string outputPath = $"GlobalShaders\\{fileName}.bfsha";
+            string outputPath = Path.Combine("GlobalShaders", $"{fileName}.bfsha");
             if (GlobalShaderCache.ShaderFiles.ContainsKey(outputPath))
                 return (BfshaLibrary.BfshaFile)GlobalShaderCache.ShaderFiles[outputPath];
 
@@ -41,15 +41,16 @@ namespace RedStarLibrary.Rendering
                 return bfsha;
             }
 
-            Console.WriteLine($"TryLoadPath " + $"{folder}\\{fileName}.szs");
+            string loadPath = Path.Combine(folder, $"{fileName}.szs");
+            Console.WriteLine($"TryLoadPath " + loadPath);
 
             //Load from game folder instead if not cached 
-            if (File.Exists($"{folder}\\{fileName}.szs")) {
+            if (File.Exists(loadPath)) {
                 if (!Directory.Exists("GlobalShaders"))
                     Directory.CreateDirectory("GlobalShaders");
 
                 //Cache the file and save to disk
-                var sarc = SARC_Parser.UnpackRamN(YAZ0.Decompress($"{folder}\\{fileName}.szs"));
+                var sarc = SARC_Parser.UnpackRamN(YAZ0.Decompress(loadPath));
                 File.WriteAllBytes(outputPath, sarc.Files[$"{fileName}.bfsha"]);
 
                 var bfsha = new BfshaLibrary.BfshaFile(outputPath);

@@ -91,10 +91,11 @@ namespace RedStarLibrary
             if (isLoadedData)
                 return;
 
+            var configPath = Path.Combine(Runtime.ExecutableDir, "RedStarLibraryConfig.json");
             Console.WriteLine("Loading config...");
-            if (!File.Exists($"{Runtime.ExecutableDir}\\SampleMapEditorConfig.json")) { Save(); }
+            if (!File.Exists(configPath)) { Save(); }
 
-            configData = JsonConvert.DeserializeObject<ConfigData>(File.ReadAllText($"{Runtime.ExecutableDir}\\SampleMapEditorConfig.json"));
+            configData = JsonConvert.DeserializeObject<ConfigData>(File.ReadAllText(configPath));
 
             isLoadedData = true;
         }
@@ -104,7 +105,7 @@ namespace RedStarLibrary
         /// </summary>
         public static void Save() {
             Console.WriteLine("Saving config...");
-            File.WriteAllText($"{Runtime.ExecutableDir}\\SampleMapEditorConfig.json", JsonConvert.SerializeObject(configData));
+            File.WriteAllText(Path.Combine(Runtime.ExecutableDir, "RedStarLibraryConfig.json"), JsonConvert.SerializeObject(configData));
             Reload();
         }
 

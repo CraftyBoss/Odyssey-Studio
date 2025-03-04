@@ -22,7 +22,8 @@ namespace RedStarLibrary.Rendering.Area
             Sphere, // origin always in center
             Cylinder, // origin at bottom of cyl
             CylinderTop, // origin at top of cyl
-            CylinderCenter // origin in center of cyl
+            CylinderCenter, // origin in center of cyl
+            Infinite
         }
 
         public static bool DrawFilled = false;
@@ -41,6 +42,8 @@ namespace RedStarLibrary.Rendering.Area
 
         CylinderShape CylinderOutlineRender = null;
         CylinderShape CylinderFilledRenderer = null;
+
+        UVCubeRenderer InfiniteRenderer = null;
 
         //Area boxes have an inital transform
         static Matrix4 InitialBaseTransform => new Matrix4(
@@ -116,6 +119,9 @@ namespace RedStarLibrary.Rendering.Area
                 case AreaType.CylinderCenter:
                     CylinderOutlineRender.DrawPicking(context, this, InitialCylinderCenterTransform * Transform.TransformMatrix);
                     break;
+                case AreaType.Infinite:
+                    InfiniteRenderer.DrawPicking(context, this, Transform.TransformMatrix); 
+                    break;
                 default:
                     break;
             }
@@ -140,7 +146,6 @@ namespace RedStarLibrary.Rendering.Area
                 GLMaterialBlendState.TranslucentAlphaOne.RenderBlendState();
                 GLMaterialBlendState.TranslucentAlphaOne.RenderDepthTest();
 
-                // TODO: support top and center area types
                 switch (AreaShape)
                 {
                     case AreaType.CubeTop:
@@ -163,6 +168,9 @@ namespace RedStarLibrary.Rendering.Area
                         break;
                     case AreaType.CylinderCenter:
                         CylinderFilledRenderer.DrawSolid(context, InitialCylinderCenterTransform * Transform.TransformMatrix, new Vector4(Color.Xyz, Transparency));
+                        break;
+                    case AreaType.Infinite:
+                        InfiniteRenderer.DrawSolid(context, Transform.TransformMatrix, new Vector4(Color.Xyz, Transparency));
                         break;
                     default:
                         break;
@@ -198,6 +206,9 @@ namespace RedStarLibrary.Rendering.Area
                 case AreaType.CylinderCenter:
                     CylinderOutlineRender.DrawSolidWithSelection(context, InitialCylinderCenterTransform * Transform.TransformMatrix, Color, IsSelected | IsHovered);
                     break;
+                case AreaType.Infinite:
+                    InfiniteRenderer.DrawSolidWithSelection(context, Transform.TransformMatrix, Color, IsSelected | IsHovered);
+                    break;
                 default:
                     break;
             }
@@ -209,7 +220,6 @@ namespace RedStarLibrary.Rendering.Area
 
         private void Prepare()
         {
-
             switch (AreaShape)
             {
                 case AreaType.CubeTop:
@@ -234,6 +244,10 @@ namespace RedStarLibrary.Rendering.Area
                     if (CylinderFilledRenderer == null)
                         CylinderFilledRenderer = new CylinderShape(1, -1, PrimitiveType.LineStrip);
                     break;
+                case AreaType.Infinite:
+                    if (InfiniteRenderer == null)
+                        InfiniteRenderer = new UVCubeRenderer(50);
+                    break;
                 default:
                     break;
             }
@@ -246,6 +260,8 @@ namespace RedStarLibrary.Rendering.Area
 
             SphereOutlineRender?.Dispose();
             SphereFilledRenderer?.Dispose();
+
+            InfiniteRenderer?.Dispose();
         }
 
         class CubeCrossedRenderer : RenderMesh<VertexPositionNormal>

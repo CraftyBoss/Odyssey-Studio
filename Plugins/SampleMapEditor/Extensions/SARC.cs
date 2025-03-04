@@ -36,7 +36,7 @@ namespace RedStarLibrary.Extensions
                         {
                             string texArcName = initModelByml.RootNode["TextureArc"];
 
-                            return ResourceManager.FindOrLoadTextureList($"ObjectData\\{texArcName}.szs");
+                            return ResourceManager.FindOrLoadTextureList(Path.Combine("ObjectData", $"{texArcName}.szs"));
                         }
                     }
                 }

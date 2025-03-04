@@ -21,7 +21,7 @@ public class SwitchFileUploader
     public float UploadProgress { get; private set; } = 0.0f;
     public string WorkingDir { get; set; } = "";
     private string TitleID { get; set; } = "0100000000010000";
-    private string AtmosFolder => "atmosphere\\contents";
+    private string AtmosFolder => Path.Combine("atmosphere", "contents");
     private string FsFolder { get; set; } = "romfs";
     private string FullPath { get { return IsWorkingDirAbsolute ? WorkingDir : Path.Combine(AtmosFolder, TitleID, FsFolder, WorkingDir); } }
 

@@ -1,8 +1,10 @@
 ﻿using HakoniwaByml.Iter;
 using HakoniwaByml.Writer;
+using Newtonsoft.Json.Linq;
 using OpenTK;
 using RedStarLibrary.GameTypes;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -28,6 +30,7 @@ namespace RedStarLibrary.Helpers
 
             return copy;
         }
+
         public static dynamic CopyNode<V>(List<V> node)
         {
             List<V> copy = new List<V>();
@@ -74,6 +77,7 @@ namespace RedStarLibrary.Helpers
 
             return dict;
         }
+
         public static List<dynamic> ConvertToList(BymlIter iter)
         {
             var list = new List<dynamic>();
@@ -103,6 +107,7 @@ namespace RedStarLibrary.Helpers
 
             return list;
         }
+
         public static BymlHash ConvertToHash(Dictionary<string, dynamic> node)
         {
             BymlHash hash = new BymlHash();
@@ -121,6 +126,7 @@ namespace RedStarLibrary.Helpers
 
             return hash;
         }
+
         public static BymlArray ConvertToArray(List<dynamic> node)
         {
             BymlArray arr = new BymlArray();
@@ -146,6 +152,7 @@ namespace RedStarLibrary.Helpers
 
             return LoadVector(vecIter);
         }
+
         public static Vector3 LoadVector(BymlIter iter)
         {
             Vector3 vec = new Vector3();
@@ -161,10 +168,12 @@ namespace RedStarLibrary.Helpers
                 throw new Exception("Unable to find vector values!");
             }
         }
+
         public static Vector3 LoadVector(Dictionary<string, dynamic> node, string key)
         {
             return new Vector3(node[key]["X"], node[key]["Y"], node[key]["Z"]);
         }
+
         public static Vector3 LoadVector(Dictionary<string, dynamic> node)
         {
             return new Vector3(node["X"], node["Y"], node["Z"]);
@@ -179,6 +188,18 @@ namespace RedStarLibrary.Helpers
             bymlHash.Add("Z", vec.Z);
 
             return bymlHash;
+        }
+
+        public static object SaveObject(object obj)
+        {
+            if (obj is Dictionary<string, dynamic> dict)
+                return ConvertToHash(dict);
+            else if (obj is List<dynamic> list)
+                return ConvertToArray(list);
+            else if(obj is Vector3 vec)
+                return SaveVector(vec);
+            else
+                return obj;
         }
 
         public static Dictionary<string, dynamic> GetActorParamsFromDatabaseEntry(ObjectDatabaseEntry objEntry)

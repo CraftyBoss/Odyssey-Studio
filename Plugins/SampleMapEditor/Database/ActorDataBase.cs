@@ -21,6 +21,7 @@ namespace RedStarLibrary
         {
             /// <summary>
             /// Stringified name of the param's type (used to differentiate things like longs, doubles, etc)
+            /// TODO: this type should be derived directly from the placement byml, as some params can have default null values but still have an actual type
             /// </summary>
             [JsonProperty]
             public Type ParamType;
@@ -195,7 +196,7 @@ namespace RedStarLibrary
 
         public static void ReloadDataBase()
         {
-            var dictDatabase = JsonConvert.DeserializeObject<List<ObjectDatabaseEntry>>(File.ReadAllText("ObjectDatabase.json"), new ObjectDatabaseEntryConverter());
+            var dictDatabase = JsonConvert.DeserializeObject<List<ObjectDatabaseEntry>>(File.ReadAllText(Path.Combine("Resources", "ObjectDatabase.json")), new ObjectDatabaseEntryConverter());
 
             if (dictDatabase != null)
                 ObjDatabase = dictDatabase;
@@ -225,8 +226,7 @@ namespace RedStarLibrary
 
         private static void OrganizeThumbnails()
         {
-
-            var rootDir = $"{Runtime.ExecutableDir}\\Lib\\Images\\ActorThumbnails\\";
+            var rootDir = Path.Combine(Runtime.ExecutableDir, "Lib", "Images", "ActorThumbnails");
 
             HashSet<string> removedFiles = new HashSet<string>();
 
@@ -234,9 +234,9 @@ namespace RedStarLibrary
             {
                 if(entry.Models.Count == 0)
                 {
-                    var prevPath = rootDir + $"{entry.ClassName}.png";
+                    var prevPath = Path.Combine(rootDir, $"{entry.ClassName}.png");
 
-                    var newPath = rootDir + $"{entry.ActorCategory}\\{entry.ClassName}.png";
+                    var newPath = Path.Combine(rootDir, entry.ActorCategory, $"{entry.ClassName}.png");
 
                     if (File.Exists(prevPath))
                     {
@@ -254,14 +254,13 @@ namespace RedStarLibrary
                 {
                     foreach (var modelName in entry.Models)
                     {
-                        var newPath = "";
-
+                        string newPath;
                         if (entry.Models.Count > 1)
-                            newPath = rootDir + $"{entry.ActorCategory}\\{entry.ClassName}\\{modelName}.png";
+                            newPath = Path.Combine(rootDir, entry.ActorCategory, entry.ClassName, $"{modelName}.png");
                         else
-                            newPath = rootDir + $"{entry.ActorCategory}\\{modelName}.png";
+                            newPath = Path.Combine(rootDir, entry.ActorCategory, $"{modelName}.png");
 
-                        var prevPath = rootDir + $"{modelName}.png";
+                        var prevPath = Path.Combine(rootDir, $"{modelName}.png");
 
                         if (File.Exists(prevPath))
                         {
@@ -359,7 +358,7 @@ namespace RedStarLibrary
 
                 if(modelName != null)
                 {
-                    string modelPath = ResourceManager.FindResourcePath($"ObjectData\\{modelName}.szs");
+                    string modelPath = ResourceManager.FindResourcePath(Path.Combine("ObjectData", $"{modelName}.szs"));
 
                     if (File.Exists(modelPath))
                     {
@@ -388,8 +387,11 @@ namespace RedStarLibrary
         public static void SerializeDatabase()
         {
             ObjDatabase = ObjDatabase.OrderBy(e => e.ClassName).ToList();
-
+#if DEBUG
             Helpers.JsonHelper.WriteToJSON(ObjDatabase, Path.Combine(Directory.GetParent(Environment.CurrentDirectory).Parent.Parent.Parent.FullName, "Plugins", "SampleMapEditor", "Resources", "ObjectDatabaseNew.json"));
+#else
+            Helpers.JsonHelper.WriteToJSON(ObjDatabase, Path.Combine("Resources", "ObjectDatabaseNew.json"));
+#endif
         }
     }
 }
