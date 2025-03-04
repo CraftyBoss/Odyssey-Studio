@@ -37,7 +37,7 @@ jobs:
     - name: Publish
       run: dotnet publish -c Release -r ${{ matrix.runtime }} --no-restore Track-Studio
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4.6.1
       with:
         name: ${{ matrix.runtime }}
         path: Track Studio/bin/Release/net8.0/${{ matrix.runtime }}/publish
