@@ -29,13 +29,13 @@ jobs:
         dotnet-version: 8.0.x
         
     - name: Restore dependancies
-      run: dotnet restore -r ${{ matrix.runtime }} Track-Studio.sln
+      run: dotnet restore -r ${{ matrix.runtime }} MapStudio.sln
 
     - name: Build
-      run: dotnet build -c Release --no-restore Track-Studio.sln
+      run: dotnet build -c Release --no-restore MapStudio.sln
 
     - name: Publish
-      run: dotnet publish -c Release -r ${{ matrix.runtime }} --no-restore Track-Studio
+      run: dotnet publish -c Release -r ${{ matrix.runtime }} --no-restore MapStudio
 
     - uses: actions/upload-artifact@v4.6.1
       with:
