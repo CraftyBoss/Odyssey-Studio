@@ -50,6 +50,8 @@ namespace RedStarLibrary.GameTypes
                     _actorList.Add(actor);
         }
 
+        public void Clear() => _actorList.Clear();
+
         public bool IsContainActor(PlacementId objID) => _actorList.Any(e => e.Placement == objID);
 
         public bool IsContainActor(PlacementInfo objID) => _actorList.Any(e => e.Placement == objID);

@@ -113,27 +113,48 @@ namespace RedStarLibrary
 
         public void LoadGraphicsArea(BymlIter iter) => GraphicsArea.DeserializeByml(iter);
 
-        public void RestartScene(PlacementFileEditor loader)
+        public void RestartScene(PlacementFileEditor editor)
         {
             PlacementFileEditor.IsLoadingStage = true;
 
-            for (int i = loader.Scene.Objects.Count - 1; i >= 0; i--)
-                loader.RemoveRender(loader.Scene.Objects[i]);
+            ResetStage(editor);
 
-            for (int i = loader.Root.Children.Count - 1; i >= 0; i--)
-            {
-                // remove actor lists in layer
-                loader.Root.Children[i].Children.Clear();
+            AddSceneRenders(editor);
 
-                // remove layer from root
-                loader.Root.Children.Remove(loader.Root.Children[i]);
-            }
-
-            AddSceneRenders(loader);
-
-            TryCreateGraphicsDataRenders(loader);
+            TryCreateGraphicsDataRenders(editor);
 
             PlacementFileEditor.IsLoadingStage = false;
+        }
+
+        public void ResetStage(PlacementFileEditor editor)
+        {
+            for (int i = editor.Scene.Objects.Count - 1; i >= 0; i--)
+            {
+                var obj = editor.Scene.Objects[i];
+
+                obj.Dispose();
+
+                editor.RemoveRender(obj);
+            }
+
+            for (int i = editor.Root.Children.Count - 1; i >= 0; i--)
+            {
+                // remove actor lists in layer
+                editor.Root.Children[i].Children.Clear();
+
+                // remove layer from root
+                editor.Root.Children.Remove(editor.Root.Children[i]);
+            }
+
+            // remove linked actor renderers
+            LinkedActorsNode.Children.Clear();
+            LinkActors.Clear();
+
+            // clear actor list
+            SceneActors.Clear();
+
+            // run collector to clean up any resources no longer in use
+            GC.Collect();
         }
 
         public void AddSceneRenders(PlacementFileEditor loader)
@@ -142,6 +163,8 @@ namespace RedStarLibrary
 
             LoadRendersFromList(loader);
         }
+
+        
 
         public void AddActorFromAsset(PlacementFileEditor loader, Vector3 spawnPos, AssetMenu.LiveActorAsset asset)
         {
@@ -646,9 +669,18 @@ namespace RedStarLibrary
                     else
                         globalList.AddObjectToLayers(actorInfo = new PlacementInfo(actorIter), scenarioIdx);
 
-                    int objId = int.Parse(actorInfo.Id.Substring(3));
-                    if (CurrentObjectID < objId)
-                        CurrentObjectID = objId;
+                    if(int.TryParse(actorInfo.Id.Substring(3), out int objId))
+                    {
+                        if (CurrentObjectID < objId)
+                            CurrentObjectID = objId;
+                    }
+                    else 
+                    {
+                        Console.WriteLine("Warning: Object ID is not formatted as expected! Value: " + actorInfo.Id);
+                        // edge case for placement infos with funky obj ids 
+                        if (int.TryParse(new string(actorInfo.Id.Where(char.IsDigit).ToArray()), out objId) && CurrentObjectID < objId)
+                            CurrentObjectID = objId;
+                    }
 
                     actorInfo.SetScenarioActive(scenarioIdx, true);
 
