@@ -70,6 +70,7 @@ namespace RedStarLibrary
         private SARC designArc;
         private SARC soundArc;
         private SARC presetSarc;
+        private SARC worldListSarc;
 
         // layer menu variables
         private string editLayerName = "";
@@ -160,6 +161,8 @@ namespace RedStarLibrary
                 if (File.Exists(soundPath))
                     LoadSoundData(soundPath);
 
+                LoadWorldList();
+
                 CurrentMapScene.Setup(this);
                 
                 IsLoadingStage = false;
@@ -170,6 +173,8 @@ namespace RedStarLibrary
             }
 
         }
+
+        
 
         /// <summary>
         /// Saves the given file data to a stream.
@@ -330,17 +335,24 @@ namespace RedStarLibrary
         {
             var presetFile = presetSarc.GetFileStream($"{presetName}.byml");
 
-            if (presetFile != null)
+            try
             {
-                var gfxPresetIter = new BymlIter(presetFile.ToArray());
-                result = Placement.ConvertToDict(gfxPresetIter);
-                return true;
+                if (presetFile != null)
+                {
+                    var gfxPresetIter = new BymlIter(presetFile.ToArray());
+                    result = Placement.ConvertToDict(gfxPresetIter);
+                    return true;
+                }
+            }catch(Exception ex)
+            {
+                StudioLogger.WriteError("Failed to parse graphics preset byml, skipping load. Exception: " + ex.Message);
             }
+
             result = null;
             return false;
         }
 
-        // Iterates through every stage located within the users provided dump directory and creates a database with all objects found within the stages.
+               // Iterates through every stage located within the users provided dump directory and creates a database with all objects found within the stages.
         private void GenerateActorDataBase()
         {
             // TODO: re-generate database with type info for each parameter
@@ -428,6 +440,17 @@ namespace RedStarLibrary
                 Workspace.AddAssetCategory(category.Value);
         }
 
+        private void LoadWorldList()
+        {
+            string worldListPath = ResourceManager.FindResourcePath(Path.Combine("SystemData", "WorldList.szs"));
+
+            if (!File.Exists(worldListPath))
+                throw new FileNotFoundException("Failed to find World List file at path: " + worldListPath);
+
+            worldListSarc = new SARC();
+            worldListSarc.Load(new MemoryStream(YAZ0.Decompress(worldListPath)));
+
+        }
         private void LoadGraphicsData(string path)
         {
             designArc = new SARC();

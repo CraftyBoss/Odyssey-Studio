@@ -434,13 +434,13 @@ namespace CafeLibrary.Rendering
             if (tex is BfresLibrary.WiiU.Texture)
             {
                 FtexTexture ftex = new FtexTexture(resFile, (BfresLibrary.WiiU.Texture)tex);
-                return new GenericRenderer.TextureView(ftex);
+                return new GenericRenderer.TextureView(ftex) { OriginalSource = ftex };
             }
             else
             {
                 var texture = (BfresLibrary.Switch.SwitchTexture)tex;
                 BntxTexture bntxTexture = new BntxTexture(texture.BntxFile, texture.Texture);
-                return new GenericRenderer.TextureView(bntxTexture);
+                return new GenericRenderer.TextureView(bntxTexture) { OriginalSource = bntxTexture };
             }
         }
 

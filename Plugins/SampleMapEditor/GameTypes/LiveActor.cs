@@ -193,7 +193,7 @@ namespace RedStarLibrary.GameTypes
                 return;
             }
 
-            if (Placement.UnitConfig.GenerateCategory == "AreaList")
+            if (Placement.UnitConfig.GenerateCategory == "AreaList" || Placement.UnitConfigName.EndsWith("Area"))
             {
                 ArchiveName = Placement.ClassName;
                 CreateAreaRenderer();
@@ -397,7 +397,7 @@ namespace RedStarLibrary.GameTypes
                 }
 
                 foreach ((var texName, var arcTex) in bfresRender.Textures)
-                    arcTex.OriginalSource.Export(Path.Combine(outPath, $"{texName}.png"), new TextureExportSettings());
+                    arcTex.OriginalSource?.Export(Path.Combine(outPath, $"{texName}.png"), new TextureExportSettings());
 
                 return true;
             }
@@ -508,6 +508,8 @@ namespace RedStarLibrary.GameTypes
                 objectRender.UINode.TagUI.UIDrawer += DrawModelProperties;
             else if (RenderMode == ActorRenderMode.Area)
                 objectRender.UINode.TagUI.UIDrawer += DrawAreaProperties;
+            else if (Placement.ClassName == "Zone")
+                objectRender.UINode.TagUI.UIDrawer += DrawZoneProperties;
 
             objectRender.Transform.TransformUpdated += delegate
             {
@@ -643,6 +645,17 @@ namespace RedStarLibrary.GameTypes
                     }
 
                     ImGui.EndMenu();
+                }
+            }
+        }
+
+        private void DrawZoneProperties(object sender, EventArgs e)
+        {
+            if (ImGui.CollapsingHeader("Zone Properties", ImGuiTreeNodeFlags.DefaultOpen))
+            {
+                if(ImGui.Button("Open Zone Stage"))
+                {
+                    Framework.QueueWindowFileDrop(ResourceManager.FindResourcePath(Path.Combine("StageData", $"{Placement.ObjectName}Map.szs")));
                 }
             }
         }

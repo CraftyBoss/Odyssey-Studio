@@ -164,8 +164,6 @@ namespace RedStarLibrary
             LoadRendersFromList(loader);
         }
 
-        
-
         public void AddActorFromAsset(PlacementFileEditor loader, Vector3 spawnPos, AssetMenu.LiveActorAsset asset)
         {
             var assetName = asset.Name;
