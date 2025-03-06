@@ -12,11 +12,7 @@ on:
 
 jobs:
   build:
-    strategy:
-      matrix:
-        runtime: [linux-x64, win-x64]
-        
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     steps:
     - uses: actions/checkout@v4
@@ -29,15 +25,15 @@ jobs:
         dotnet-version: 8.0.x
         
     - name: Restore dependancies
-      run: dotnet restore -r ${{ matrix.runtime }} MapStudio.sln
+      run: dotnet restore MapStudio.sln
 
     - name: Build
       run: dotnet build -c Release --no-restore MapStudio.sln
 
     - name: Publish
-      run: dotnet publish -c Release -r ${{ matrix.runtime }} --no-restore MapStudio.sln
+      run: dotnet build -c Release --no-restore MapStudio.sln
 
     - uses: actions/upload-artifact@v4.6.1
       with:
-        name: ${{ matrix.runtime }}
-        path: Track Studio/bin/Release/net8.0/${{ matrix.runtime }}
+        name: OdysseyStudio-Latest
+        path: Track Studio/bin/Release/net8.0
