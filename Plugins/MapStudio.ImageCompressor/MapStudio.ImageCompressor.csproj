@@ -1,17 +1,11 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
+	<OutputPath>$(MSBuildStartupDirectory)\Track Studio\bin\$(Configuration)\$(TargetFramework)\Plugins\</OutputPath>
   </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-	  <OutputPath>..\..\Track Studio\bin\Debug\net8.0\Plugins\</OutputPath>
-  </PropertyGroup>
-
-	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-		<OutputPath>..\..\Track Studio\bin\Release\net8.0\Plugins\</OutputPath>
-	</PropertyGroup>
-	<ItemGroup>
+	
+  <ItemGroup>
     <PackageReference Include="BCnEncoder.Net" Version="2.1.0" />
   </ItemGroup>
 

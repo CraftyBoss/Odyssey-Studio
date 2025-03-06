@@ -2,15 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
+	<OutputPath>$(MSBuildStartupDirectory)\Track Studio\bin\$(Configuration)\$(TargetFramework)\Plugins\</OutputPath>
   </PropertyGroup>
-
-	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-		<OutputPath>..\..\Track Studio\bin\Debug\net8.0\plugins\</OutputPath>
-	</PropertyGroup>
-
-	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-		<OutputPath>..\..\Track Studio\bin\Release\net8.0\plugins\</OutputPath>
-	</PropertyGroup>
 
 	<ItemGroup>
 	  <PackageReference Include="FluentFTP" Version="52.0.0" />

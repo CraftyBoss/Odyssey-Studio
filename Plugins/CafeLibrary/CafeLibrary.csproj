@@ -1,20 +1,15 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <RootNamespace>CafeLibrary</RootNamespace>
     <AssemblyName>CafeLibrary</AssemblyName>
+	<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+	<OutputPath>$(MSBuildStartupDirectory)\Track Studio\bin\$(Configuration)\$(TargetFramework)\Plugins\</OutputPath>
   </PropertyGroup>
 
-	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-		<OutputPath>..\..\Track Studio\bin\Debug\net8.0\Plugins\</OutputPath>
-	</PropertyGroup>
-
 	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<Optimize>false</Optimize>
-		<OutputPath>..\..\Track Studio\bin\Release\net8.0\Plugins\</OutputPath>
 	</PropertyGroup>
   <ItemGroup>
     <Reference Include="AampLibraryCSharp">
