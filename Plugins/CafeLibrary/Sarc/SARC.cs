@@ -35,8 +35,6 @@ namespace CafeLibrary
             }
         }
 
-        public bool BigEndian => SarcData.endianness == Syroot.BinaryData.ByteOrder.BigEndian;
-
         public SarcData SarcData;
 
         public SARC()
@@ -44,7 +42,6 @@ namespace CafeLibrary
             FileInfo = new File_Info();
             SarcData = new SarcData()
             {
-                endianness = Syroot.BinaryData.ByteOrder.LittleEndian,
                 Files = new Dictionary<string, byte[]>(),
             };
         }
@@ -78,13 +75,8 @@ namespace CafeLibrary
             SarcData = SARC_Parser.UnpackRamN(stream);
             foreach (var file in SarcData.Files)
             {
-                var fileEntry = new FileEntry();
+                var fileEntry = new ArchiveFileInfo();
                 fileEntry.FileName = file.Key;
-                if (SarcData.HashOnly)
-                {
-                    fileEntry.FileName = SARC_Parser.TryGetNameFromHashTable(file.Key);
-                    fileEntry.HashName = file.Key;
-                }
                 fileEntry.SetData(file.Value);
                 files.Add(fileEntry);
             }
@@ -104,7 +96,7 @@ namespace CafeLibrary
 
         public bool AddFile(ArchiveFileInfo archiveFileInfo)
         {
-            files.Add(new FileEntry()
+            files.Add(new ArchiveFileInfo()
             {
                 FileData = archiveFileInfo.FileData,
                 FileName = archiveFileInfo.FileName,
@@ -114,21 +106,18 @@ namespace CafeLibrary
 
         public bool DeleteFile(ArchiveFileInfo archiveFileInfo)
         {
-            files.Remove((FileEntry)archiveFileInfo);
+            files.Remove(archiveFileInfo);
             return true;
         }
 
         public void Save(System.IO.Stream stream)
         {
             SarcData.Files.Clear();
-            foreach (FileEntry file in this.files)
+            foreach (var file in files)
             {
                 file.SaveFileFormat();
 
-                if (SarcData.HashOnly)
-                    SarcData.Files.Add(file.HashName, file.AsBytes());
-                else
-                    SarcData.Files.Add(file.FileName, file.AsBytes());
+                SarcData.Files.Add(file.FileName, file.AsBytes());
             }
 
             //Save data to stream
@@ -161,25 +150,6 @@ namespace CafeLibrary
             windows.Add(Workspace.Outliner);
             windows.Add(Workspace.PropertyWindow);
             return windows;
-        }
-
-        public class FileEntry : ArchiveFileInfo
-        {
-            /// <summary>
-            /// The hash calculated in hex format turned into a string used for hash only files.
-            /// </summary>
-            public string HashName
-            {
-                get
-                {
-                    if (hashName == null)
-                        hashName = SARC_Parser.NameHash(FileName).ToString("X8");
-
-                    return hashName;
-                }
-                set { hashName = value; }
-            }
-            private string hashName;
         }
     }
 }

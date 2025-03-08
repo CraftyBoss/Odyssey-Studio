@@ -259,18 +259,7 @@ namespace MapStudio
             var settingsMenu = new MenuItem("SETTINGS", LoadSettingsWindow);
             var windowsMenu = new MenuItem("WINDOWS") { RenderItems = LoadWindowMenu };
             var pluginsMenu = new MenuItem("PLUGINS") { RenderItems = LoadPluginMenus };
-            var helpMenu = new MenuItem("HELP");
-            helpMenu.MenuItems.Add(new MenuItem("CHECK_UPDATES", CheckUpdates));
-            helpMenu.MenuItems.Add(new MenuItem("DOCUMENTATION", OpenDocsOnline));
-            helpMenu.MenuItems.Add(new MenuItem("ABOUT", () =>
-            {
-                AboutWindow.Opened = !AboutWindow.Opened;
-            }));
-            helpMenu.MenuItems.Add(new MenuItem(""));
-            helpMenu.MenuItems.Add(new MenuItem("DONATE", WebUtil.OpenDonation));
-
-
-
+          
             MenuItems.Add(fileMenu);
             MenuItems.Add(saveConfigMenu);
             MenuItems.Add(editMenu);
@@ -278,7 +267,6 @@ namespace MapStudio
             MenuItems.Add(settingsMenu);
             MenuItems.Add(windowsMenu);
             MenuItems.Add(pluginsMenu);
-            MenuItems.Add(helpMenu);
 
             SaveMenu.Enabled = false;
             SaveAsMenu.Enabled = false;

@@ -335,17 +335,18 @@ namespace RedStarLibrary
         {
             var presetFile = presetSarc.GetFileStream($"{presetName}.byml");
 
-            try
+            if (presetFile != null)
             {
-                if (presetFile != null)
+                var presetData = presetFile.ToArray();
+
+                if(BymlIter.IsValid(presetData))
                 {
                     var gfxPresetIter = new BymlIter(presetFile.ToArray());
                     result = Placement.ConvertToDict(gfxPresetIter);
                     return true;
                 }
-            }catch(Exception ex)
-            {
-                StudioLogger.WriteError("Failed to parse graphics preset byml, skipping load. Exception: " + ex.Message);
+                else
+                    StudioLogger.WriteError("Failed to parse graphics preset byml, skipping load.");
             }
 
             result = null;

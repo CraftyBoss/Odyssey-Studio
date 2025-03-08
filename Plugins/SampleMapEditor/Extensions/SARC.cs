@@ -111,7 +111,7 @@ namespace RedStarLibrary.Extensions
 
         public static void AddFile(this SARC arc, string name, Stream data)
         {
-            arc.files.Add(new FileEntry()
+            arc.files.Add(new ArchiveFileInfo()
             {
                 FileData = data,
                 FileName = name,
