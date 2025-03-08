@@ -341,7 +341,7 @@ namespace RedStarLibrary
 
                 if(BymlIter.IsValid(presetData))
                 {
-                    var gfxPresetIter = new BymlIter(presetFile.ToArray());
+                    var gfxPresetIter = new BymlIter(presetData);
                     result = Placement.ConvertToDict(gfxPresetIter);
                     return true;
                 }
