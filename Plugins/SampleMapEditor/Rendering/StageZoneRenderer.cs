@@ -29,11 +29,11 @@ namespace RedStarLibrary.Rendering
                 var worldRotQuat = parentTransform.Rotation;
                 var localRotQuat = Matrix3Extension.Mat3FromEulerAnglesDeg(LocalRotation).ExtractRotation();
 
-                var localPosRotated = Vector3.TransformPosition(LocalPosition, Matrix4.CreateFromQuaternion(worldRotQuat));
+                var localPosRotated = Vector3.TransformPosition(LocalPosition * parentTransform.Scale, Matrix4.CreateFromQuaternion(worldRotQuat));
 
-                BfresRender.Transform.Scale = LocalScale * parentTransform.Scale;
                 BfresRender.Transform.Position = localPosRotated + parentTransform.Position;
                 BfresRender.Transform.Rotation = worldRotQuat * localRotQuat;
+                BfresRender.Transform.Scale = LocalScale * parentTransform.Scale;
                 BfresRender.Transform.UpdateMatrix(true);
             }
         }
@@ -58,10 +58,10 @@ namespace RedStarLibrary.Rendering
         {
             ZoneDrawers = new();
 
-            Transform.PropertyChanged += OnParentTransformChange;
+            Transform.TransformUpdated += OnParentTransformChange;
         }
 
-        private void OnParentTransformChange(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        private void OnParentTransformChange(object sender, EventArgs e)
         {
             foreach (var entry in ZoneDrawers)
                 entry.ApplyLocalTransform(Transform);
