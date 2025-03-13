@@ -30,7 +30,8 @@ namespace RedStarLibrary.GameTypes
         Basic,
         Bfres,
         Area,
-        Rail
+        Rail,
+        Zone
     };
 
     public class LiveActor
@@ -167,9 +168,9 @@ namespace RedStarLibrary.GameTypes
             actor.actorLayer = actorLayer;
             actor.isPlaced = isPlaced;
 
-            actor.SetupRenderer();
-
             actor.SetParentNode(parent);
+
+            actor.SetupRenderer();
 
             return actor;
         }
@@ -178,11 +179,6 @@ namespace RedStarLibrary.GameTypes
         {
             parent = parentNode;
             curStage = (parentNode.Tag as PlacementFileEditor).CurrentMapScene;
-
-            if (renderTarget == RenderTarget.EditableObj)
-                objectRender.ParentUINode = parent;
-            else if (renderTarget == RenderTarget.Rail)
-                parent.AddChild(pathRender.UINode);
         }
 
         public void SetupRenderer()
@@ -203,6 +199,11 @@ namespace RedStarLibrary.GameTypes
             {
                 CreateRailRenderer();
                 SetActorIcon(MapEditorIcons.POINT_ICON);
+            }
+            else if (Placement.ClassName == "Zone")
+            {
+                CreateZoneRenderer();
+                SetActorIcon(MapEditorIcons.OBJECT_ICON);
             }
             else
             {
@@ -268,24 +269,9 @@ namespace RedStarLibrary.GameTypes
 
         public void CreateAreaRenderer()
         {
-
             Console.WriteLine($"Creating Area Render of Actor: {Placement.Id} {Placement.UnitConfigName}");
 
-            Color areaColor = Color.Blue;
-
-            switch (Placement.ClassName)
-            {
-                case string a when a == "DeathArea":
-                    areaColor = Color.Red;
-                    break;
-                case string a when a == "CameraArea":
-                    areaColor = Color.Green;
-                    break;
-                default:
-                    break;
-            }
-
-            objectRender = new AreaRender(null, ColorUtility.ToVector4(areaColor));
+            objectRender = new AreaRender(null, ColorUtility.ToVector4(GetAreaColor()));
             RenderMode = ActorRenderMode.Area;
 
             UpdateAreaShape();
@@ -309,10 +295,53 @@ namespace RedStarLibrary.GameTypes
             pathRender.Transform.RotationEulerDegrees = Placement.Rotate;
             pathRender.Transform.UpdateMatrix(true);
 
+            parent.AddChild(pathRender.UINode);
+
             RenderMode = ActorRenderMode.Rail;
             renderTarget = RenderTarget.Rail;
 
             SetupRail(pathRender, Placement);
+        }
+
+        public void CreateZoneRenderer()
+        {
+            var zoneStage = curStage.TryGetZone(Placement.ObjectName);
+
+            if(zoneStage == null)
+            {
+                Console.WriteLine($"Zone {Placement.ObjectName} was not loaded into the editor. Cancelling Zone Renderer load.");
+
+                CreateBasicRenderer();
+                SetActorIcon(MapEditorIcons.OBJECT_ICON);
+                return;
+            }
+
+
+            Console.WriteLine($"Creating Zone Render of Actor: {Placement.Id} {Placement.UnitConfigName}");
+
+            var zoneRenderer = new StageZoneRenderer();
+
+            objectRender = zoneRenderer;
+            RenderMode = ActorRenderMode.Zone;
+
+            foreach (var zoneInfo in zoneStage.GetLoadedPlacementInfos())
+            {
+                var actorModelName = !string.IsNullOrEmpty(zoneInfo.ModelName) ? zoneInfo.ModelName : zoneInfo.UnitConfigName;
+                var actorModelPath = ResourceManager.FindResourcePath(Path.Combine("ObjectData", $"{actorModelName}.szs"));
+
+                if (!File.Exists(actorModelPath))
+                    continue;
+
+                var modelARC = ResourceManager.FindOrLoadSARC(actorModelPath);
+                using var modelStream = modelARC.GetModelStream(actorModelName);
+
+                if(modelStream != null)
+                    zoneRenderer.AddZoneModel(modelStream, actorModelName, zoneInfo.Translate, zoneInfo.Rotate, zoneInfo.Scale, modelARC.GetTexArchive());
+            }
+
+            zoneRenderer.UpdateBoundingBox();
+
+            UpdateRenderer();
         }
 
         public void ResetLinkedActors()
@@ -465,24 +494,7 @@ namespace RedStarLibrary.GameTypes
             if (objectRender is not BfresRender bfresRender)
                 return new List<string>();
 
-            List<string> result = new List<string>();
-
-            foreach (BfresModelRender model in bfresRender.Models)
-            {
-                foreach (BfresMeshRender mesh in model.Meshes)
-                {
-                    if (mesh.MaterialAsset is not SMORenderer matAsset)
-                        continue;
-
-                    foreach (var texMap in matAsset.Material.TextureMaps)
-                    {
-                        if(!result.Contains(texMap.Name))
-                            result.Add(texMap.Name);
-                    }
-                }
-            }
-
-            return result;
+            return bfresRender.GetUsedTextureNames();
         }
 
         private void UpdateRenderer()
@@ -508,7 +520,7 @@ namespace RedStarLibrary.GameTypes
                 objectRender.UINode.TagUI.UIDrawer += DrawModelProperties;
             else if (RenderMode == ActorRenderMode.Area)
                 objectRender.UINode.TagUI.UIDrawer += DrawAreaProperties;
-            else if (Placement.ClassName == "Zone")
+            else if (RenderMode == ActorRenderMode.Zone)
                 objectRender.UINode.TagUI.UIDrawer += DrawZoneProperties;
 
             objectRender.Transform.TransformUpdated += delegate
@@ -576,8 +588,8 @@ namespace RedStarLibrary.GameTypes
                         ArchiveName = arcName;
                         modelPath = arcPath;
 
-                        TryLoadModelRenderer(); // if a model fails to load, it wont be possible to try reloading this actors model again
                         SetParentNode(parent);
+                        TryLoadModelRenderer(); // if a model fails to load, it wont be possible to try reloading this actors model again
                         WorkspaceHelper.AddRendererToLoader(objectRender);
                     }
                 }
@@ -728,9 +740,9 @@ namespace RedStarLibrary.GameTypes
             {
                 LoadModel(modelARC, modelStream);
 
-                var fileStream = modelARC.GetInitFileStream("InitClipping");
-
                 CreateBfresRenderer(modelStream, modelARC.GetTexArchive());
+
+                var fileStream = modelARC.GetInitFileStream("InitClipping");
 
                 if (fileStream != null)
                     SetClippingData(fileStream);
@@ -758,6 +770,25 @@ namespace RedStarLibrary.GameTypes
             }
 
             ((AreaRender)objectRender).AreaShape = areaShape;
+        }
+
+        private Color GetAreaColor()
+        {
+            Color areaColor = Color.Blue;
+
+            switch (Placement.ClassName)
+            {
+                case string a when a == "DeathArea":
+                    areaColor = Color.Red;
+                    break;
+                case string a when a == "CameraArea":
+                    areaColor = Color.Green;
+                    break;
+                default:
+                    break;
+            }
+
+            return areaColor;
         }
     }
 }

@@ -24,6 +24,7 @@ using Discord;
 using static Toolbox.Core.GX.DisplayListHelper;
 using RedStarLibrary.MapData.Graphics;
 using static RedStarLibrary.MapData.Graphics.StageGraphicsArea;
+using Octokit;
 
 namespace RedStarLibrary
 {
@@ -38,8 +39,8 @@ namespace RedStarLibrary
         #region StageData
 
         /// <summary>
-        /// Every layer that is shared between scenarios will be used here
-        /// TODO: remove category separation of layers
+        /// Dictionary of Layers with the placement list's name as a key. Each entry has a LayerList object that contains a list of layerconfigs that has every placement that belongs to that layer.
+        /// TODO: this organization could be improved, its a little confusing at the moment and can be streamlined.
         /// </summary>
         public Dictionary<string, LayerList> GlobalLayers { get; set; } = new Dictionary<string, LayerList>();
         public StageGraphicsArea GraphicsArea { get; private set; } = new StageGraphicsArea();
@@ -51,13 +52,17 @@ namespace RedStarLibrary
         public bool IsUseClipDist { get; set; } = false;
         public string SelectedLayer { get; set; } = "Common";
 
-        // Category Name (ex: ObjectList) -> List of Actors in Layers (ex: Layer Common) -> List of Actors
+        /// <summary>
+        /// Category Name (ex: ObjectList) -> List of Actors in Layers (ex: Layer Common) -> List of Actors
+        /// </summary>
         private Dictionary<string, Dictionary<string,List<LiveActor>>> SceneActors { get; set; } = new();
         private ActorList LinkActors { get; set; } = new("LinkedObjects");
+        private Dictionary<string, StageScene> MapZones { get; set; } = new();
 
         public int CurrentObjectID = 0;
 
         #endregion
+
 
         #region Misc
 
@@ -69,11 +74,39 @@ namespace RedStarLibrary
 
         #endregion
 
+        public static StageScene LoadStage(SARC mapArc, string stageName)
+        {
+            var stage = new StageScene();
+            stage.DeserializeByml(new BymlIter(mapArc.GetFileStream(stageName + ".byml").ToArray()));
+
+            return stage;
+        }
+
+        public static StageScene LoadStage(Stream stream, string stageName)
+        {
+            var mapArc = new SARC();
+            mapArc.Load(stream);
+
+            return LoadStage(mapArc, stageName);
+        }
+
+        public static StageScene LoadStage(string stageName)
+        {
+            var stagePath = ResourceManager.FindResourcePath(Path.Combine("StageData", stageName + ".szs"));
+
+            if (!File.Exists(stagePath))
+                return null;
+
+            return LoadStage(new MemoryStream(YAZ0.Decompress(stagePath)), stageName);
+        }
+
         public void Setup(PlacementFileEditor loader, bool isNew = false)
         {
             ProcessLoading.Instance.IsLoading = true;
 
             RootNode = loader.Root;
+
+            TryLoadStageZones(loader);
 
             //Prepare a collision caster for snapping objects onto
             SetupSceneCollision();
@@ -109,6 +142,22 @@ namespace RedStarLibrary
             }
 
             ProcessLoading.Instance.IsLoading = false;
+        }
+
+        private void TryLoadStageZones(PlacementFileEditor editor)
+        {
+            if(GlobalLayers.TryGetValue("ZoneList", out var layerList))
+            {
+                foreach (var layerConfig in layerList)
+                {
+                    foreach (var zonePlacement in layerConfig.LayerObjects)
+                    {
+                        var zoneStage = LoadStage(zonePlacement.ObjectName + "Map");
+                        if (zoneStage != null)
+                            MapZones.Add(zonePlacement.ObjectName, zoneStage);
+                    }
+                }
+            }
         }
 
         public void LoadGraphicsArea(BymlIter iter) => GraphicsArea.DeserializeByml(iter);
@@ -230,12 +279,14 @@ namespace RedStarLibrary
 
             LiveActor actor = LoadActorFromPlacement(actorPlacement, placementLayer);
 
+            actor.SetParentNode(layerActors);
+
+            actor.SetupRenderer();
+
             if (actor.RenderMode != ActorRenderMode.Bfres)
                 actor.Placement.ModelName = ""; // if we didn't find a model to load, clear the model name
 
             actor.ResetLinkedActors();
-
-            actor.SetParentNode(layerActors);
 
             loader.AddRender(actor.GetDrawer());
 
@@ -284,23 +335,48 @@ namespace RedStarLibrary
             return liveActors;
         }
 
-        public List<LiveActor> GetSelectedActors()
+        public List<PlacementInfo> GetLoadedPlacementInfos()
+        {
+            List<PlacementInfo> infos = new();
+
+            foreach (var categoryList in GlobalLayers)
+                foreach (var layerList in categoryList.Value)
+                    infos.AddRange(layerList.LayerObjects);
+
+            return infos;
+        }
+
+        public List<LiveActor> GetSelectedActors() => GetActorsByPredicate(e => e.IsRendererSelected());
+
+        public List<LiveActor> GetActorsByClassName(string className) => GetActorsByPredicate(e => e.Placement.ClassName == className);
+
+        public List<LiveActor> GetActorsByPredicate(Predicate<LiveActor> pred)
         {
             List<LiveActor> liveActors = new List<LiveActor>();
 
             foreach (var categoryList in SceneActors)
-            {
                 foreach (var layerList in categoryList.Value)
-                {
-                    foreach (var actor in layerList.Value)
-                    {
-                        if(actor.IsRendererSelected())
-                            liveActors.Add(actor);
-                    }
-                }
-            }
+                    liveActors.AddRange(layerList.Value.Where(e => pred(e)));
 
             return liveActors;
+        }
+
+        public List<PlacementInfo> GetPlacementByPredicate(Predicate<PlacementInfo> pred)
+        {
+            List<PlacementInfo> infos = new();
+
+            foreach (var categoryList in GlobalLayers)
+                foreach (var layerList in categoryList.Value)
+                    infos.AddRange(layerList.LayerObjects.Where(e => pred(e)));
+
+            return infos;
+        }
+
+        public StageScene TryGetZone(string name)
+        {
+            if (MapZones.TryGetValue(name, out var zone))
+                return zone;
+            return null;
         }
 
         public LiveActor? FindActorWithClass(string objCategory, string className)
@@ -353,9 +429,9 @@ namespace RedStarLibrary
 
             actor.LoadLinks(this);
 
-            actor.SetupRenderer();
-
             actor.SetParentNode(LinkedActorsNode);
+
+            actor.SetupRenderer();
 
             LinkActors.Add(actor);
 
@@ -425,6 +501,8 @@ namespace RedStarLibrary
                     foreach (var actor in mapActors)
                     {
                         actor.SetParentNode(layerActors);
+
+                        actor.SetupRenderer();
 
                         actor.PlaceLinkedObjects(loader);
 
@@ -557,8 +635,6 @@ namespace RedStarLibrary
             actor.LoadLinks(this);
 
             actor.actorLayer = list;
-
-            actor.SetupRenderer();
 
             if(actor.Placement.ClassName.Contains("Camera"))
             {

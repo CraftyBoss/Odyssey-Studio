@@ -21,6 +21,8 @@ using CafeLibrary.Rendering;
 using RedStarLibrary.Helpers;
 using RedStarLibrary.MapData.Graphics;
 using RedStarLibrary.UI;
+using UIFramework;
+using RedStarLibrary.UI.Windows;
 
 
 namespace RedStarLibrary
@@ -66,16 +68,17 @@ namespace RedStarLibrary
         /// <summary>
         /// SARC containing all data used in the map
         /// </summary>
-        private SARC mapArc;
-        private SARC designArc;
-        private SARC soundArc;
-        private SARC presetSarc;
-        private SARC worldListSarc;
+        private SARC mapArc = null;
+        private SARC designArc = null;
+        private SARC soundArc = null;
+        private SARC presetSarc = null;
+        private SARC worldListSarc = null;
 
         // layer menu variables
         private string editLayerName = "";
         private string newLayerName = "";
         private bool isLayerEditTakeFocus = false;
+
 
         // misc
 
@@ -136,22 +139,15 @@ namespace RedStarLibrary
             addObjMenu = new AddObjectMenu();
 
             mapArc = new SARC();
-
             mapArc.Load(stream);
 
-            ArchiveFileInfo mapData = mapArc.files.Find(e => e.FileName.Contains("StageMap.byml") || e.FileName.Contains("ZoneMap.byml"));
+            IsLoadingStage = true;
 
-            if (mapData != null)
+            CurrentMapScene = StageScene.LoadStage(mapArc, Path.GetFileNameWithoutExtension(FileInfo.FileName));
+
+            if (CurrentMapScene != null)
             {
-                PlacementFileName = mapData.FileName.Replace("Map.byml", "");
-
-                BymlIter iter = new BymlIter(mapData.AsBytes());
-
-                IsLoadingStage = true;
-
-                CurrentMapScene = new StageScene();
-
-                CurrentMapScene.DeserializeByml(iter);
+                PlacementFileName = FileInfo.FileName.Replace("Map.szs", "");
 
                 string designPath = Path.Combine(FileInfo.FolderPath, $"{PlacementFileName}Design.szs");
                 if (File.Exists(designPath))
@@ -171,11 +167,8 @@ namespace RedStarLibrary
             {
                 throw new FileLoadException("Unable to Load Archive!");
             }
-
         }
-
         
-
         /// <summary>
         /// Saves the given file data to a stream.
         /// </summary>
@@ -353,7 +346,7 @@ namespace RedStarLibrary
             return false;
         }
 
-               // Iterates through every stage located within the users provided dump directory and creates a database with all objects found within the stages.
+        // Iterates through every stage located within the users provided dump directory and creates a database with all objects found within the stages.
         private void GenerateActorDataBase()
         {
             // TODO: re-generate database with type info for each parameter
@@ -452,6 +445,7 @@ namespace RedStarLibrary
             worldListSarc.Load(new MemoryStream(YAZ0.Decompress(worldListPath)));
 
         }
+
         private void LoadGraphicsData(string path)
         {
             designArc = new SARC();
@@ -530,75 +524,32 @@ namespace RedStarLibrary
             if (ImGui.Button("Reload Scene", btnSize))
                 CurrentMapScene.RestartScene(this);
 
-            if(ImGui.Button("Open Stage Settings", btnSize))
-            {
-                DialogHandler.Show("Stage Settings", 500, 400, () => {
+            //if(ImGui.Button("Open Stage Settings", btnSize))
+            //{
+            //    DialogHandler.Show("Stage Settings", 500, 400, () => {
 
-                    System.Numerics.Vector2 settingsBtnSize = new System.Numerics.Vector2(ImGui.GetWindowWidth(), 23);
-                    if (ImGui.Button("Close and Reload", settingsBtnSize))
-                        DialogHandler.ClosePopup(true);
+            //        System.Numerics.Vector2 settingsBtnSize = new System.Numerics.Vector2(ImGui.GetWindowWidth(), 23);
+            //        if (ImGui.Button("Close and Reload", settingsBtnSize))
+            //            DialogHandler.ClosePopup(true);
 
-                    if (ImGui.CollapsingHeader($"Layer/Scenario Settings", ImGuiTreeNodeFlags.DefaultOpen))
-                        DrawScenarioSettings();
+            //        if (ImGui.CollapsingHeader($"Layer/Scenario Settings", ImGuiTreeNodeFlags.DefaultOpen))
+            //            DrawScenarioSettings();
 
-                    if(ImGui.CollapsingHeader("Stage World List Settings", ImGuiTreeNodeFlags.DefaultOpen))
-                        DrawWorldListSettings();
+            //        if(ImGui.CollapsingHeader("Stage World List Settings", ImGuiTreeNodeFlags.DefaultOpen))
+            //            DrawWorldListSettings();
 
-                    if (ImGui.CollapsingHeader("Stage Graphics Settings", ImGuiTreeNodeFlags.DefaultOpen))
-                        DrawGraphicsSettings();
+            //        if (ImGui.CollapsingHeader("Stage Graphics Settings", ImGuiTreeNodeFlags.DefaultOpen))
+            //            DrawGraphicsSettings();
 
-                }, (isDone) => {
-                    if(isDone)
-                        CurrentMapScene.RestartScene(this);
-                });
-            }
+            //    }, (isDone) => {
+            //        if(isDone)
+            //            CurrentMapScene.RestartScene(this);
+            //    });
+            //}
 
             if(ImGui.Button("Dump Stage Models", btnSize))
-            {
-                var dlg = new ImguiFolderDialog();
-                dlg.Title = "Select Stage Folder Output";
+                ShowStageDumpDialog();
 
-                if (dlg.ShowDialog())
-                {
-                    var stageActors = CurrentMapScene.GetLoadedActors();
-
-                    var stageDumpPath = Path.Combine(dlg.SelectedPath, PlacementFileName);
-                    if (!Directory.Exists(stageDumpPath))
-                        Directory.CreateDirectory(stageDumpPath);
-
-                    Dictionary<string, dynamic> stageData = new Dictionary<string, dynamic>();
-                    Dictionary<string, dynamic> positionData = new Dictionary<string, dynamic>();
-                    stageData.Add("PlacementInfo", positionData);
-
-                    List<string> exportedModels = new List<string>();
-                    stageData.Add("ExportedModels", exportedModels);
-
-                    foreach (var actor in stageActors.Where(e => e.GetEditObj() is BfresRender))
-                    {
-                        var placementInfo = actor.Placement;
-                        var collectionName = $"{actor.ArchiveName}_{placementInfo.Id}";
-
-                        Console.WriteLine("Adding Placement Info for: " + collectionName);
-
-                        positionData.Add(collectionName, new Dictionary<string, dynamic>()
-                        {
-                            {"Position", placementInfo.Translate.ToDict() },
-                            {"Rotation", placementInfo.Rotate.ToDict() },
-                            {"Scale", placementInfo.Scale.ToDict() }
-                        });
-
-                        if (!exportedModels.Contains(actor.ArchiveName))
-                        {
-                            Console.WriteLine("Dumping Model: " + actor.ArchiveName);
-                            actor.TryExportModel(stageDumpPath);
-                            exportedModels.Add(actor.ArchiveName);
-                        }
-                    }
-                    File.WriteAllText(Path.Combine(stageDumpPath, PlacementFileName + ".json"), JsonSerializer.Serialize(stageData, new JsonSerializerOptions() { WriteIndented = true }));
-     
-                    FileUtility.OpenFolder(stageDumpPath);
-                }
-            }
         }
 
         public override void OnKeyDown(KeyEventInfo keyInfo)
@@ -615,6 +566,66 @@ namespace RedStarLibrary
                 CurrentMapScene.CopySelectedActors(copyActors);
                 CurrentMapScene.PasteActorCopyBuffer(this, copyActors);
             }
+        }
+
+        public override List<DockWindow> PrepareDocks()
+        {
+            List<DockWindow> windows =
+            [
+                Workspace.Outliner,
+                Workspace.PropertyWindow,
+                Workspace.ConsoleWindow,
+                Workspace.AssetViewWindow,
+                Workspace.ToolWindow,
+                Workspace.ViewportWindow,
+            ];
+
+            var layerWindow = new WorkspaceUIDrawer(Workspace, "Layer Editor", (e, arg) => { DrawScenarioSettings(); });
+            var graphicsWindow = new WorkspaceUIDrawer(Workspace, "Stage Graphics", (e, arg) => { DrawGraphicsSettings(); });
+
+            layerWindow.DockDirection = ImGuiDir.Down;
+            layerWindow.SplitRatio = 0.3f;
+
+            graphicsWindow.DockDirection = ImGuiDir.Up;
+            graphicsWindow.SplitRatio = 0.3f;
+            graphicsWindow.ParentDock = Workspace.PropertyWindow;
+
+            windows.Add(layerWindow);
+            windows.Add(graphicsWindow);
+
+            return windows;
+        }
+
+        /// <summary>
+        /// When an asset item from the asset windows gets dropped into the editor.
+        /// You can configure your own asset category from the asset window and make custom asset items to drop into.
+        /// </summary>
+        public override void AssetViewportDrop(AssetItem item, Vector2 screenPosition)
+        {
+            //viewport context
+            var context = GLContext.ActiveContext;
+
+            //Screen coords can be converted into 3D space
+            //By default it will spawn in the mouse position at a distance
+            Vector3 position = context.ScreenToWorld(screenPosition.X, screenPosition.Y, 100);
+            //Collision dropping can be used to drop these assets to the ground from CollisionCaster
+            if (context.EnableDropToCollision)
+            {
+                Quaternion rot = Quaternion.Identity;
+                CollisionDetection.SetObjectToCollision(context, context.CollisionCaster, screenPosition, ref position, ref rot);
+            }
+
+            if (item is AssetMenu.LiveActorAsset actorAsset)
+                CurrentMapScene.AddActorFromAsset(this, position, actorAsset);
+        }
+
+        /// <summary>
+        /// Checks for dropped files to use for the editor.
+        /// If the value is true, the file will not be loaded as an editor if supported.
+        /// </summary>
+        public override bool OnFileDrop(string filePath)
+        {
+            return false;
         }
 
         public void DrawEditorDropdown()
@@ -680,20 +691,16 @@ namespace RedStarLibrary
 
             foreach ((var categoryName, var categoryList) in CurrentMapScene.GlobalLayers)
             {
-                if (ImGui.BeginMenu(categoryName))
+                if (ImGui.TreeNode(categoryName))
                 {
-                    if (ImGui.BeginTable("LayerScenarioTable", StageScene.SCENARIO_COUNT + 1, ImGuiTableFlags.RowBg | ImGuiTableFlags.Borders))
+                    ImGui.Unindent(ImGui.GetTreeNodeToLabelSpacing() - 3.0f);
+                    if (ImGui.BeginTable("LayerScenarioTable", StageScene.SCENARIO_COUNT + 1, ImGuiTableFlags.RowBg | ImGuiTableFlags.Borders | ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.NoHostExtendX))
                     {
-                        ImGui.TableNextRow();
-                        ImGui.TableSetColumnIndex(0);
-
-                        ImGui.Text("Layer Name");
+                        ImGui.TableSetupColumn("Layer Name");
                         for (int i = 0; i < StageScene.SCENARIO_COUNT; i++)
-                        {
-                            ImGui.TableSetColumnIndex(i + 1);
-                            ImGui.Text((i+1).ToString());
-                        }
-
+                            ImGui.TableSetupColumn((i+1).ToString());
+                        ImGui.TableHeadersRow();
+                        
                         List<LayerConfig> removeQueue = new List<LayerConfig>();
 
                         foreach (var layer in categoryList)
@@ -780,7 +787,7 @@ namespace RedStarLibrary
                         ImGui.EndTable();
                     }
 
-                    ImGui.EndMenu();
+                    ImGui.TreePop();
                 }
                 
             }
@@ -800,7 +807,7 @@ namespace RedStarLibrary
             if (ImGui.Button("Add Area Parameter", btnSize))
                 CurrentMapScene.GraphicsArea.AddNewParam();
 
-            if (ImGui.BeginChild("AreaParamChild", new System.Numerics.Vector2(ImGui.GetContentRegionAvail().X, 150), true))
+            if (ImGui.BeginChild("AreaParamChild", ImGui.GetContentRegionAvail(), true))
             {
                 List<StageGraphicsArea.AreaParam> removeParams = new List<StageGraphicsArea.AreaParam>();
 
@@ -848,37 +855,53 @@ namespace RedStarLibrary
             }
         }
 
-        /// <summary>
-        /// When an asset item from the asset windows gets dropped into the editor.
-        /// You can configure your own asset category from the asset window and make custom asset items to drop into.
-        /// </summary>
-        public override void AssetViewportDrop(AssetItem item, Vector2 screenPosition)
+        private void ShowStageDumpDialog()
         {
-            //viewport context
-            var context = GLContext.ActiveContext;
+            var dlg = new ImguiFolderDialog();
+            dlg.Title = "Select Stage Folder Output";
 
-            //Screen coords can be converted into 3D space
-            //By default it will spawn in the mouse position at a distance
-            Vector3 position = context.ScreenToWorld(screenPosition.X, screenPosition.Y, 100);
-            //Collision dropping can be used to drop these assets to the ground from CollisionCaster
-            if (context.EnableDropToCollision)
+            if (dlg.ShowDialog())
             {
-                Quaternion rot = Quaternion.Identity;
-                CollisionDetection.SetObjectToCollision(context, context.CollisionCaster, screenPosition, ref position, ref rot);
+                var stageActors = CurrentMapScene.GetLoadedActors();
+
+                var stageDumpPath = Path.Combine(dlg.SelectedPath, PlacementFileName);
+                if (!Directory.Exists(stageDumpPath))
+                    Directory.CreateDirectory(stageDumpPath);
+
+                Dictionary<string, dynamic> stageData = new Dictionary<string, dynamic>();
+                Dictionary<string, dynamic> positionData = new Dictionary<string, dynamic>();
+                stageData.Add("PlacementInfo", positionData);
+
+                List<string> exportedModels = new List<string>();
+                stageData.Add("ExportedModels", exportedModels);
+
+                foreach (var actor in stageActors.Where(e => e.GetEditObj() is BfresRender))
+                {
+                    var placementInfo = actor.Placement;
+                    var collectionName = $"{actor.ArchiveName}_{placementInfo.Id}";
+
+                    Console.WriteLine("Adding Placement Info for: " + collectionName);
+
+                    positionData.Add(collectionName, new Dictionary<string, dynamic>()
+                        {
+                            {"Position", placementInfo.Translate.ToDict() },
+                            {"Rotation", placementInfo.Rotate.ToDict() },
+                            {"Scale", placementInfo.Scale.ToDict() }
+                        });
+
+                    if (!exportedModels.Contains(actor.ArchiveName))
+                    {
+                        Console.WriteLine("Dumping Model: " + actor.ArchiveName);
+                        actor.TryExportModel(stageDumpPath);
+                        exportedModels.Add(actor.ArchiveName);
+                    }
+                }
+                File.WriteAllText(Path.Combine(stageDumpPath, PlacementFileName + ".json"), JsonSerializer.Serialize(stageData, new JsonSerializerOptions() { WriteIndented = true }));
+
+                FileUtility.OpenFolder(stageDumpPath);
             }
-
-            if(item is AssetMenu.LiveActorAsset actorAsset)
-                CurrentMapScene.AddActorFromAsset(this, position, actorAsset);
         }
 
-        /// <summary>
-        /// Checks for dropped files to use for the editor.
-        /// If the value is true, the file will not be loaded as an editor if supported.
-        /// </summary>
-        public override bool OnFileDrop(string filePath)
-        {
-            return false;
-        }
 
         //public void AddActorToRender(LiveActor actor)
         //{

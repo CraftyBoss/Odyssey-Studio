@@ -112,6 +112,9 @@ namespace CafeLibrary.Rendering
 
         public BFRES BfresFile;
 
+        public bool IsRenderBoundingBox = true;
+        public bool IsSetPickingColor = true;
+
         public BfresRender() { }
 
         public BfresRender(BFRES bfres)
@@ -268,7 +271,7 @@ namespace CafeLibrary.Rendering
                 if (model.IsVisible)
                     model.Draw(control, pass, this);
 
-            if (Runtime.RenderBoundingBoxes)
+            if (Runtime.RenderBoundingBoxes && IsRenderBoundingBox)
                 DrawBoundings(control);
 
             GL.Enable(EnableCap.CullFace);
@@ -407,7 +410,7 @@ namespace CafeLibrary.Rendering
             var shader = GlobalShaders.GetShader("PICKING");
             control.CurrentShader = shader;
 
-            if (!MeshPicking)
+            if (!MeshPicking && IsSetPickingColor)
                 control.ColorPicker.SetPickingColor(this, shader);
 
             foreach (BfresModelRender model in Models)
