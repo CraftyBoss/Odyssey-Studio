@@ -1,11 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Toolbox.Core;
 using MapStudio.UI;
-using GLFrameworkEngine;
 using UIFramework;
 using RedStarLibrary.UI;
 using Toolbox.Core.IO;
@@ -13,8 +10,8 @@ using System.IO;
 using ImGuiNET;
 using System.Drawing;
 using System.Numerics;
-using System.IO.Pipes;
-using CafeLibrary;
+using RedStarLibrary.MapData;
+using RedStarLibrary.Extensions;
 
 namespace RedStarLibrary
 {
@@ -28,6 +25,10 @@ namespace RedStarLibrary
 
         private SwitchFileUploader Uploader = new SwitchFileUploader();
 
+        private WorldList worldSelectorList = new WorldList();
+        private bool isLoadedWorldList = false;
+        private bool filterDemoStages = true;
+
         public Plugin()
         {
             PluginConfig.Load();
@@ -36,6 +37,7 @@ namespace RedStarLibrary
 
             //var fileMenu = Framework.MainWindow.MenuItems.First(e=> e.Header == "File");
 
+            Framework.MainWindow.MenuItems.Add(new MenuItem("Stage Select", ShowWorldSelectDialog));
             Framework.MainWindow.MenuItems.Add(new MenuItem("Upload Menu", ShowUploadFileDialog));
         }
 
@@ -125,9 +127,70 @@ namespace RedStarLibrary
             }
         }
 
+        private void DrawWorldSelectorMenu()
+        {
+            if(!isLoadedWorldList)
+            {
+                var worldListSarc = ResourceManager.FindOrLoadSARC(Path.Combine("SystemData", "WorldList.szs"));
+
+                worldSelectorList.DeserializeByml(new HakoniwaByml.Iter.BymlIter(worldListSarc.GetFileStream("WorldListFromDb.byml").ToArray()));
+
+                isLoadedWorldList = true;
+            }
+
+            ImGui.Checkbox("Show Demo Stages", ref filterDemoStages);
+
+            if(ImGui.BeginChild("WorldListWindow"))
+            {
+                foreach (var kingdomEntry in worldSelectorList.WorldEntries)
+                {
+                    var stageName = kingdomEntry.StageName;
+
+                    IEnumerable<WorldList.Entry.StageEntry> filteredStageList;
+                    if (filterDemoStages)
+                        filteredStageList = kingdomEntry.StageList.Where(stageEntry => stageEntry.name != stageName && !stageEntry.name.StartsWith("Demo"));
+                    else
+                        filteredStageList = kingdomEntry.StageList.Where(stageEntry => stageEntry.name != stageName);
+
+                    if (filteredStageList.Any())
+                    {
+                        bool treeOpen = ImGui.TreeNode(kingdomEntry.WorldName + " Kingdom");
+                        ImGui.SameLine();
+                        if (ImGui.Button("Open Kingdom"))
+                            Framework.QueueWindowFileDrop(ResourceManager.FindResourcePath(Path.Combine("StageData", $"{stageName}Map.szs")));
+
+                        if (treeOpen)
+                        {
+                            foreach (var stageEntry in filteredStageList)
+                            {
+                                ImGui.Bullet();
+                                if (ImGui.Selectable(stageEntry.name))
+                                    Framework.QueueWindowFileDrop(ResourceManager.FindResourcePath(Path.Combine("StageData", $"{stageEntry.name}Map.szs")));
+                            }
+
+                            ImGui.TreePop();
+                        }
+                    }
+                    else
+                    {
+                        ImGui.Bullet();
+                        if (ImGui.Selectable(kingdomEntry.WorldName + " Kingdom"))
+                            Framework.QueueWindowFileDrop(ResourceManager.FindResourcePath(Path.Combine("StageData", $"{stageName}Map.szs")));
+                    }
+                }
+
+                ImGui.EndChild();
+            }
+        }
+
         private void ShowUploadFileDialog()
         {
             DialogHandler.Show("FTP Menu", 500, 400, DrawFTPMenu, (result) => { });
+        }
+
+        private void ShowWorldSelectDialog()
+        {
+            DialogHandler.Show("Stage Selector", 500, 400, DrawWorldSelectorMenu, (result) => { });
         }
 
         public static Stream SaveFileFormat(IFileFormat fileFormat)

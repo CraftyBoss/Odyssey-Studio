@@ -1,14 +1,9 @@
 ﻿using HakoniwaByml.Iter;
 using HakoniwaByml.Writer;
-using Newtonsoft.Json.Linq;
 using OpenTK;
-using RedStarLibrary.GameTypes;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace RedStarLibrary.Helpers
 {

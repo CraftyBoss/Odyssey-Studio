@@ -2,7 +2,6 @@
 using HakoniwaByml.Writer;
 using OpenTK;
 using RedStarLibrary.Interfaces;
-using System;
 using System.Collections.Generic;
 using System.Linq;
 

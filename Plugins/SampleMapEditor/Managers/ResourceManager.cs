@@ -1,15 +1,9 @@
-﻿using BfresLibrary;
-using CafeLibrary;
+﻿using CafeLibrary;
 using CafeLibrary.Rendering;
 using GLFrameworkEngine;
-using RedStarLibrary.Extensions;
 using RedStarLibrary.Helpers;
-using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Toolbox.Core;
 using Toolbox.Core.IO;
 
@@ -62,7 +56,10 @@ namespace RedStarLibrary
 
         public static SARC FindOrLoadSARC(string sarcPath)
         {
-            if(File.Exists(sarcPath))
+            if (!File.Exists(sarcPath))
+                sarcPath = FindResourcePath(sarcPath);
+
+            if (!string.IsNullOrWhiteSpace(sarcPath) && File.Exists(sarcPath))
             {
                 string arcName = Path.GetFileNameWithoutExtension(sarcPath);
 
@@ -74,7 +71,8 @@ namespace RedStarLibrary
                 }
 
                 return LoadedSARCS[arcName];
-            }else
+            }
+            else
                 return null;
         }
 

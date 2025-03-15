@@ -1,11 +1,6 @@
 ﻿using CafeLibrary;
 using MapStudio.UI;
-using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Toolbox.Core;
 
 namespace RedStarLibrary.Extensions

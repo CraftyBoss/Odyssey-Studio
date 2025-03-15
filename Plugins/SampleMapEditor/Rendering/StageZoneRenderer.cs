@@ -1,23 +1,19 @@
 ﻿
 using CafeLibrary.Rendering;
 using GLFrameworkEngine;
-using IONET.Collada.FX.Shaders;
 using OpenTK;
 using OpenTK.Graphics.OpenGL;
 using RedStarLibrary.Extensions;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Toolbox.Core.ViewModels;
 
 namespace RedStarLibrary.Rendering
 {
     public class StageZoneRenderer : GenericRenderer, IColorPickable, ITransformableObject
     {
-        private class ZoneRenderEntry
+        public class ZoneRenderEntry
         {
             public Vector3 LocalPosition;
             public Vector3 LocalRotation;
@@ -53,10 +49,13 @@ namespace RedStarLibrary.Rendering
         private BoundingNode _boundingNode;
         public override BoundingNode BoundingNode => _boundingNode;
 
-        private List<ZoneRenderEntry> ZoneDrawers;
-        public StageZoneRenderer(NodeBase parent = null) : base(parent)
+        public List<ZoneRenderEntry> ZoneDrawers { get; private set; }
+
+        public StageZoneRenderer(string zoneName, NodeBase parent = null) : base(parent)
         {
             ZoneDrawers = new();
+
+            Name = zoneName;
 
             Transform.TransformUpdated += OnParentTransformChange;
         }
@@ -147,6 +146,13 @@ namespace RedStarLibrary.Rendering
             Transform.PropertyChanged += delegate {
                 _boundingNode.UpdateTransform(Transform.TransformMatrix);
             };
+        }
+
+        public void DumpModels(string path)
+        {
+            string outPath = Path.Combine(path, Name);
+            foreach (var drawer in ZoneDrawers)
+                drawer.BfresRender.ExportModel(outPath, drawer.BfresRender.Name);
         }
         private void DrawBoundings(GLContext context)
         {

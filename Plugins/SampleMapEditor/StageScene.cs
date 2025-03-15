@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Drawing;
 using GLFrameworkEngine;
 using OpenTK;
 using Toolbox.Core.ViewModels;
@@ -10,21 +9,13 @@ using System.IO;
 using CafeLibrary;
 using Toolbox.Core.IO;
 using Toolbox.Core;
-using ByamlExt.Byaml;
 using RedStarLibrary.GameTypes;
-using RedStarLibrary.Rendering.Area;
-using ImGuiNET;
 using RedStarLibrary.MapData;
 using RedStarLibrary.Extensions;
 using HakoniwaByml.Iter;
 using HakoniwaByml.Writer;
 using System.Linq;
-using RedStarLibrary.Helpers;
-using Discord;
-using static Toolbox.Core.GX.DisplayListHelper;
 using RedStarLibrary.MapData.Graphics;
-using static RedStarLibrary.MapData.Graphics.StageGraphicsArea;
-using Octokit;
 
 namespace RedStarLibrary
 {

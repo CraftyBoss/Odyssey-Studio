@@ -1,10 +1,6 @@
 ﻿using HakoniwaByml.Iter;
 using RedStarLibrary.MapData.Camera.CameraParams;
-using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace RedStarLibrary.MapData.Camera
 {

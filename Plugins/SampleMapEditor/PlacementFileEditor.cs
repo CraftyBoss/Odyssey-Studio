@@ -436,14 +436,10 @@ namespace RedStarLibrary
 
         private void LoadWorldList()
         {
-            string worldListPath = ResourceManager.FindResourcePath(Path.Combine("SystemData", "WorldList.szs"));
+            var worldListSarc = ResourceManager.FindOrLoadSARC(Path.Combine("SystemData", "WorldList.szs"));
 
-            if (!File.Exists(worldListPath))
-                throw new FileNotFoundException("Failed to find World List file at path: " + worldListPath);
-
-            worldListSarc = new SARC();
-            worldListSarc.Load(new MemoryStream(YAZ0.Decompress(worldListPath)));
-
+            if (worldListSarc == null)
+                throw new FileNotFoundException("Failed to find World List file!");
         }
 
         private void LoadGraphicsData(string path)
@@ -875,19 +871,36 @@ namespace RedStarLibrary
                 List<string> exportedModels = new List<string>();
                 stageData.Add("ExportedModels", exportedModels);
 
-                foreach (var actor in stageActors.Where(e => e.GetEditObj() is BfresRender))
+                foreach (var actor in stageActors.Where(e => e.RenderMode == ActorRenderMode.Bfres || e.RenderMode == ActorRenderMode.Zone))
                 {
                     var placementInfo = actor.Placement;
                     var collectionName = $"{actor.ArchiveName}_{placementInfo.Id}";
 
                     Console.WriteLine("Adding Placement Info for: " + collectionName);
 
-                    positionData.Add(collectionName, new Dictionary<string, dynamic>()
+                    if (actor.RenderMode == ActorRenderMode.Zone)
+                    {
+                        var zoneRender = actor.GetZoneRenderer();
+
+                        int idx = 0;
+                        foreach (var entry in zoneRender.ZoneDrawers)
+                        {
+                            positionData.Add($"{actor.ArchiveName}_{entry.BfresRender.Name}[{idx++}]", new Dictionary<string, dynamic>()
+                            {
+                                {"Position", entry.LocalPosition.ToDict() },
+                                {"Rotation", entry.LocalRotation.ToDict() },
+                                {"Scale", entry.LocalScale.ToDict() }
+                            });
+                        }
+                    }else
+                    {
+                        positionData.Add(collectionName, new Dictionary<string, dynamic>()
                         {
                             {"Position", placementInfo.Translate.ToDict() },
                             {"Rotation", placementInfo.Rotate.ToDict() },
                             {"Scale", placementInfo.Scale.ToDict() }
                         });
+                    }
 
                     if (!exportedModels.Contains(actor.ArchiveName))
                     {

@@ -1,6 +1,4 @@
-﻿using CafeLibrary.Rendering;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
+﻿using Newtonsoft.Json;
 using RedStarLibrary.Extensions;
 using RedStarLibrary.GameTypes;
 using RedStarLibrary.JsonConverters;
@@ -8,8 +6,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Toolbox.Core;
 
 namespace RedStarLibrary

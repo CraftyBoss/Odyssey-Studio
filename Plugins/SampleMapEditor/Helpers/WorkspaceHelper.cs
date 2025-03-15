@@ -47,6 +47,6 @@ namespace RedStarLibrary.Helpers
             return activeEditor.CurrentMapScene;
         }
 
-        public static string WorkingDirectory => Directory.GetParent(Workspace.ActiveWorkspace.Resources.ProjectFile.WorkingDirectory).FullName;
+        public static string WorkingDirectory => Workspace.ActiveWorkspace != null ? Directory.GetParent(Workspace.ActiveWorkspace.Resources.ProjectFile.WorkingDirectory).FullName : string.Empty;
     }
 }

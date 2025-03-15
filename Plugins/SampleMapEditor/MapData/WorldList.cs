@@ -3,9 +3,6 @@ using HakoniwaByml.Writer;
 using RedStarLibrary.Interfaces;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Toolbox.Core;
 
 namespace RedStarLibrary.MapData
@@ -20,7 +17,7 @@ namespace RedStarLibrary.MapData
             public int ClearMainScenario = 0;
             public List<int> MainQuestInfo = new();
             public int MoonRockScenario = 0;
-            public string Name = "";
+            public string StageName = "";
             public int ScenarioNum = 0;
             public List<StageEntry> StageList = new();
             public string WorldName = "";
@@ -31,7 +28,7 @@ namespace RedStarLibrary.MapData
                 iter.TryGetValue("AfterEndingScenario", out AfterEndingScenario);
                 iter.TryGetValue("ClearMainScenario", out ClearMainScenario);
                 iter.TryGetValue("MoonRockScenario", out MoonRockScenario);
-                iter.TryGetValue("Name", out Name);
+                iter.TryGetValue("Name", out StageName);
                 iter.TryGetValue("ScenarioNum", out ScenarioNum);
                 iter.TryGetValue("WorldName", out WorldName);
 

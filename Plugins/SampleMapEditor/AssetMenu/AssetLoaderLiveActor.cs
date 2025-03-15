@@ -1,12 +1,9 @@
 ﻿using ImGuiNET;
 using MapStudio.UI;
-using RedStarLibrary.GameTypes;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Toolbox.Core;
 
 namespace RedStarLibrary.AssetMenu

@@ -1,12 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using ImGuiNET;
 using MapStudio.UI;
-using System.Numerics;
-using Newtonsoft.Json.Linq;
 
 namespace RedStarLibrary
 {

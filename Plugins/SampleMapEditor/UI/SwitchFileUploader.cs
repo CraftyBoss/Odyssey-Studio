@@ -2,7 +2,6 @@
 using System.IO;
 using System;
 using System.Threading.Tasks;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace RedStarLibrary.UI;
 public class FtpInfo

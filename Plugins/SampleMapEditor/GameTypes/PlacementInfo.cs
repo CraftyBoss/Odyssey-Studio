@@ -1,16 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using CafeLibrary;
-using ByamlExt.Byaml;
 using OpenTK;
 using RedStarLibrary.MapData;
 using Toolbox.Core;
 using HakoniwaByml.Iter;
 using HakoniwaByml.Writer;
-using System.Collections;
 
 namespace RedStarLibrary.GameTypes
 {

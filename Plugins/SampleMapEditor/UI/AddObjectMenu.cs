@@ -1,15 +1,11 @@
 ﻿using ImGuiNET;
 using MapStudio.UI;
-using Newtonsoft.Json.Linq;
 using RedStarLibrary.GameTypes;
-using RedStarLibrary.MapData.Graphics;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Numerics;
-using Toolbox.Core;
-using UIFramework;
 
 namespace RedStarLibrary.UI
 {

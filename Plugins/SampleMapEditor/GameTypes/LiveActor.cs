@@ -4,8 +4,6 @@ using GLFrameworkEngine;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using OpenTK;
-using OpenTK.Graphics.OpenGL;
 using Toolbox.Core.ViewModels;
 using CafeLibrary.Rendering;
 using MapStudio.UI;
@@ -15,13 +13,9 @@ using Toolbox.Core;
 using ImGuiNET;
 using RedStarLibrary.Rendering;
 using RedStarLibrary.MapData;
-using BfresLibrary;
-using CafeLibrary.ModelConversion;
 using RedStarLibrary.Extensions;
 using UIFramework;
-using Newtonsoft.Json.Linq;
 using RedStarLibrary.Helpers;
-using System.IO.Pipes;
 
 namespace RedStarLibrary.GameTypes
 {
@@ -319,7 +313,7 @@ namespace RedStarLibrary.GameTypes
 
             Console.WriteLine($"Creating Zone Render of Actor: {Placement.Id} {Placement.UnitConfigName}");
 
-            var zoneRenderer = new StageZoneRenderer();
+            var zoneRenderer = new StageZoneRenderer(Placement.ObjectName);
 
             objectRender = zoneRenderer;
             RenderMode = ActorRenderMode.Zone;
@@ -405,31 +399,9 @@ namespace RedStarLibrary.GameTypes
         public bool TryExportModel(string outPath)
         {
             if (objectRender is BfresRender bfresRender)
-            {
-                outPath = Path.Combine(outPath, ArchiveName);
-                if (!Directory.Exists(outPath))
-                    Directory.CreateDirectory(outPath);
-                else // dont bother re-dumping if the model folder is already present
-                    return true;
-
-                var resFile = bfresRender.ResFile;
-
-                if (resFile == null)
-                    throw new NullReferenceException();
-
-                foreach (var model in resFile.Models)
-                {
-                    var modelPath = Path.Combine(outPath, model.Key + ".dae");
-
-                    var scene = BfresModelExporter.FromGeneric(resFile, model.Value);
-                    IONET.IOManager.ExportScene(scene, modelPath, new IONET.ExportSettings() { });
-                }
-
-                foreach ((var texName, var arcTex) in bfresRender.Textures)
-                    arcTex.OriginalSource?.Export(Path.Combine(outPath, $"{texName}.png"), new TextureExportSettings());
-
-                return true;
-            }
+                return bfresRender.ExportModel(outPath, ArchiveName);
+            else if(objectRender is StageZoneRenderer zoneRender)
+                zoneRender.DumpModels(outPath);
             return false;
         }
 
@@ -488,6 +460,8 @@ namespace RedStarLibrary.GameTypes
         }
 
         public EditableObject GetEditObj() => objectRender;
+        public StageZoneRenderer GetZoneRenderer() => GetEditObj() as StageZoneRenderer;
+        public BfresRender GetBfresRender() => GetEditObj() as BfresRender;
 
         private List<string> GetUsedTextureNames()
         {
@@ -516,11 +490,11 @@ namespace RedStarLibrary.GameTypes
             objectRender.UINode.TagUI.UIDrawer += (o, e) => PropertyDrawer.Draw(Placement.ActorParams);
             objectRender.UINode.TagUI.UIDrawer += DrawLayerConfig;
 
-            if (RenderMode == ActorRenderMode.Bfres)
+            if (RenderMode == ActorRenderMode.Bfres || RenderMode == ActorRenderMode.Zone)
                 objectRender.UINode.TagUI.UIDrawer += DrawModelProperties;
-            else if (RenderMode == ActorRenderMode.Area)
+            if (RenderMode == ActorRenderMode.Area)
                 objectRender.UINode.TagUI.UIDrawer += DrawAreaProperties;
-            else if (RenderMode == ActorRenderMode.Zone)
+            if (RenderMode == ActorRenderMode.Zone)
                 objectRender.UINode.TagUI.UIDrawer += DrawZoneProperties;
 
             objectRender.Transform.TransformUpdated += delegate
@@ -568,7 +542,7 @@ namespace RedStarLibrary.GameTypes
                 float width = ImGui.GetWindowWidth();
                 var btnSize = new System.Numerics.Vector2(width, 22);
 
-                if (ImGui.Button("Open Model", btnSize))
+                if (RenderMode == ActorRenderMode.Bfres && ImGui.Button("Open Model", btnSize))
                     Framework.QueueWindowFileDrop(modelPath);
 
                 if (ImGui.Button("Export Model", btnSize))
@@ -579,7 +553,7 @@ namespace RedStarLibrary.GameTypes
                         TryExportModel(dlg.SelectedPath);
                 }
 
-                if (ImGui.Button("Reload Model", btnSize))
+                if (RenderMode == ActorRenderMode.Bfres && ImGui.Button("Reload Model", btnSize))
                 {
                     var arcName = !string.IsNullOrEmpty(Placement.ModelName) ? Placement.ModelName : Placement.UnitConfigName;
                     var arcPath = ResourceManager.FindResourcePath(Path.Combine("ObjectData", $"{arcName}.szs"));
@@ -739,8 +713,6 @@ namespace RedStarLibrary.GameTypes
             if (modelStream != null)
             {
                 LoadModel(modelARC, modelStream);
-
-                CreateBfresRenderer(modelStream, modelARC.GetTexArchive());
 
                 var fileStream = modelARC.GetInitFileStream("InitClipping");
 
