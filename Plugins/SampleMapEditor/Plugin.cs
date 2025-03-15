@@ -156,7 +156,7 @@ namespace RedStarLibrary
                     {
                         bool treeOpen = ImGui.TreeNode(kingdomEntry.WorldName + " Kingdom");
                         ImGui.SameLine();
-                        if (ImGui.Button("Open Kingdom"))
+                        if (ImGui.Button($"Open Kingdom##{kingdomEntry.WorldName}"))
                             Framework.QueueWindowFileDrop(ResourceManager.FindResourcePath(Path.Combine("StageData", $"{stageName}Map.szs")));
 
                         if (treeOpen)

@@ -200,7 +200,7 @@ namespace RedStarLibrary.Rendering
                     SetMaterialOptionsBlock(block);
                     break;
                 case "skel":
-                    SetBoneMatrixBlock(parentModel.ModelData.Skeleton, transform.TransformMatrix, bfresMesh.VertexSkinCount > 1, block, 170);
+                    SetBoneMatrixBlock(parentModel.ModelData.Skeleton, Matrix4.Identity, bfresMesh.VertexSkinCount > 1, block, 170);
                     break;
                 case "shape":
                     SetShapeUniforms(bfresMesh, meshBone.Transform, block);
