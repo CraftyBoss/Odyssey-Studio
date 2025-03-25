@@ -85,22 +85,24 @@ namespace CafeLibrary
 
         public static Tuple<int, byte[]> PackN(SarcData data, int _align = -1)
         {
-            int align = _align >= 0 ? _align : (int)GuessAlignment(data.Files);
+            var orderedFiles = data.Files.OrderBy((kvp) => SFATNode.GetHash(kvp.Key, SFATHeader.HashKeyValue)).ToDictionary();
 
-            int nodeArraySize = Unsafe.SizeOf<SFATNode>() * data.Files.Count;
+            int align = _align >= 0 ? _align : (int)GuessAlignment(orderedFiles);
+
+            int nodeArraySize = Unsafe.SizeOf<SFATNode>() * orderedFiles.Count;
 
             int fileDataSize = 0;
-            for (int i = 0; i < data.Files.Values.Count; i++)
+            for (int i = 0; i < orderedFiles.Values.Count; i++)
             {
-                var e = data.Files.Values.ElementAt(i);
+                var e = orderedFiles.Values.ElementAt(i);
 
-                if (i == data.Files.Count - 1)
+                if (i == orderedFiles.Count - 1)
                     fileDataSize += e.Length;
                 else
                     fileDataSize += alignUp(e.Length, (int)GuessFileAlignment(e));
             }
 
-            int strTableSize = data.Files.Keys.Select(e => alignUp(Encoding.UTF8.GetByteCount(e) + 1, 0x4)).Sum();
+            int strTableSize = orderedFiles.Keys.Select(e => alignUp(Encoding.UTF8.GetByteCount(e) + 1, 0x4)).Sum();
 
             int totalHeaderSize = Unsafe.SizeOf<SARCHeader>() + Unsafe.SizeOf<SFATHeader>() + Unsafe.SizeOf<SFNTHeader>();
             int totalFileSize = fileDataSize + strTableSize + nodeArraySize + totalHeaderSize;
@@ -126,7 +128,7 @@ namespace CafeLibrary
             {
                 magic = SFATHeader.MagicValue,
                 headerLength = (ushort)Unsafe.SizeOf<SFATHeader>(),
-                nodeCount = (ushort)data.Files.Count,
+                nodeCount = (ushort)orderedFiles.Count,
                 hashKey = SFATHeader.HashKeyValue
             };
             MemoryMarshal.Write(serializedData[offset..], sfatHeader);
@@ -139,7 +141,7 @@ namespace CafeLibrary
             int strTableStart = offset + nodeArraySize + Unsafe.SizeOf<SFNTHeader>();
             int dataOffset = (int)sarcHeader.dataStart;
 
-            foreach (var dataEntry in data.Files)
+            foreach (var dataEntry in orderedFiles)
             {
                 SFATNode node = new SFATNode()
                 {
