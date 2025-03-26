@@ -23,6 +23,7 @@ using RedStarLibrary.MapData.Graphics;
 using RedStarLibrary.UI;
 using UIFramework;
 using RedStarLibrary.UI.Windows;
+using RedStarLibrary.Schemas;
 
 
 namespace RedStarLibrary
@@ -79,8 +80,11 @@ namespace RedStarLibrary
         private string newLayerName = "";
         private bool isLayerEditTakeFocus = false;
 
+        private float scale = 75.0f;
+        private Vector3 blockCoordOffset = new Vector3(-0.5f, -53, -0.5f);
+        private Vector3 mapCoordOffset = new Vector3(0.0f, 3473.592f, 0.0f);
 
-        // misc
+		// misc
 
         private AddObjectMenu addObjMenu;
 
@@ -543,9 +547,28 @@ namespace RedStarLibrary
             //    });
             //}
 
+            if(ImGui.Button("Import Placement JSON", btnSize))
+            {
+                ImguiFileDialog dlg = new ImguiFileDialog();
+                dlg.FileName = Path.Combine(PluginConfig.ModPath, $"{PlacementFileName}.json");
+                dlg.AddFilter(".json", ".json");
+
+                if (dlg.ShowDialog())
+                    AddActorsFromJSON(dlg.FilePath);
+            }
+
             if(ImGui.Button("Dump Stage Models", btnSize))
                 ShowStageDumpDialog();
 
+            ImGui.InputFloat("MC to Map Scale", ref scale);
+
+            var offset = new System.Numerics.Vector3(blockCoordOffset.X, blockCoordOffset.Y, blockCoordOffset.Z);
+            if (ImGui.InputFloat3("Block Coord Offset", ref offset))
+                blockCoordOffset = new Vector3(offset.X, offset.Y, offset.Z);
+
+            offset = new System.Numerics.Vector3(mapCoordOffset.X, mapCoordOffset.Y, mapCoordOffset.Z);
+            if (ImGui.InputFloat3("Map Coord Offset", ref offset))
+                mapCoordOffset = new Vector3(offset.X, offset.Y, offset.Z);
         }
 
         public override void OnKeyDown(KeyEventInfo keyInfo)
@@ -849,6 +872,48 @@ namespace RedStarLibrary
 
                 ImGui.EndChild();
             }
+        }
+        
+        private void AddActorsFromJSON(string path)
+        {
+            ActorJSONData data = new ActorJSONData(path);
+
+            HashSet<string> unknownTypes = new HashSet<string>();
+            foreach (var actorEntry in data.ActorEntries)
+            {
+                if(!ActorJSONData.TypeTranslation.TryGetValue(actorEntry.Name, out string className))
+                {
+                    unknownTypes.Add(actorEntry.Name);
+                    continue;
+                }
+
+                Vector3 actorOffset = Vector3.Zero;
+                ActorJSONData.TypeOffsets.TryGetValue(actorEntry.Name, out actorOffset);
+
+                var newPos = ((actorEntry.Position + blockCoordOffset) * scale) + actorOffset + mapCoordOffset;
+
+                if (className == "ShineTowerRocket")
+                {
+                    var towerObj = CurrentMapScene.FindActorWithClass("PlayerStartInfoList", "ShineTowerRocket");
+                    if(towerObj != null)
+                    {
+                        towerObj.Transform.Position = newPos;
+                        continue;
+                    }
+                }
+
+                var databaseEntry = ActorDataBase.GetObjectFromDatabase(className, "Object");
+                if (databaseEntry == null)
+                    continue;
+
+                CurrentMapScene.AddActorFromAsset(this, newPos, new AssetMenu.LiveActorAsset(databaseEntry, className));
+            }
+
+            var prevColor = Console.ForegroundColor;
+            Console.ForegroundColor = ConsoleColor.Red;
+            foreach(var type in unknownTypes)
+                Console.WriteLine("Unknown Actor Type: " + type);
+            Console.ForegroundColor = prevColor;
         }
 
         private void ShowStageDumpDialog()
