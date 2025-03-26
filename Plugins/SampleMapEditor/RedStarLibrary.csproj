@@ -25,6 +25,9 @@
     <Reference Include="ByamlExt">
       <HintPath>..\..\Track Studio\Lib\ByamlExt.dll</HintPath>
     </Reference>
+    <Reference Include="CLMS">
+      <HintPath>..\..\Track Studio\Lib\CLMS.dll</HintPath>
+    </Reference>
     <Reference Include="ImGui.NET">
       <HintPath>..\..\Track Studio\Lib\ImGui.NET.dll</HintPath>
     </Reference>
