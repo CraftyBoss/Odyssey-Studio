@@ -63,7 +63,7 @@ namespace RedStarLibrary.GameTypes
         /// <summary>
         /// List of all Linked objects used by actor, separated by list categories
         /// </summary>
-        public Dictionary<string, List<PlacementInfo>> Links { get; set; } = new();
+        public List<PlacementList> Links { get; set; } = new();
         /// <summary>
         /// name of actor's model
         /// </summary>
@@ -165,12 +165,25 @@ namespace RedStarLibrary.GameTypes
             }
         }
 
+        public PlacementInfo(string className, string assetName, string actorCategory, string placementCategory = "Map")
+        {
+            UnitConfig = new PlacementUnitConfig();
+            ActorParams = new Dictionary<string, dynamic>();
+            isUseLinks = false;
+
+            ClassName = className;
+            ObjectName = assetName;
+            UnitConfig.PlacementTargetFile = placementCategory;
+            UnitConfig.GenerateCategory = actorCategory + "List";
+            ModelName = assetName;
+        }
+
         public PlacementInfo(PlacementInfo other)
         {
             Id = other.Id;
             IsLinkDest = other.IsLinkDest;
             LayerConfigName = other.LayerConfigName;
-            Links = Helpers.Placement.CopyNode(other.Links);
+            Links = new(); // Helpers.Placement.CopyNode(other.Links); // For now, don't copy links over from other info
             ModelName = other.ModelName;
             PlacementFileName = other.PlacementFileName;
             Rotate = other.Rotate;
@@ -194,7 +207,8 @@ namespace RedStarLibrary.GameTypes
             isSyncInfoToLayer = other.isSyncInfoToLayer;
             Array.Copy(other.activeLayers, activeLayers, activeLayers.Length);
 
-            loadedParams = Helpers.Placement.CopyNode(other.loadedParams);
+            if(other.loadedParams != null)
+                loadedParams = Helpers.Placement.CopyNode(other.loadedParams);
         }
 
         public void SetScenarioActive(int idx, bool active) => activeLayers[idx] = active;
@@ -204,6 +218,13 @@ namespace RedStarLibrary.GameTypes
             for (int i = 0; i < activeLayers.Length; i++)
                 activeLayers[i] = config.IsScenarioActive(i);
         }
+
+        public void SetActiveScenarios(PlacementInfo info)
+        {
+            for (int i = 0; i < activeLayers.Length; i++)
+                activeLayers[i] = info.IsScenarioActive(i);
+        }
+
         public bool IsScenariosMatch(bool[] activeList)
         {
             if(activeList.Length != activeLayers.Length) return false;
@@ -389,8 +410,9 @@ namespace RedStarLibrary.GameTypes
         {
             foreach ((var linkName, var placementListIter) in rootNode.As<BymlIter>())
             {
-                if (!Links.TryGetValue(linkName, out var placementList))
-                    Links.Add(linkName, placementList = new List<PlacementInfo>());
+                var placementList = Links.FirstOrDefault(e=> e.Name == linkName);
+                if (placementList == null)
+                    Links.Add(placementList = new PlacementList(linkName));
 
                 foreach (var subPlacementIter in placementListIter.AsArray<BymlIter>())
                     placementList.Add(new PlacementInfo(subPlacementIter));
@@ -401,12 +423,12 @@ namespace RedStarLibrary.GameTypes
         {
             BymlHash linkHash = new BymlHash();
 
-            foreach ((var linkName, var placementList) in Links)
+            foreach (var placementList in Links)
             {
                 var placementListIter = new BymlArray();
-                linkHash.Add(linkName, placementListIter);
+                linkHash.Add(placementList.Name, placementListIter);
 
-                foreach (var subPlacement in placementList)
+                foreach (var subPlacement in placementList.Placements)
                     placementListIter.Add(subPlacement.SerializeByml());
             }
 

@@ -1,4 +1,7 @@
-﻿using System.Collections;
+﻿using IONET.Collada.Core.Scene;
+using IONET.Collada.Kinematics.Kinematics_Models;
+using RedStarLibrary.MapData;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -10,10 +13,25 @@ namespace RedStarLibrary.GameTypes
         public string ActorListName;
         IList<LiveActor> _actorList;
 
+        public PlacementList ActorPlacements { get; set; } 
+
         public ActorList(string listName)
         {
             ActorListName = listName;
             _actorList = new List<LiveActor>();
+        }
+
+        public ActorList(PlacementList list) : this(list.Name)
+        {
+            ActorPlacements = list;
+        }
+
+        public ActorList(PlacementList list, StageScene scene) : this(list.Name)
+        {
+            foreach (var placement in list.Placements)
+                Add(scene.GetOrCreateLinkActor(placement));
+
+            ActorPlacements = list;
         }
 
         public LiveActor this[int index]
@@ -37,7 +55,12 @@ namespace RedStarLibrary.GameTypes
         public void Add(LiveActor actor)
         {
             if(actor != null)
+            {
                 _actorList.Add(actor);
+
+                if (ActorPlacements != null)
+                    ActorPlacements.Add(actor.Placement);
+            }
         }
 
         public void AddRange(IEnumerable<LiveActor> actors)

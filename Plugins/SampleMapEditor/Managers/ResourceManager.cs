@@ -105,7 +105,7 @@ namespace RedStarLibrary
 
         public static string FindResourceDirectory(string relativePath)
         {
-            if (File.Exists(Path.Combine(WorkspaceHelper.WorkingDirectory, relativePath)))
+            if (Directory.Exists(Path.Combine(WorkspaceHelper.WorkingDirectory, relativePath)))
                 return Path.Combine(WorkspaceHelper.WorkingDirectory, relativePath);
             if (Directory.Exists(Path.Combine(PluginConfig.ModPath, relativePath)))
                 return Path.Combine(PluginConfig.ModPath, relativePath);

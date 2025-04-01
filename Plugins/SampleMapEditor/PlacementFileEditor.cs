@@ -24,6 +24,7 @@ using RedStarLibrary.UI;
 using UIFramework;
 using RedStarLibrary.UI.Windows;
 using RedStarLibrary.Schemas;
+using static RedStarLibrary.MapData.Graphics.StageGraphicsArea;
 
 
 namespace RedStarLibrary
@@ -81,8 +82,8 @@ namespace RedStarLibrary
         private bool isLayerEditTakeFocus = false;
 
         private float scale = 75.0f;
-        private Vector3 blockCoordOffset = new Vector3(-0.5f, -53, -0.5f);
-        private Vector3 mapCoordOffset = new Vector3(0.0f, 3473.592f, 0.0f);
+        private Vector3 blockCoordOffset = new Vector3(5.5f, -70.5f, 1.5f);
+        private Vector3 mapCoordOffset = new Vector3(0.0f, 0.0f, 0.0f);
 
 		// misc
 
@@ -116,17 +117,35 @@ namespace RedStarLibrary
             //    return;
             //}
 
-            //foreach (var stageFilePath in Directory.GetFiles(ResourceManager.FindResourcePath($"StageData"), "*Map.szs"))
+            //var dlg = new ImguiFolderDialog();
+            //dlg.ShowDialog();
+            //foreach (var stageFilePath in Directory.GetFiles(ResourceManager.FindResourceDirectory($"StageData"), "*Design.szs"))
             //{
-            //    SarcData stageSarc = new SarcData();
-            //    var cameraParamData = SARC.TryGetFile(stageFilePath, "CameraParam.byml");
-            //    if (cameraParamData.Length == 0)
+            //    var stageName = Path.GetFileNameWithoutExtension(stageFilePath);
+            //    SARC stageSarc = new SARC();
+            //    stageSarc.Load(new MemoryStream(YAZ0.Decompress(stageFilePath)));
+
+            //    var bymlStream = stageSarc.GetFileStream(stageName + ".byml");
+
+            //    if (bymlStream == null)
             //        continue;
-            //    var cameraParamIter = new BymlIter(cameraParamData);
-            //    var cameraParam = new CameraParam();
-            //    cameraParam.DeserializeByml(cameraParamIter);
+
+            //    var stageByml = new BymlIter(bymlStream.ToArray());
+            //    if (!stageByml.Iterable)
+            //        continue;
+
+            //    File.WriteAllText(Path.Combine(dlg.SelectedPath, stageName + ".yaml"), stageByml.ToYaml());
+
+            //    //SarcData stageSarc = new SarcData();
+            //    //var cameraParamData = SARC.TryGetFile(stageFilePath, "CameraParam.byml");
+            //    //if (cameraParamData.Length == 0)
+            //    //    continue;
+            //    //var cameraParamIter = new BymlIter(cameraParamData);
+            //    //var cameraParam = new CameraParam();
+            //    //cameraParam.DeserializeByml(cameraParamIter);
             //}
             //File.WriteAllText("FoundParams.json", JsonSerializer.Serialize(TempCameraParamCollection, new JsonSerializerOptions() { WriteIndented = true, Encoder = JavaScriptEncoder.Create(UnicodeRanges.All)}));
+            //return;
 
             //Set the game shader
             BfresLoader.TargetShader = typeof(SMORenderer);
@@ -350,6 +369,13 @@ namespace RedStarLibrary
             return false;
         }
 
+        public void AddNewLinkedObject(NodeBase linkTarget)
+        {
+            CurrentMapScene.LinkTarget = linkTarget;
+
+            OpenAddObjectMenu();
+        }
+
         // Iterates through every stage located within the users provided dump directory and creates a database with all objects found within the stages.
         private void GenerateActorDataBase()
         {
@@ -524,6 +550,9 @@ namespace RedStarLibrary
             if (ImGui.Button("Reload Scene", btnSize))
                 CurrentMapScene.RestartScene(this);
 
+            if(ImGui.Button("Open Graphics Preset Archive", btnSize))
+                Framework.QueueWindowFileDrop(ResourceManager.FindResourcePath(Path.Combine("SystemData", "GraphicsPreset.szs")));
+
             //if(ImGui.Button("Open Stage Settings", btnSize))
             //{
             //    DialogHandler.Show("Stage Settings", 500, 400, () => {
@@ -547,7 +576,7 @@ namespace RedStarLibrary
             //    });
             //}
 
-            if(ImGui.Button("Import Placement JSON", btnSize))
+            if (ImGui.Button("Import Placement JSON", btnSize))
             {
                 ImguiFileDialog dlg = new ImguiFileDialog();
                 dlg.FileName = Path.Combine(PluginConfig.ModPath, $"{PlacementFileName}.json");
@@ -826,7 +855,7 @@ namespace RedStarLibrary
             if (ImGui.Button("Add Area Parameter", btnSize))
                 CurrentMapScene.GraphicsArea.AddNewParam();
 
-            if (ImGui.BeginChild("AreaParamChild", ImGui.GetContentRegionAvail(), true))
+            if (ImGui.BeginChild("AreaParamChild", new System.Numerics.Vector2(ImGui.GetContentRegionAvail().X, 300)))
             {
                 List<StageGraphicsArea.AreaParam> removeParams = new List<StageGraphicsArea.AreaParam>();
 
@@ -863,6 +892,19 @@ namespace RedStarLibrary
                         ImGui.InputInt("Lerp Step", ref areaParam.LerpStep);
                         ImGui.InputInt("Lerp Step Out", ref areaParam.LerpStepOut);
 
+                        if(ImGui.Button("Export Preset Data"))
+                        {
+                            var dlg = new ImguiFolderDialog();
+
+                            if (dlg.ShowDialog())
+                            {
+                                var outPath = dlg.SelectedPath;
+
+                                foreach (var file in presetSarc.Files.Where(e => e.FileName.Contains(areaParam.PresetName)))
+                                    File.WriteAllBytes(Path.Combine(outPath, file.FileName), file.FileData.ToArray());
+                            }
+                        }
+
                         ImGui.TreePop();
                     }
                 }
@@ -871,6 +913,39 @@ namespace RedStarLibrary
                     CurrentMapScene.GraphicsArea.ParamArray.Remove(removeParam);
 
                 ImGui.EndChild();
+            }
+
+            ImGuiHelper.BoldText("Graphics Preset Parameters");
+            ImGui.Separator();
+
+            if(ImGui.Button("Import Custom Preset"))
+            {
+                var dlg = new ImguiFileDialog();
+                dlg.MultiSelect = true;
+                dlg.FileName = WorkspaceHelper.WorkingDirectory;
+
+                if (dlg.ShowDialog())
+                {
+                    foreach (var filePath in dlg.FilePaths)
+                    {
+                        var fileName = Path.GetFileName(filePath);
+
+                        if(!presetSarc.Files.Any(e=>e.FileName == fileName))
+                            presetSarc.AddFile(fileName, new FileStream(filePath, FileMode.Open));
+                    }
+                }
+
+                dlg.MultiSelect = false;
+                dlg.SaveDialog = true;
+                dlg.FileName = Path.Combine(WorkspaceHelper.WorkingDirectory, "GraphicsPreset.szs");
+
+                if (dlg.ShowDialog())
+                {
+                    using var presetStream = new MemoryStream();
+                    presetSarc.Save(presetStream);
+                    File.WriteAllBytes(dlg.FilePath, YAZ0.Compress(presetStream.ToArray(), Runtime.Yaz0CompressionLevel));
+                }
+
             }
         }
         
@@ -881,6 +956,9 @@ namespace RedStarLibrary
             HashSet<string> unknownTypes = new HashSet<string>();
             foreach (var actorEntry in data.ActorEntries)
             {
+                if (actorEntry.Name == "checkpoint")
+                    continue; // checkpoints aren't able to be done yet
+
                 if(!ActorJSONData.TypeTranslation.TryGetValue(actorEntry.Name, out string className))
                 {
                     unknownTypes.Add(actorEntry.Name);
@@ -903,10 +981,33 @@ namespace RedStarLibrary
                 }
 
                 var databaseEntry = ActorDataBase.GetObjectFromDatabase(className, "Object");
-                if (databaseEntry == null)
-                    continue;
 
-                CurrentMapScene.AddActorFromAsset(this, newPos, new AssetMenu.LiveActorAsset(databaseEntry, className));
+                if(databaseEntry == null)
+                    databaseEntry = ActorDataBase.GetObjectFromDatabase(className);
+
+                if (databaseEntry == null)
+                {
+                    var col = Console.ForegroundColor;
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("Failed to find Database Entry for ClassName: " + className);
+                    Console.ForegroundColor = col;
+
+                    continue;
+                }
+                    
+
+                var actor = CurrentMapScene.AddActorFromAsset(this, newPos, new AssetMenu.LiveActorAsset(databaseEntry, className));
+
+                if(ActorJSONData.TypeParams.TryGetValue(className, out var typeParams))
+                {
+                    foreach ((string paramName, var paramValue) in typeParams)
+                    {
+                        if(actor.Placement.ActorParams.ContainsKey(paramName))
+                            actor.Placement.ActorParams[paramName] = paramValue;
+                        else
+                            actor.Placement.ActorParams.Add(paramName, paramValue);
+                    }
+                }
             }
 
             var prevColor = Console.ForegroundColor;

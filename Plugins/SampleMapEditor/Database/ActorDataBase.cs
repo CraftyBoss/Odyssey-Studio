@@ -123,7 +123,7 @@ namespace RedStarLibrary
         {
             if(ObjDatabase != null)
             {
-                if(string.IsNullOrEmpty(databaseName))
+                if(string.IsNullOrWhiteSpace(category))
                     return ObjDatabase.FirstOrDefault(e => e.ClassName.Equals(databaseName) || e.Models.Contains(databaseName));
                 else
                     return ObjDatabase.FirstOrDefault(e => e.ActorCategory == category && (e.ClassName.Equals(databaseName) || e.Models.Contains(databaseName)));

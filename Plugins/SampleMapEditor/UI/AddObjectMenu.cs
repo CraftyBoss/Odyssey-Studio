@@ -24,6 +24,7 @@ namespace RedStarLibrary.UI
         private Dictionary<string, dynamic> curParams;
 
         private bool doesModelExist = false;
+        private bool isForceCreate = false;
 
         public AddObjectMenu() 
         {
@@ -61,12 +62,19 @@ namespace RedStarLibrary.UI
 
             if (curEntry != null)
                 DrawCurrentEntry();
+            else
+            {
+                if (!string.IsNullOrWhiteSpace(searchObjText))
+                    ImGui.Checkbox("Force Create Actor", ref isForceCreate);
+                else
+                    isForceCreate = false;
+            }
 
             ImGui.SetCursorPosX(ImGui.GetWindowWidth() - 212);
             ImGui.SetCursorPosY(ImGui.GetWindowHeight() - 35);
 
             bool cancel = ImGui.Button("Cancel", new Vector2(100, 23)); ImGui.SameLine();
-            bool applied = ImGui.Button("Ok", new Vector2(100, 23)) && curEntry != null;
+            bool applied = ImGui.Button("Ok", new Vector2(100, 23)) && (curEntry != null || isForceCreate);
 
             if (cancel)
                 DialogHandler.ClosePopup(false);
@@ -76,9 +84,19 @@ namespace RedStarLibrary.UI
 
         public PlacementInfo GetPlacementInfo()
         {
-            PlacementInfo info = new PlacementInfo(curEntry, curModelName);
+            PlacementInfo info;
 
-            info.ActorParams = Helpers.Placement.CopyNode(curParams);
+            string assetName = string.IsNullOrWhiteSpace(curModelName) ? curSelectedClass : curModelName;
+
+            if (curEntry != null)
+            {
+                info = new PlacementInfo(curEntry, assetName);
+                info.ActorParams = Helpers.Placement.CopyNode(curParams);
+            }
+            else if (isForceCreate)
+                info = new PlacementInfo(searchObjText, assetName, curSelectedCategory);
+            else
+                throw new Exception("Unable to create PlacementInfo with supplied info.");
 
             return info;
         }
@@ -87,6 +105,7 @@ namespace RedStarLibrary.UI
         {
             classList = ActorDataBase.GetClassNamesByCategory(curSelectedCategory);
             curEntry = null;
+            curParams = null;
             curModelName = string.Empty;
             curSelectedClass = string.Empty;
         }

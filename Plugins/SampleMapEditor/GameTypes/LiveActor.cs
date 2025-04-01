@@ -16,6 +16,8 @@ using RedStarLibrary.MapData;
 using RedStarLibrary.Extensions;
 using UIFramework;
 using RedStarLibrary.Helpers;
+using System.Linq;
+using static Toolbox.Core.Runtime;
 
 namespace RedStarLibrary.GameTypes
 {
@@ -127,7 +129,12 @@ namespace RedStarLibrary.GameTypes
 
             ArchiveName = actorName;
 
-            if (string.IsNullOrEmpty(path))
+            if (string.IsNullOrWhiteSpace(ArchiveName))
+            {
+
+            }
+
+            if (string.IsNullOrWhiteSpace(path))
                 modelPath = ResourceManager.FindResourcePath(Path.Combine("ObjectData", $"{ArchiveName}.szs"));
             else
                 modelPath = path;
@@ -146,9 +153,14 @@ namespace RedStarLibrary.GameTypes
             linkedObjs = new();
             destLinkObjs = new();
 
-            ArchiveName = !string.IsNullOrEmpty(info.ModelName) ? info.ModelName : info.UnitConfigName;
+            ArchiveName = !string.IsNullOrWhiteSpace(info.ModelName) ? info.ModelName : info.UnitConfigName;
 
-            if (string.IsNullOrEmpty(modelPath))
+            if (string.IsNullOrWhiteSpace(ArchiveName))
+            {
+
+            }
+
+            if (string.IsNullOrWhiteSpace(modelPath))
                 this.modelPath = ResourceManager.FindResourcePath(Path.Combine("ObjectData", $"{ArchiveName}.szs"));
             else
                 this.modelPath = modelPath;
@@ -320,7 +332,7 @@ namespace RedStarLibrary.GameTypes
 
             foreach (var zoneInfo in zoneStage.GetLoadedPlacementInfos())
             {
-                var actorModelName = !string.IsNullOrEmpty(zoneInfo.ModelName) ? zoneInfo.ModelName : zoneInfo.UnitConfigName;
+                var actorModelName = !string.IsNullOrWhiteSpace(zoneInfo.ModelName) ? zoneInfo.ModelName : zoneInfo.UnitConfigName;
                 var actorModelPath = ResourceManager.FindResourcePath(Path.Combine("ObjectData", $"{actorModelName}.szs"));
 
                 if (!File.Exists(actorModelPath))
@@ -356,43 +368,29 @@ namespace RedStarLibrary.GameTypes
         public void LoadLinks(StageScene scene)
         {
             foreach(var link in Placement.Links)
-            {
-                ActorList linkList = new(link.Key);
-                linkedObjs.Add(linkList);
-
-                foreach (var placementLink in link.Value)
-                    linkList.Add(scene.GetOrCreateLinkActor(placementLink));
-            }
+                linkedObjs.Add(new ActorList(link, scene));
         }
 
-        public void PlaceLinkedObjects(PlacementFileEditor loader)
+        public void PlaceLinkedObjects(PlacementFileEditor editor)
         {
-            if(Placement.isUseLinks)
+            var rootNode = GetRenderNode().UINode;
+
+            rootNode.ContextMenus.Add(new MenuItemModel("Add Link", () =>
             {
-                NodeBase rootLinkNode = new NodeBase("Links");
-                rootLinkNode.Icon = IconManager.LINK_ICON.ToString();
+                var newActorList = new ActorList(new PlacementList("NewActorLink"));
 
+                linkedObjs.Add(newActorList);
+                Placement.Links.Add(newActorList.ActorPlacements);
+
+                var node = AddLinkListToActorRender(newActorList, editor);
+                node.ActivateRename = true;
+                node.IsSelected = true;
+            }));
+
+            if (Placement.isUseLinks)
+            {
                 foreach (var linkList in linkedObjs)
-                {
-                    NodeBase linkNode = new NodeBase(linkList.ActorListName);
-
-                    foreach (var linkedActor in linkList)
-                    {
-                        linkNode.AddChild(linkedActor.GetRenderNode().UINode);
-
-                        if (!linkedActor.isPlaced)
-                        {
-                            loader.AddRender(linkedActor.GetDrawer());
-                            linkedActor.isPlaced = true;
-                        }
-
-                        linkedActor.PlaceLinkedObjects(loader);
-                    }
-
-                    rootLinkNode.AddChild(linkNode);
-                }
-
-                GetRenderNode().UINode.AddChild(rootLinkNode);
+                    AddLinkListToActorRender(linkList, editor);
             }
         }
 
@@ -463,6 +461,81 @@ namespace RedStarLibrary.GameTypes
         public StageZoneRenderer GetZoneRenderer() => GetEditObj() as StageZoneRenderer;
         public BfresRender GetBfresRender() => GetEditObj() as BfresRender;
 
+        public void UpdatePlacementLinkInfo()
+        {
+            Placement.Links = new();
+
+            Placement.isUseLinks = linkedObjs.Count > 0;
+
+            foreach (var actorList in linkedObjs)
+            {
+                var placeList = new PlacementList(actorList.ActorListName);
+                Placement.Links.Add(placeList);
+
+                foreach (var actor in actorList)
+                    placeList.Add(actor.Placement);
+            }
+        }
+
+        private NodeBase AddLinkListToActorRender(ActorList actorList, PlacementFileEditor editor)
+        {
+            var rootNode = GetRenderNode().UINode;
+
+            NodeBase linkNode = new NodeBase(actorList.ActorListName);
+            linkNode.CanRename = true;
+            linkNode.Tag = actorList;
+            linkNode.Icon = IconManager.LINK_ICON.ToString();
+
+            linkNode.ContextMenus.Add(new MenuItemModel("Rename", () => { linkNode.ActivateRename = true; }));
+            linkNode.ContextMenus.Add(new MenuItemModel(""));
+
+            linkNode.OnHeaderRenamed += delegate
+            {
+                actorList.ActorListName = linkNode.Header;
+                actorList.ActorPlacements.Name = linkNode.Header;
+            };
+
+            linkNode.ContextMenus.Add(new MenuItemModel("Remove", () =>
+            {
+                var targetList = linkedObjs.FirstOrDefault(e => e.ActorListName == actorList.ActorListName);
+
+                if(targetList != null)
+                {
+                    linkedObjs.Remove(targetList);
+                    Placement.Links.Remove(targetList.ActorPlacements);
+
+                    rootNode.Children.Remove(linkNode);
+                }
+            }));
+
+            linkNode.ContextMenus.Add(new MenuItemModel("Add Actor (New)", () =>
+            {
+                editor.AddNewLinkedObject(linkNode);
+            }));
+
+            linkNode.ContextMenus.Add(new MenuItemModel("Add Actor (Existing)", () =>
+            {
+
+            }));
+
+            foreach (var linkedActor in actorList)
+            {
+                linkNode.AddChild(linkedActor.GetRenderNode().UINode);
+
+                if (!linkedActor.isPlaced)
+                {
+                    editor.AddRender(linkedActor.GetDrawer());
+                    linkedActor.isPlaced = true;
+                }
+
+                linkedActor.PlaceLinkedObjects(editor);
+            }
+
+            rootNode.AddChild(linkNode);
+
+            return linkNode;
+        }
+
         private List<string> GetUsedTextureNames()
         {
             if (objectRender is not BfresRender bfresRender)
@@ -474,7 +547,13 @@ namespace RedStarLibrary.GameTypes
         private void UpdateRenderer()
         {
             objectRender.ParentUINode = parent;
+
             objectRender.UINode.Header = ArchiveName;
+
+            // failsafe if actor ends up with an empty name somehow
+            if (string.IsNullOrWhiteSpace(objectRender.UINode.Header))
+                objectRender.UINode.Header = Placement.ClassName;
+
             objectRender.UINode.Icon = IconManager.MESH_ICON.ToString();
             objectRender.UINode.Tag = this;
 
@@ -496,6 +575,18 @@ namespace RedStarLibrary.GameTypes
                 objectRender.UINode.TagUI.UIDrawer += DrawAreaProperties;
             if (RenderMode == ActorRenderMode.Zone)
                 objectRender.UINode.TagUI.UIDrawer += DrawZoneProperties;
+
+            objectRender.UINode.ContextMenus.Add(new MenuItemModel("Add Link", () =>
+            {
+                var newActorList = new ActorList(new PlacementList("NewActorLink"));
+
+                linkedObjs.Add(newActorList);
+                Placement.Links.Add(newActorList.ActorPlacements);
+
+                var node = AddLinkListToActorRender(newActorList, WorkspaceHelper.GetCurrentEditorLoader());
+                node.ActivateRename = true;
+                node.IsSelected = true;
+            }));
 
             objectRender.Transform.TransformUpdated += delegate
             {
@@ -555,7 +646,7 @@ namespace RedStarLibrary.GameTypes
 
                 if (RenderMode == ActorRenderMode.Bfres && ImGui.Button("Reload Model", btnSize))
                 {
-                    var arcName = !string.IsNullOrEmpty(Placement.ModelName) ? Placement.ModelName : Placement.UnitConfigName;
+                    var arcName = !string.IsNullOrWhiteSpace(Placement.ModelName) ? Placement.ModelName : Placement.UnitConfigName;
                     var arcPath = ResourceManager.FindResourcePath(Path.Combine("ObjectData", $"{arcName}.szs"));
 
                     if(File.Exists(arcPath)) {
