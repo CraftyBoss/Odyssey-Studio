@@ -42,7 +42,7 @@ namespace RedStarLibrary.Schemas
             { "lakitu", "JugemFishing" },
             { "wind", "AirCurrent" },
             { "hat-cloud", "CapAppearTargetStepA" },
-            { "wire", "ElectricWire" },
+            //{ "wire", "ElectricWire" },
             { "pipe", "Dokan" },
             { "uproot-spawner", "SenobiGeneratePoint" },
             { "glydon", "Kakku" },
@@ -51,9 +51,20 @@ namespace RedStarLibrary.Schemas
             { "princess_peach", "Peach" },
             { "rocket-flower", "RocketFlower" },
             { "hammer-bro", "HammerBrosPossessed" },
+            { "pan-bro", "HammerBrosPossessed" },
             { "bullet-bill-launcher", "KillerLauncher" },
             { "bowser-bomb-turret", "ReflectBombGenerator" },
             { "heart-life-up", "LifeMaxUpItem" },
+
+            //{ "water", "WaterArea" },
+            { "Qblock", "BlockQuestion" },
+
+            { "climbing-pole", "CapWorldHomePole000" },
+            { "cheep-cheep", "Pukupuku" },
+            { "parabones", "KaronWing" },
+            { "gushen", "Hosui" },
+            { "swinging-pole", "PoleGrabCeil" },
+            // vine and nut will be added manually
         };
 
         public static readonly Dictionary<string, Vector3> TypeOffsets = new()
@@ -74,7 +85,44 @@ namespace RedStarLibrary.Schemas
              {"rocket-flower", new Vector3(0, -40.0f, 0.0f) },
              {"bullet-bill-launcher", new Vector3(0, -50.0f, 0.0f) },
              {"heart-life-up", new Vector3(0, -30.0f, 0.0f) },
+             {"Qblock", new Vector3(0, -45.0f, 0.0f) },
             // {"binocular", new Vector3(0, -40.0f, 0.0f) },
+        };
+
+        public static readonly Dictionary<string, Dictionary<string, dynamic>> TypeParams = new()
+        {
+            {"Coin", new Dictionary<string, dynamic>
+            {
+                {"ShadowLength", 10.0f }
+            } },
+            {"CoinCirclePlacement", new Dictionary<string, dynamic>
+            {
+                {"ShadowLength", 10.0f }
+            } },
+            {"CoinRing", new Dictionary<string, dynamic>
+            {
+                {"ShadowLength", 10.0f }
+            } },
+            {"BlockQuestion", new Dictionary<string, dynamic>
+            {
+                {"ItemType", "Coin" },
+                {"ShadowLength", 10.0f }
+            } },
+            {"PoleGrabCeil", new Dictionary<string, dynamic>
+            {
+                {"IsConnectPose", false },
+                {"IsConnectToCollision", false },
+            } },
+            {"KaronWing", new Dictionary<string, dynamic>
+            {
+                {"IsWearingCap", false },
+            } },
+            {"PukuPuku", new Dictionary<string, dynamic>
+            {
+                {"IsRevive", true },
+                {"LightType", 1 },
+                {"MoveType", 1 },
+            } },
         };
 
         [JsonObject]

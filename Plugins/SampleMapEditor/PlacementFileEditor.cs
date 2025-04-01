@@ -80,8 +80,8 @@ namespace RedStarLibrary
         private bool isLayerEditTakeFocus = false;
 
         private float scale = 75.0f;
-        private Vector3 blockCoordOffset = new Vector3(-0.5f, -53, -0.5f);
-        private Vector3 mapCoordOffset = new Vector3(0.0f, 3473.592f, 0.0f);
+        private Vector3 blockCoordOffset = new Vector3(5.5f, -70.5f, 1.5f);
+        private Vector3 mapCoordOffset = new Vector3(0.0f, 0.0f, 0.0f);
 
 		// misc
 
@@ -506,7 +506,7 @@ namespace RedStarLibrary
             if(ImGui.Button("Open Graphics Preset Archive", btnSize))
                 Framework.QueueWindowFileDrop(ResourceManager.FindResourcePath(Path.Combine("SystemData", "GraphicsPreset.szs")));
 
-            if(ImGui.Button("Import Placement JSON", btnSize))
+            if (ImGui.Button("Import Placement JSON", btnSize))
             {
                 ImguiFileDialog dlg = new ImguiFileDialog();
                 dlg.FileName = Path.Combine(PluginConfig.ModPath, $"{PlacementFileName}.json");
@@ -980,6 +980,9 @@ namespace RedStarLibrary
             HashSet<string> unknownTypes = new HashSet<string>();
             foreach (var actorEntry in data.ActorEntries)
             {
+                if (actorEntry.Name == "checkpoint")
+                    continue; // checkpoints aren't able to be done yet
+
                 if(!ActorJSONData.TypeTranslation.TryGetValue(actorEntry.Name, out string className))
                 {
                     unknownTypes.Add(actorEntry.Name);
@@ -1002,10 +1005,33 @@ namespace RedStarLibrary
                 }
 
                 var databaseEntry = ActorDataBase.GetObjectFromDatabase(className, "Object");
-                if (databaseEntry == null)
-                    continue;
 
-                CurrentMapScene.AddActorFromAsset(this, newPos, new AssetMenu.LiveActorAsset(databaseEntry, className));
+                if(databaseEntry == null)
+                    databaseEntry = ActorDataBase.GetObjectFromDatabase(className);
+
+                if (databaseEntry == null)
+                {
+                    var col = Console.ForegroundColor;
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("Failed to find Database Entry for ClassName: " + className);
+                    Console.ForegroundColor = col;
+
+                    continue;
+                }
+                    
+
+                var actor = CurrentMapScene.AddActorFromAsset(this, newPos, new AssetMenu.LiveActorAsset(databaseEntry, className));
+
+                if(ActorJSONData.TypeParams.TryGetValue(className, out var typeParams))
+                {
+                    foreach ((string paramName, var paramValue) in typeParams)
+                    {
+                        if(actor.Placement.ActorParams.ContainsKey(paramName))
+                            actor.Placement.ActorParams[paramName] = paramValue;
+                        else
+                            actor.Placement.ActorParams.Add(paramName, paramValue);
+                    }
+                }
             }
 
             var prevColor = Console.ForegroundColor;
