@@ -16,6 +16,7 @@ using HakoniwaByml.Iter;
 using HakoniwaByml.Writer;
 using System.Linq;
 using RedStarLibrary.MapData.Graphics;
+using static Toolbox.Core.Runtime;
 
 namespace RedStarLibrary
 {
@@ -40,9 +41,9 @@ namespace RedStarLibrary
         /// The current Scenario selected for the loaded map.
         /// </summary>
         public int MapScenarioNo { get; set; } = 0;
+        public int CurrentObjectID { get; private set; } = 0;
         public bool IsUseClipDist { get; set; } = false;
         public string SelectedLayer { get; set; } = "Common";
-
         /// <summary>
         /// Category Name (ex: ObjectList) -> List of Actors in Layers (ex: Layer Common) -> List of Actors
         /// </summary>
@@ -50,12 +51,11 @@ namespace RedStarLibrary
         private ActorList LinkActors { get; set; } = new("LinkedObjects");
         private Dictionary<string, StageScene> MapZones { get; set; } = new();
 
-        public int CurrentObjectID = 0;
-
         #endregion
 
-
         #region Misc
+
+        public NodeBase LinkTarget = null;
 
         private List<LiveActor> copyBuffer = new();
 
@@ -204,7 +204,7 @@ namespace RedStarLibrary
             LoadRendersFromList(loader);
         }
 
-        public void AddActorFromAsset(PlacementFileEditor loader, Vector3 spawnPos, AssetMenu.LiveActorAsset asset)
+        public LiveActor AddActorFromAsset(PlacementFileEditor loader, Vector3 spawnPos, AssetMenu.LiveActorAsset asset)
         {
             var assetName = asset.Name;
 
@@ -214,7 +214,7 @@ namespace RedStarLibrary
             PlacementInfo actorPlacement = new PlacementInfo(asset.DatabaseEntry, assetName);
             actorPlacement.Translate = spawnPos;
 
-            AddActorFromPlacementInfo(loader, actorPlacement, SelectedLayer);
+            return AddActorFromPlacementInfo(loader, actorPlacement, SelectedLayer);
         }
 
         public bool TryAddActorByName(PlacementFileEditor loader, string className, Vector3 spawnPos = new Vector3(), string category = null)
@@ -237,7 +237,7 @@ namespace RedStarLibrary
 
         public LiveActor AddActorFromPlacementInfo(PlacementFileEditor loader, PlacementInfo actorPlacement, string actorLayer = "")
         {
-            if (string.IsNullOrEmpty(actorLayer))
+            if (string.IsNullOrWhiteSpace(actorLayer))
                 actorLayer = SelectedLayer;
 
             var objCategory = actorPlacement.UnitConfig.GenerateCategory;
@@ -245,45 +245,21 @@ namespace RedStarLibrary
             actorPlacement.LayerConfigName = SelectedLayer;
             actorPlacement.PlacementFileName = loader.PlacementFileName;
             actorPlacement.Id = "obj" + GetNextAvailableObjID();
+            actorPlacement.IsLinkDest = LinkTarget != null;
 
-            LayerList categoryLayers = GetOrCreateLayerList(objCategory);
-
-            LayerConfig placementLayer = categoryLayers.AddObjectToLayers(actorPlacement, MapScenarioNo);
-            actorPlacement.SetActiveScenarios(placementLayer);
-
-            NodeBase actorList = loader.Root.GetChild(objCategory);
-
-            if (actorList == null)
-            {
-                actorList = new NodeBase(objCategory);
-                actorList.HasCheckBox = true;
-                loader.Root.AddChild(actorList);
-                actorList.Icon = IconManager.FOLDER_ICON.ToString();
-
-                SceneActors.Add(objCategory, new Dictionary<string, List<LiveActor>>());
-            }
-
-            NodeBase layerActors = actorList.GetChild("Layer " + actorLayer);
-
-            if (layerActors == null)
-                layerActors = AddLayerToActorList(loader, actorList, actorLayer, objCategory);
-
-            LiveActor actor = LoadActorFromPlacement(actorPlacement, placementLayer);
-
-            actor.SetParentNode(layerActors);
+            LiveActor actor;
+            if(actorPlacement.IsLinkDest)
+                actor = CreateLinkedActor(actorPlacement);
+            else
+                actor = CreatePlacementActor(loader, objCategory, actorPlacement, actorLayer);
 
             actor.SetupRenderer();
 
-            if (actor.RenderMode != ActorRenderMode.Bfres)
-                actor.Placement.ModelName = ""; // if we didn't find a model to load, clear the model name
-
-            actor.ResetLinkedActors();
+            actor.isPlaced = true;
 
             loader.AddRender(actor.GetDrawer());
 
-            actor.isPlaced = true;
-
-            SceneActors[objCategory][SelectedLayer].Add(actor);
+            LinkTarget = null;
 
             return actor;
         }
@@ -425,6 +401,64 @@ namespace RedStarLibrary
             actor.SetupRenderer();
 
             LinkActors.Add(actor);
+
+            return actor;
+        }
+
+        private LiveActor CreatePlacementActor(PlacementFileEditor loader, string objCategory, PlacementInfo actorPlacement, string actorLayer)
+        {
+            LayerList categoryLayers = GetOrCreateLayerList(objCategory);
+
+            LayerConfig placementLayer = categoryLayers.AddObjectToLayers(actorPlacement, MapScenarioNo);
+            actorPlacement.SetActiveScenarios(placementLayer);
+
+            NodeBase actorList = loader.Root.GetChild(objCategory);
+
+            if (actorList == null)
+            {
+                actorList = new NodeBase(objCategory);
+                actorList.HasCheckBox = true;
+                loader.Root.AddChild(actorList);
+                actorList.Icon = IconManager.FOLDER_ICON.ToString();
+
+                SceneActors.Add(objCategory, new Dictionary<string, List<LiveActor>>());
+            }
+
+            NodeBase layerActors = actorList.GetChild("Layer " + actorLayer);
+
+            if (layerActors == null)
+                layerActors = AddLayerToActorList(loader, actorList, actorLayer, objCategory);
+
+            LiveActor actor = LoadActorFromPlacement(actorPlacement, placementLayer);
+
+            actor.SetParentNode(layerActors);
+
+            actor.ResetLinkedActors();
+
+            SceneActors[objCategory][SelectedLayer].Add(actor);
+
+            return actor;
+        }
+
+        private LiveActor CreateLinkedActor(PlacementInfo info)
+        {
+            var actor = new LiveActor(null, info);
+            var parentActor = LinkTarget.Parent.Tag as LiveActor;
+
+            actor.SetParentNode(LinkedActorsNode);
+            actor.SetupRenderer();
+
+            actor.Placement.SetActiveScenarios(parentActor.Placement);
+
+            actor.Transform.Position = parentActor.Transform.Position;
+
+            LinkActors.Add(actor);
+
+            var actorList = LinkTarget.Tag as ActorList;
+
+            actorList.Add(actor);
+
+            LinkTarget.AddChild(actor.GetRenderNode().UINode);
 
             return actor;
         }
@@ -732,7 +766,12 @@ namespace RedStarLibrary
                         globalList.GetLayerByName(actorId.LayerConfigName).SetScenarioActive(scenarioIdx, true);
                     }
                     else
+                    {
                         globalList.AddObjectToLayers(actorInfo = new PlacementInfo(actorIter), scenarioIdx);
+                        if (string.IsNullOrWhiteSpace(actorInfo.UnitConfig.GenerateCategory))
+                            actorInfo.UnitConfig.GenerateCategory = objCategory;
+                    }
+                        
 
                     if(int.TryParse(actorInfo.Id.Substring(3), out int objId))
                     {

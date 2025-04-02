@@ -21,7 +21,7 @@ namespace RedStarLibrary.MapData.Graphics
             public string PresetName = "Default";
             public string SuffixName = "";
 
-            public bool IsValid => !string.IsNullOrEmpty(PresetName) && !string.IsNullOrEmpty(AreaName);
+            public bool IsValid => !string.IsNullOrWhiteSpace(PresetName) && !string.IsNullOrWhiteSpace(AreaName);
 
             public AreaParam() { }
 
@@ -88,7 +88,7 @@ namespace RedStarLibrary.MapData.Graphics
         }
 
         public AreaParam TryGetDefaultAreaParam() => ParamArray.FirstOrDefault(e => e.AreaName == "DefaultArea");
-        public AreaParam TryGetScenarioParam(int scenIdx) => ParamArray.FirstOrDefault(e => e.AreaName == $"Scenario{scenIdx+1}");
+        public AreaParam TryGetScenarioParam(int scenIdx) => ParamArray.FirstOrDefault(e => e.AreaName == "DefaultArea" && e.SuffixName == $"Scenario{scenIdx+1}");
 
         public AreaParam AddNewParam()
         {

@@ -112,17 +112,35 @@ namespace RedStarLibrary
             //    return;
             //}
 
-            //foreach (var stageFilePath in Directory.GetFiles(ResourceManager.FindResourcePath($"StageData"), "*Map.szs"))
+            //var dlg = new ImguiFolderDialog();
+            //dlg.ShowDialog();
+            //foreach (var stageFilePath in Directory.GetFiles(ResourceManager.FindResourceDirectory($"StageData"), "*Design.szs"))
             //{
-            //    SarcData stageSarc = new SarcData();
-            //    var cameraParamData = SARC.TryGetFile(stageFilePath, "CameraParam.byml");
-            //    if (cameraParamData.Length == 0)
+            //    var stageName = Path.GetFileNameWithoutExtension(stageFilePath);
+            //    SARC stageSarc = new SARC();
+            //    stageSarc.Load(new MemoryStream(YAZ0.Decompress(stageFilePath)));
+
+            //    var bymlStream = stageSarc.GetFileStream(stageName + ".byml");
+
+            //    if (bymlStream == null)
             //        continue;
-            //    var cameraParamIter = new BymlIter(cameraParamData);
-            //    var cameraParam = new CameraParam();
-            //    cameraParam.DeserializeByml(cameraParamIter);
+
+            //    var stageByml = new BymlIter(bymlStream.ToArray());
+            //    if (!stageByml.Iterable)
+            //        continue;
+
+            //    File.WriteAllText(Path.Combine(dlg.SelectedPath, stageName + ".yaml"), stageByml.ToYaml());
+
+            //    //SarcData stageSarc = new SarcData();
+            //    //var cameraParamData = SARC.TryGetFile(stageFilePath, "CameraParam.byml");
+            //    //if (cameraParamData.Length == 0)
+            //    //    continue;
+            //    //var cameraParamIter = new BymlIter(cameraParamData);
+            //    //var cameraParam = new CameraParam();
+            //    //cameraParam.DeserializeByml(cameraParamIter);
             //}
             //File.WriteAllText("FoundParams.json", JsonSerializer.Serialize(TempCameraParamCollection, new JsonSerializerOptions() { WriteIndented = true, Encoder = JavaScriptEncoder.Create(UnicodeRanges.All)}));
+            //return;
 
             //Set the game shader
             BfresLoader.TargetShader = typeof(SMORenderer);
@@ -346,6 +364,13 @@ namespace RedStarLibrary
             return false;
         }
 
+        public void AddNewLinkedObject(NodeBase linkTarget)
+        {
+            CurrentMapScene.LinkTarget = linkTarget;
+
+            OpenAddObjectMenu();
+        }
+
         // Iterates through every stage located within the users provided dump directory and creates a database with all objects found within the stages.
         private void GenerateActorDataBase()
         {
@@ -519,6 +544,9 @@ namespace RedStarLibrary
 
             if (ImGui.Button("Reload Scene", btnSize))
                 CurrentMapScene.RestartScene(this);
+
+            if(ImGui.Button("Open Graphics Preset Archive", btnSize))
+                Framework.QueueWindowFileDrop(ResourceManager.FindResourcePath(Path.Combine("SystemData", "GraphicsPreset.szs")));
 
             //if(ImGui.Button("Open Stage Settings", btnSize))
             //{
@@ -803,7 +831,7 @@ namespace RedStarLibrary
             if (ImGui.Button("Add Area Parameter", btnSize))
                 CurrentMapScene.GraphicsArea.AddNewParam();
 
-            if (ImGui.BeginChild("AreaParamChild", ImGui.GetContentRegionAvail(), true))
+            if (ImGui.BeginChild("AreaParamChild", new System.Numerics.Vector2(ImGui.GetContentRegionAvail().X, 300)))
             {
                 List<StageGraphicsArea.AreaParam> removeParams = new List<StageGraphicsArea.AreaParam>();
 
@@ -840,6 +868,19 @@ namespace RedStarLibrary
                         ImGui.InputInt("Lerp Step", ref areaParam.LerpStep);
                         ImGui.InputInt("Lerp Step Out", ref areaParam.LerpStepOut);
 
+                        if(ImGui.Button("Export Preset Data"))
+                        {
+                            var dlg = new ImguiFolderDialog();
+
+                            if (dlg.ShowDialog())
+                            {
+                                var outPath = dlg.SelectedPath;
+
+                                foreach (var file in presetSarc.Files.Where(e => e.FileName.Contains(areaParam.PresetName)))
+                                    File.WriteAllBytes(Path.Combine(outPath, file.FileName), file.FileData.ToArray());
+                            }
+                        }
+
                         ImGui.TreePop();
                     }
                 }
@@ -848,6 +889,39 @@ namespace RedStarLibrary
                     CurrentMapScene.GraphicsArea.ParamArray.Remove(removeParam);
 
                 ImGui.EndChild();
+            }
+
+            ImGuiHelper.BoldText("Graphics Preset Parameters");
+            ImGui.Separator();
+
+            if(ImGui.Button("Import Custom Preset"))
+            {
+                var dlg = new ImguiFileDialog();
+                dlg.MultiSelect = true;
+                dlg.FileName = WorkspaceHelper.WorkingDirectory;
+
+                if (dlg.ShowDialog())
+                {
+                    foreach (var filePath in dlg.FilePaths)
+                    {
+                        var fileName = Path.GetFileName(filePath);
+
+                        if(!presetSarc.Files.Any(e=>e.FileName == fileName))
+                            presetSarc.AddFile(fileName, new FileStream(filePath, FileMode.Open));
+                    }
+                }
+
+                dlg.MultiSelect = false;
+                dlg.SaveDialog = true;
+                dlg.FileName = Path.Combine(WorkspaceHelper.WorkingDirectory, "GraphicsPreset.szs");
+
+                if (dlg.ShowDialog())
+                {
+                    using var presetStream = new MemoryStream();
+                    presetSarc.Save(presetStream);
+                    File.WriteAllBytes(dlg.FilePath, YAZ0.Compress(presetStream.ToArray(), Runtime.Yaz0CompressionLevel));
+                }
+
             }
         }
 
