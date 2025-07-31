@@ -18,6 +18,8 @@ using UIFramework;
 using RedStarLibrary.Helpers;
 using System.Linq;
 using static Toolbox.Core.Runtime;
+using System.Formats.Tar;
+using System.Numerics;
 
 namespace RedStarLibrary.GameTypes
 {
@@ -174,7 +176,14 @@ namespace RedStarLibrary.GameTypes
         public void SetParentNode(NodeBase parentNode)
         {
             parent = parentNode;
-            curStage = (parentNode.Tag as PlacementFileEditor).CurrentMapScene;
+
+            if(parentNode.Tag is PlacementFileEditor editor)
+                SetCurrentStage(editor.CurrentMapScene);
+        }
+
+        public void SetCurrentStage(StageScene stage)
+        {
+            curStage = stage;
         }
 
         public void SetupRenderer()
@@ -358,24 +367,18 @@ namespace RedStarLibrary.GameTypes
         public void LoadLinks(StageScene scene)
         {
             foreach(var link in Placement.Links)
-                linkedObjs.Add(new ActorList(link, scene));
+            {
+                var actorList = new ActorList(link);
+                linkedObjs.Add(actorList);
+
+                foreach (var placement in link)
+                    actorList.Add(scene.GetOrCreateLinkActor(placement));
+            }
         }
 
         public void PlaceLinkedObjects(PlacementFileEditor editor)
         {
             var rootNode = GetRenderNode().UINode;
-
-            rootNode.ContextMenus.Add(new MenuItemModel("Add Link", () =>
-            {
-                var newActorList = new ActorList(new PlacementList("NewActorLink"));
-
-                linkedObjs.Add(newActorList);
-                Placement.Links.Add(newActorList.ActorPlacements);
-
-                var node = AddLinkListToActorRender(newActorList, editor);
-                node.ActivateRename = true;
-                node.IsSelected = true;
-            }));
 
             if (Placement.isUseLinks)
             {
@@ -467,6 +470,46 @@ namespace RedStarLibrary.GameTypes
             }
         }
 
+        public void UpdatePlacementInfoForSave()
+        {
+            if(RenderMode == ActorRenderMode.Rail) // do manual serialization for rail actors
+            {
+                Placement.ActorParams["RailType"] = pathRender.InterpolationMode.ToString();
+                Placement.ActorParams["IsClosed"] = pathRender.Loop;
+
+                List<dynamic> railPoints = new();
+
+                int idx = 0;
+                foreach (var point in pathRender.PathPoints)
+                {
+                    PlacementInfo pointPlacement = new()
+                    {
+                        Id = $"{Placement.Id}/{idx++}",
+                        IsLinkDest = true,
+                        LayerConfigName = Placement.LayerConfigName,
+                        ModelName = null,
+                        Translate = point.Transform.Position,
+                        Rotate = point.Transform.RotationEulerDegrees,
+                        UnitConfigName = "Point"
+                    };
+                    pointPlacement.UnitConfig.DisplayName = pointPlacement.UnitConfigName;
+                    pointPlacement.UnitConfig.ParameterConfigName = pointPlacement.UnitConfigName;
+                    pointPlacement.UnitConfig.PlacementTargetFile = Placement.UnitConfig.PlacementTargetFile;
+
+                    List<dynamic> controlPoints = new()
+                    {
+                        Helpers.Placement.ConvertVectorToDict(point.ControlPoint1.Transform.Position),
+                        Helpers.Placement.ConvertVectorToDict(point.ControlPoint2.Transform.Position)
+                    };
+                    pointPlacement.ActorParams.Add("ControlPoints", controlPoints);
+
+                    railPoints.Add(pointPlacement.ConvertToDict());
+                }
+
+                Placement.ActorParams["RailPoints"] = railPoints;
+            }
+        }
+
         private NodeBase AddLinkListToActorRender(ActorList actorList, PlacementFileEditor editor)
         {
             var rootNode = GetRenderNode().UINode;
@@ -500,7 +543,7 @@ namespace RedStarLibrary.GameTypes
 
             linkNode.ContextMenus.Add(new MenuItemModel("Add Actor (New)", () =>
             {
-                editor.AddNewLinkedObject(linkNode);
+                editor.SetAddObjLinkTarget(linkNode, true);
             }));
 
             linkNode.ContextMenus.Add(new MenuItemModel("Add Actor (Existing)", () =>
@@ -524,6 +567,76 @@ namespace RedStarLibrary.GameTypes
             rootNode.AddChild(linkNode);
 
             return linkNode;
+        }
+
+        private void AddLinkContextMenus()
+        {
+            objectRender.UINode.ContextMenus.Add(new MenuItemModel("Add Linked Object (New)", () =>
+            {
+                var objCategory = Placement.UnitConfig.GenerateCategory;
+                var databaseEntry = ActorDataBase.GetObjectFromDatabase(Placement.ClassName, objCategory.Remove(objCategory.Length - 4));
+
+                List<string> linkNames;
+                if(databaseEntry != null && databaseEntry.LinkCategories.Any())
+                    linkNames = databaseEntry.LinkCategories.ToList();
+                else
+                    linkNames = new List<string>();
+
+                string linkCategory = "";
+                bool isAddObjMenu = false;
+                var editor = WorkspaceHelper.GetCurrentEditorLoader();
+
+                // it'd be nice to be able to resize this window once the next "page" is drawing, but imgui doesnt really make this easy (no direct way to set pivot point with SetWindowPos)
+                DialogHandler.Show("Add Linked Object", 400, 600, () =>
+                {
+                    if(isAddObjMenu)
+                    {
+                        editor.DrawAddObjectMenu();
+                        return;
+                    }
+
+                    if (linkNames.Count > 0)
+                        StudioUIHelper.DrawSelectDropdown("Link Category", ref linkCategory, linkNames);
+                    ImGui.InputText("Current Category", ref linkCategory, 0x40);
+
+                    ImGui.SetCursorPosX(ImGui.GetWindowWidth() - 212);
+                    ImGui.SetCursorPosY(ImGui.GetWindowHeight() - 35);
+
+                    bool cancel = ImGui.Button("Cancel", new Vector2(100, 23)); ImGui.SameLine();
+                    bool applied = ImGui.Button("Continue", new Vector2(100, 23));
+
+                    if (cancel)
+                        DialogHandler.ClosePopup(false);
+                    if (applied)
+                    {
+                        NodeBase node;
+                        if(!linkedObjs.Any(e=> e.ActorListName == linkCategory))
+                        {
+                            var newActorList = new ActorList(new PlacementList(linkCategory));
+                            linkedObjs.Add(newActorList);
+                            Placement.Links.Add(newActorList.ActorPlacements);
+
+                            node = AddLinkListToActorRender(newActorList, editor);
+                        }else
+                        {
+                            node = GetChildNodeByName(linkCategory);
+
+                            if (node == null)
+                                throw new Exception("Failed to find UI Child Node with Name: " + node);
+                        }
+
+                        editor.SetAddObjLinkTarget(node);
+
+                        isAddObjMenu = true;
+                    }
+
+                }, editor.FinalizeAddObject);
+            }));
+
+            objectRender.UINode.ContextMenus.Add(new MenuItemModel("Add Linked Object (Existing)", () =>
+            {
+
+            }));
         }
 
         private List<string> GetUsedTextureNames()
@@ -557,7 +670,9 @@ namespace RedStarLibrary.GameTypes
             objectRender.Transform.UpdateMatrix(true);
 
             objectRender.UINode.TagUI.UIDrawer += (o, e) => PropertyDrawer.Draw(Placement.ActorParams);
-            objectRender.UINode.TagUI.UIDrawer += DrawLayerConfig;
+
+            if(!Placement.IsLinkDest) // only draw layer config if the object is a root placement
+                objectRender.UINode.TagUI.UIDrawer += DrawLayerConfig;
 
             if (RenderMode == ActorRenderMode.Bfres || RenderMode == ActorRenderMode.Zone)
                 objectRender.UINode.TagUI.UIDrawer += DrawModelProperties;
@@ -566,17 +681,7 @@ namespace RedStarLibrary.GameTypes
             if (RenderMode == ActorRenderMode.Zone)
                 objectRender.UINode.TagUI.UIDrawer += DrawZoneProperties;
 
-            objectRender.UINode.ContextMenus.Add(new MenuItemModel("Add Link", () =>
-            {
-                var newActorList = new ActorList(new PlacementList("NewActorLink"));
-
-                linkedObjs.Add(newActorList);
-                Placement.Links.Add(newActorList.ActorPlacements);
-
-                var node = AddLinkListToActorRender(newActorList, WorkspaceHelper.GetCurrentEditorLoader());
-                node.ActivateRename = true;
-                node.IsSelected = true;
-            }));
+            AddLinkContextMenus();
 
             objectRender.Transform.TransformUpdated += delegate
             {
@@ -759,7 +864,6 @@ namespace RedStarLibrary.GameTypes
 
             foreach (Dictionary<string, dynamic> railPoint in actorPlacement.ActorParams["RailPoints"])
             {
-
                 var trans = Helpers.Placement.LoadVector(railPoint, "Translate");
 
                 var point = PathRender.CreatePoint(trans);
@@ -815,11 +919,14 @@ namespace RedStarLibrary.GameTypes
                 return;
             var areaShape = AreaRender.AreaType.CubeBase;
 
-            if(!string.IsNullOrWhiteSpace(Placement.ModelName))
+            if(!string.IsNullOrWhiteSpace(Placement.ModelName) && Placement.ModelName.StartsWith("Area"))
             {
                 // all area models start with "AreaX", so remove Area from string before parsing to enum type
                 if (!Enum.TryParse(Placement.ModelName.Substring(4), out areaShape))
-                    throw new InvalidOperationException("Invalid ModelName for Area! Name: " + Placement.ObjectName);
+                    StudioLogger.WriteError("Invalid ModelName for Area! Name: " + Placement.ObjectName);
+            }else
+            {
+                Placement.ModelName = "Area" + areaShape.ToString();
             }
 
             ((AreaRender)objectRender).AreaShape = areaShape;
@@ -842,6 +949,13 @@ namespace RedStarLibrary.GameTypes
             }
 
             return areaColor;
+        }
+
+        private NodeBase GetChildNodeByName(string name)
+        {
+            var rootNode = GetRenderNode().UINode;
+
+            return rootNode.Children.FirstOrDefault(e => e.Header == name);
         }
     }
 }

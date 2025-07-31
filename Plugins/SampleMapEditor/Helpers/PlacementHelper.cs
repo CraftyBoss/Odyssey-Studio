@@ -185,6 +185,17 @@ namespace RedStarLibrary.Helpers
             return bymlHash;
         }
 
+        public static Dictionary<string, dynamic> ConvertVectorToDict(Vector3 vec)
+        {
+            Dictionary<string, dynamic> bymlHash = new();
+
+            bymlHash.Add("X", vec.X);
+            bymlHash.Add("Y", vec.Y);
+            bymlHash.Add("Z", vec.Z);
+
+            return bymlHash;
+        }
+
         public static object SaveObject(object obj)
         {
             if (obj is Dictionary<string, dynamic> dict)

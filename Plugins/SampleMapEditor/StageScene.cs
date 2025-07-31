@@ -44,6 +44,8 @@ namespace RedStarLibrary
         public int CurrentObjectID { get; private set; } = 0;
         public bool IsUseClipDist { get; set; } = false;
         public string SelectedLayer { get; set; } = "Common";
+        public string StageSuffix { get; set; } = "";
+
         /// <summary>
         /// Category Name (ex: ObjectList) -> List of Actors in Layers (ex: Layer Common) -> List of Actors
         /// </summary>
@@ -95,7 +97,13 @@ namespace RedStarLibrary
         {
             ProcessLoading.Instance.IsLoading = true;
 
-            RootNode = loader.Root;
+            RootNode = new NodeBase(StageSuffix + " Data");
+            RootNode.Tag = loader.Root.Tag;
+            RootNode.HasCheckBox = true;
+            RootNode.IsExpanded = true;
+            RootNode.Icon = IconManager.FOLDER_ICON.ToString();
+
+            loader.Root.AddChild(RootNode);
 
             TryLoadStageZones(loader);
 
@@ -177,13 +185,13 @@ namespace RedStarLibrary
                 editor.RemoveRender(obj);
             }
 
-            for (int i = editor.Root.Children.Count - 1; i >= 0; i--)
+            for (int i = RootNode.Children.Count - 1; i >= 0; i--)
             {
                 // remove actor lists in layer
-                editor.Root.Children[i].Children.Clear();
+                RootNode.Children[i].Children.Clear();
 
                 // remove layer from root
-                editor.Root.Children.Remove(editor.Root.Children[i]);
+                RootNode.Children.Remove(RootNode.Children[i]);
             }
 
             // remove linked actor renderers
@@ -291,13 +299,30 @@ namespace RedStarLibrary
             return layerList.FindOrCreateLayer(layerName, useScenario);
         }
 
-        public List<LiveActor> GetLoadedActors()
+        public List<LiveActor> GetLoadedActors(bool getLinked = false)
         {
             List<LiveActor> liveActors = new List<LiveActor>();
 
+            void RecursiveCollect(IEnumerable<LiveActor> actors)
+            {
+                foreach (var actor in actors)
+                {
+                    if (liveActors.Contains(actor))
+                        continue;
+
+                    liveActors.Add(actor);
+
+                    if (getLinked && actor.Placement.isUseLinks)
+                    {
+                        foreach (var linkActorList in actor.linkedObjs)
+                            RecursiveCollect(linkActorList);
+                    }
+                }
+            }
+
             foreach (var categoryList in SceneActors)
                 foreach (var layerList in categoryList.Value)
-                    liveActors.AddRange(layerList.Value);
+                    RecursiveCollect(layerList.Value);
 
             return liveActors;
         }
@@ -412,13 +437,13 @@ namespace RedStarLibrary
             LayerConfig placementLayer = categoryLayers.AddObjectToLayers(actorPlacement, MapScenarioNo);
             actorPlacement.SetActiveScenarios(placementLayer);
 
-            NodeBase actorList = loader.Root.GetChild(objCategory);
+            NodeBase actorList = RootNode.GetChild(objCategory);
 
             if (actorList == null)
             {
                 actorList = new NodeBase(objCategory);
                 actorList.HasCheckBox = true;
-                loader.Root.AddChild(actorList);
+                RootNode.AddChild(actorList);
                 actorList.Icon = IconManager.FOLDER_ICON.ToString();
 
                 SceneActors.Add(objCategory, new Dictionary<string, List<LiveActor>>());
@@ -442,6 +467,9 @@ namespace RedStarLibrary
 
         private LiveActor CreateLinkedActor(PlacementInfo info)
         {
+            // Note for next session: it might be best to entirely remove linked actors from being viewable in the outliner through child nodes,
+            // and instead have a new window for displaying the actors links.
+
             var actor = new LiveActor(null, info);
             var parentActor = LinkTarget.Parent.Tag as LiveActor;
 
@@ -572,9 +600,9 @@ namespace RedStarLibrary
             graphicsObjs.Add(skyboxList);
 
             NodeBase GraphicsObjs = new NodeBase("Graphics Objects");
-            GraphicsObjs.Tag = loader.Root.Tag;
+            GraphicsObjs.Tag = RootNode.Tag;
             GraphicsObjs.HasCheckBox = true;
-            loader.Root.AddChild(GraphicsObjs);
+            RootNode.AddChild(GraphicsObjs);
             GraphicsObjs.Icon = IconManager.MODEL_ICON.ToString();
 
             LiveActor skyActor = new LiveActor(GraphicsObjs, arcName, skyPath);
@@ -719,6 +747,8 @@ namespace RedStarLibrary
 
         public BymlContainer SerializeByml()
         {
+            UpdateActorPlacementInfo();
+
             BymlArray result = new BymlArray();
 
             for (int i = 0; i < SCENARIO_COUNT; i++)
@@ -798,6 +828,14 @@ namespace RedStarLibrary
             //{
 
             //}
+        }
+
+        private void UpdateActorPlacementInfo()
+        {
+            var loadedActors = GetLoadedActors(true);
+
+            foreach (var actor in loadedActors)
+                actor.UpdatePlacementInfoForSave();
         }
     }
 }

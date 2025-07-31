@@ -1,6 +1,7 @@
 ﻿using ImGuiNET;
 using MapStudio.UI;
 using RedStarLibrary.GameTypes;
+using RedStarLibrary.Helpers;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -19,35 +20,108 @@ namespace RedStarLibrary.UI
 
         private List<string> categoryList;
         private List<string> classList;
+        private List<string> filteredClassList;
+        private Dictionary<string, dynamic> curParams;
+        private Dictionary<string, List<string>> linkActorClasses;
 
         private ObjectDatabaseEntry curEntry;
-        private Dictionary<string, dynamic> curParams;
+        private ObjectDatabaseEntry linkActorEntry;
 
         private bool doesModelExist = false;
         private bool isForceCreate = false;
+        private bool isShowLinkOnly = false;
 
-        public AddObjectMenu() 
+        public AddObjectMenu() { }
+
+        public void Init()
+        {
+            linkActorClasses = new();
+
+            UpdateCategoryList();
+
+            UpdateClassList();
+        }
+
+        public void UpdateCategoryList()
         {
             categoryList = ActorDataBase.GetAllCategories();
             categoryList.Sort();
 
             curSelectedCategory = "Object";
+        }
+
+        public void SetLinkDataEntry(LiveActor liveActor)
+        {
+            var objCategory = liveActor.Placement.UnitConfig.GenerateCategory;
+            objCategory = objCategory.Substring(0, objCategory.Length - 4); // remove "List" from category string
+
+            linkActorEntry = ActorDataBase.GetObjectFromDatabase(liveActor.Placement.ClassName, objCategory);
+
+            if(linkActorEntry == null)
+            {
+                isShowLinkOnly = false;
+                UpdateCategoryList();
+            }
+            else
+            {
+                isShowLinkOnly = true;
+                UpdateLinkCategoryList();
+            }
 
             UpdateClassList();
         }
 
+        public void UpdateLinkCategoryList()
+        {
+            categoryList = [linkActorEntry.ActorCategory];
+            linkActorClasses.Clear();
+
+            foreach (var linkObjClass in linkActorEntry.LinkActors)
+            {
+                bool isInSameCategory = false;
+
+                var linkObjEntry = ActorDataBase.GetObjectFromDatabase(linkObjClass, linkActorEntry.ActorCategory); // look for link obj with the same category as parent first
+                if (linkObjEntry == null)
+                    linkObjEntry = ActorDataBase.GetObjectFromDatabase(linkObjClass); // if above fails, just do a general search for the class
+                else
+                    isInSameCategory = true;  // if we found the actor with the same category as parent, no need to add its category to the list
+
+                if (linkObjEntry == null)
+                    continue;
+
+                if (!linkActorClasses.TryGetValue(linkObjEntry.ActorCategory, out List<string> linkClassList))
+                    linkActorClasses.Add(linkObjEntry.ActorCategory, linkClassList = [linkObjEntry.ClassName]);
+                else
+                    linkClassList.Add(linkObjEntry.ClassName);
+
+                if (!isInSameCategory && !categoryList.Contains(linkObjEntry.ActorCategory))
+                    categoryList.Add(linkObjEntry.ActorCategory);
+            }
+
+            curSelectedCategory = categoryList.FirstOrDefault();
+        }
+
         public void Draw()
         {
-            if(ImGui.CollapsingHeader($"Object Entry Selection" + (!string.IsNullOrWhiteSpace(curSelectedClass) ? $" (Selected: {curSelectedClass})" : ""), ImGuiTreeNodeFlags.DefaultOpen))
+            if(linkActorEntry != null && ImGui.Checkbox("Filter Objects to Links only", ref isShowLinkOnly))
             {
-                DrawSelectDropdown("Object Category", ref curSelectedCategory, categoryList, UpdateClassList);
+                if (isShowLinkOnly)
+                    UpdateLinkCategoryList();
+                else
+                    UpdateCategoryList();
+
+                UpdateClassList();
+            }
+
+            if (ImGui.CollapsingHeader($"Object Entry Selection" + (!string.IsNullOrWhiteSpace(curSelectedClass) ? $" (Selected: {curSelectedClass})" : ""), ImGuiTreeNodeFlags.DefaultOpen))
+            {
+                StudioUIHelper.DrawSelectDropdown("Object Category", ref curSelectedCategory, categoryList, UpdateClassList);
 
                 DrawClassSearchBar();
-                //DrawSelectDropdown("Object Class", curSelectedClass, classList, UpdateEntry);
 
                 if (ImGui.BeginChild("ObjectClassList", new System.Numerics.Vector2(ImGui.GetContentRegionAvail().X, 100), true))
                 {
-                    foreach (var objClass in classList)
+                    foreach (var objClass in filteredClassList)
                     {
                         if (ImGui.Selectable(objClass, curSelectedClass == objClass))
                         {
@@ -98,12 +172,20 @@ namespace RedStarLibrary.UI
             else
                 throw new Exception("Unable to create PlacementInfo with supplied info.");
 
+            linkActorEntry = null;
+
             return info;
         }
 
         private void UpdateClassList()
         {
-            classList = ActorDataBase.GetClassNamesByCategory(curSelectedCategory);
+            if(isShowLinkOnly && linkActorEntry != null && linkActorEntry.LinkActors.Any())
+                classList = linkActorClasses[curSelectedCategory];
+            else
+                classList = ActorDataBase.GetClassNamesByCategory(curSelectedCategory);
+
+            filteredClassList = classList;
+
             curEntry = null;
             curParams = null;
             curModelName = string.Empty;
@@ -117,29 +199,12 @@ namespace RedStarLibrary.UI
             curModelName = string.Empty;
         }
 
-        private void DrawSelectDropdown(string label, ref string preview, List<string> values, Action onSelect = null)
-        {
-            if (ImGui.BeginCombo(label, preview))
-            {
-                foreach (var objClass in values)
-                {
-                    if (ImGui.Selectable(objClass, preview == objClass))
-                    {
-                        preview = objClass;
-                        onSelect?.Invoke();
-                    }
-                }
-
-                ImGui.EndCombo();
-            }
-        }
-
         private void DrawClassSearchBar()
         {
             if (ImGui.InputText("Search Object Class##addobj_search_class_box", ref searchObjText, 200))
             {
                 if (!string.IsNullOrWhiteSpace(searchObjText))
-                    classList = ActorDataBase.GetClassNamesByCategory(curSelectedCategory).Where(e => e.IndexOf(searchObjText, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
+                    filteredClassList = classList.Where(e => e.IndexOf(searchObjText, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
                 else
                     UpdateClassList();
             }
@@ -183,7 +248,7 @@ namespace RedStarLibrary.UI
             }
             else if(curEntry.ActorCategory == "Area")
             {
-                DrawSelectDropdown("Area Model", ref curModelName, ActorDataBase.AreaModelNames);
+                StudioUIHelper.DrawSelectDropdown("Area Model", ref curModelName, ActorDataBase.AreaModelNames);
             }
             else
             {

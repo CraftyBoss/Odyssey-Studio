@@ -26,14 +26,6 @@ namespace RedStarLibrary.GameTypes
             ActorPlacements = list;
         }
 
-        public ActorList(PlacementList list, StageScene scene) : this(list.Name)
-        {
-            foreach (var placement in list.Placements)
-                Add(scene.GetOrCreateLinkActor(placement));
-
-            ActorPlacements = list;
-        }
-
         public LiveActor this[int index]
         {
             get => _actorList[index];
@@ -58,7 +50,7 @@ namespace RedStarLibrary.GameTypes
             {
                 _actorList.Add(actor);
 
-                if (ActorPlacements != null)
+                if (ActorPlacements != null && !ActorPlacements.Contains(actor.Placement))
                     ActorPlacements.Add(actor.Placement);
             }
         }

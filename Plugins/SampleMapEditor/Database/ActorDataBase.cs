@@ -64,27 +64,47 @@ namespace RedStarLibrary
         /// The games ActorFactory references this string when constructing the LiveActor for the scene.
         /// </summary>
         [JsonProperty]
-        public string ClassName;
+        public string ClassName = string.Empty;
         /// <summary>
         /// Placement type that the actor is supposed to be placed in (Map, Design, or Sound)
         /// </summary>
         [JsonProperty]
-        public string PlacementCategory;
+        public string PlacementCategory = string.Empty;
         /// <summary>
         /// Object Category that the actor is used in (usually something like ObjectList, AreaList, etc)
         /// </summary>
         [JsonProperty]
-        public string ActorCategory;
+        public string ActorCategory = string.Empty;
         /// <summary>
         /// List of unique models used by the actor.
         /// </summary>
         [JsonProperty]
-        public HashSet<string> Models;
+        public HashSet<string> Models = new();
+        /// <summary>
+        /// List of every found link category an actor can have.
+        /// </summary>
+        [JsonProperty]
+        public HashSet<string> LinkCategories = new();
+        /// <summary>
+        /// List of every category the object has been placed in.
+        /// </summary>
+        [JsonProperty]
+        public HashSet<string> FoundCategories = new();
+        /// <summary>
+        /// List of every actor that can be linked to this actor.
+        /// </summary>
+        [JsonProperty]
+        public HashSet<string> LinkActors = new();
         /// <summary>
         /// dictionary containing a unique list of every value found for the parameters the actor can have
         /// </summary>
         [JsonProperty]
-        public Dictionary<string, ParamEntry> ActorParams;
+        public Dictionary<string, ParamEntry> ActorParams = new();
+        /// <summary>
+        /// If the actor only exists in a link, this should be true so that users do not place actors intended to only be placed inside a link.
+        /// </summary>
+        [JsonProperty]
+        public bool IsLinkOnly = false;
     }
 
     public class ActorDataBase
@@ -196,28 +216,6 @@ namespace RedStarLibrary
 
             if (dictDatabase != null)
                 ObjDatabase = dictDatabase;
-
-            // TEMP: JsonConvert parses integer values as int64, so we need to iterate through the entire database and fix those values
-            foreach (var entry in ObjDatabase)
-            {
-                foreach (var param in entry.ActorParams)
-                {
-                    for (var i = 0; i < param.Value.FoundValues.Count; i++)
-                    {
-                        var val = param.Value.FoundValues.ElementAt(i);
-
-                        if (val is long longVal)
-                        {
-                            param.Value.FoundValues.Remove(val);
-                            param.Value.AddValue(Convert.ToInt32(longVal));
-                        }else if(val is double doubleVal)
-                        {
-                            param.Value.FoundValues.Remove(val);
-                            param.Value.AddValue((float)doubleVal);
-                        }
-                    }
-                }
-            }
         }
 
         private static void OrganizeThumbnails()
@@ -284,100 +282,10 @@ namespace RedStarLibrary
 
         }
 
-        public static void RegisterActorsToDatabase(List<PlacementInfo> placementList)
+        public static void RegisterActorsToDatabase(IEnumerable<PlacementInfo> placementList, string placementCategory = "", bool isLinkCategory = false)
         {
             foreach (var info in placementList)
-            {
-                var entry = ObjDatabase.Find(e => e.ClassName == info.ClassName);
-
-                if(entry == null)
-                {
-                    string actorCategory = info.UnitConfig.GenerateCategory;
-
-                    entry = new ObjectDatabaseEntry()
-                    {
-                        ClassName = info.ClassName,
-                        PlacementCategory = info.UnitConfig.PlacementTargetFile,
-                        ActorCategory = actorCategory.Remove(actorCategory.IndexOf("List"), 4),
-                        Models = new HashSet<string>(),
-                        ActorParams = new()
-                    };
-
-                    var copy = Helpers.Placement.CopyNode(info.ActorParams);
-
-                    foreach (var param in copy)
-                    {
-                        if (param.Key == "SrcUnitLayerList")
-                            continue;
-
-                        if(param.Value is float)
-                            entry.ActorParams.Add(param.Key, new ObjectDatabaseEntry.ParamEntry(0.0f));
-                        else if(ParamsUseEmptyString.Contains(param.Key))
-                            entry.ActorParams.Add(param.Key, new ObjectDatabaseEntry.ParamEntry(""));
-                        else
-                            entry.ActorParams.Add(param.Key, new ObjectDatabaseEntry.ParamEntry(param.Value));
-                    }
-
-                    Console.WriteLine($"Added {info.ClassName} to Database.");
-
-                    ObjDatabase.Add(entry);
-                }else
-                {
-                    foreach (var param in info.ActorParams)
-                    {
-
-                        if (param.Key == "SrcUnitLayerList") 
-                            continue;
-
-                        if (!entry.ActorParams.ContainsKey(param.Key))
-                        {
-                            if (param.Value is float)
-                                entry.ActorParams.Add(param.Key, new ObjectDatabaseEntry.ParamEntry(0.0f));
-                            else if (ParamsUseEmptyString.Contains(param.Key))
-                                entry.ActorParams.Add(param.Key, new ObjectDatabaseEntry.ParamEntry(""));
-                            else
-                                entry.ActorParams.Add(param.Key, new ObjectDatabaseEntry.ParamEntry(param.Value));
-                        }
-                        else
-                        {
-                            if (param.Value is float)
-                                entry.ActorParams[param.Key].AddValue(0.0f);
-                            else if (ParamsUseEmptyString.Contains(param.Key))
-                                entry.ActorParams[param.Key].AddValue("");
-                            else
-                                entry.ActorParams[param.Key].AddValue(param.Value);
-                        }
-                    }
-                }
-
-                string modelName = info.ModelName != null ? info.ModelName : info.UnitConfigName;
-
-                if(modelName != null)
-                {
-                    string modelPath = ResourceManager.FindResourcePath(Path.Combine("ObjectData", $"{modelName}.szs"));
-
-                    if (File.Exists(modelPath))
-                    {
-                        var modelARC = ResourceManager.FindOrLoadSARC(modelPath);
-
-                        var modelStream = modelARC.GetModelStream(Path.GetFileNameWithoutExtension(modelPath));
-
-                        if (modelStream != null)
-                        {
-                            if (entry.Models.Add(modelName))
-                                Console.WriteLine($"Added the Model {modelName} to {entry.ClassName}.");
-                        }
-                    }else
-                    {
-                        if(modelName.StartsWith("Area"))
-                            AreaModelNames.Add(modelName);
-                    }
-                }else
-                {
-                    if(UnusedObjs.Add(info.ClassName))
-                        Console.WriteLine($"Added {info.ClassName} to list of Unused Objects.");
-                }
-            }
+                RegisterPlacementToDatabase(info, placementCategory, isLinkCategory);
         }
 
         public static void SerializeDatabase()
@@ -388,6 +296,125 @@ namespace RedStarLibrary
 #else
             Helpers.JsonHelper.WriteToJSON(ObjDatabase, Path.Combine("Resources", "ObjectDatabaseNew.json"));
 #endif
+        }
+
+        private static void RegisterPlacementToDatabase(PlacementInfo info, string placementCategory, bool isLinkedObj)
+        {
+            var entry = ObjDatabase.Find(e => e.ClassName == info.ClassName);
+
+            if (entry == null)
+            {
+                string actorCategory = info.UnitConfig.GenerateCategory;
+
+                if (!string.IsNullOrWhiteSpace(actorCategory))
+                    actorCategory = actorCategory.Remove(actorCategory.IndexOf("List"), 4);
+                else
+                    actorCategory = "None";
+
+                entry = new ObjectDatabaseEntry()
+                {
+                    ClassName = info.ClassName,
+                    PlacementCategory = info.UnitConfig.PlacementTargetFile,
+                    ActorCategory = actorCategory,
+                    IsLinkOnly = isLinkedObj
+                };
+
+                var copy = Helpers.Placement.CopyNode(info.ActorParams);
+
+                foreach (var param in copy)
+                {
+                    if (param.Key == "SrcUnitLayerList")
+                        continue;
+
+                    if (param.Value is float)
+                        entry.ActorParams.Add(param.Key, new ObjectDatabaseEntry.ParamEntry(0.0f));
+                    else if (ParamsUseEmptyString.Contains(param.Key))
+                        entry.ActorParams.Add(param.Key, new ObjectDatabaseEntry.ParamEntry(""));
+                    else
+                        entry.ActorParams.Add(param.Key, new ObjectDatabaseEntry.ParamEntry(param.Value));
+                }
+
+                Console.WriteLine($"Added {info.ClassName} to Database.");
+
+                ObjDatabase.Add(entry);
+            }
+            else
+            {
+                if(entry.IsLinkOnly && !isLinkedObj)
+                    entry.IsLinkOnly = false;
+
+                foreach (var param in info.ActorParams)
+                {
+                    if (param.Key == "SrcUnitLayerList")
+                        continue;
+
+                    if (!entry.ActorParams.ContainsKey(param.Key))
+                    {
+                        if (param.Value is float)
+                            entry.ActorParams.Add(param.Key, new ObjectDatabaseEntry.ParamEntry(0.0f));
+                        else if (ParamsUseEmptyString.Contains(param.Key))
+                            entry.ActorParams.Add(param.Key, new ObjectDatabaseEntry.ParamEntry(""));
+                        else
+                            entry.ActorParams.Add(param.Key, new ObjectDatabaseEntry.ParamEntry(param.Value));
+                    }
+                    else
+                    {
+                        if (param.Value is float)
+                            entry.ActorParams[param.Key].AddValue(0.0f);
+                        else if (ParamsUseEmptyString.Contains(param.Key))
+                            entry.ActorParams[param.Key].AddValue("");
+                        else
+                            entry.ActorParams[param.Key].AddValue(param.Value);
+                    }
+                }
+            }
+
+            string modelName = info.ModelName != null ? info.ModelName : info.UnitConfigName;
+
+            if (modelName != null)
+            {
+                string modelPath = ResourceManager.FindResourcePath(Path.Combine("ObjectData", $"{modelName}.szs"));
+
+                if (File.Exists(modelPath))
+                {
+                    var modelARC = ResourceManager.FindOrLoadSARC(modelPath);
+
+                    var modelStream = modelARC.GetModelStream(Path.GetFileNameWithoutExtension(modelPath));
+
+                    if (modelStream != null)
+                    {
+                        if (entry.Models.Add(modelName))
+                            Console.WriteLine($"Added the Model {modelName} to {entry.ClassName}.");
+                    }
+                }
+                else
+                {
+                    if (modelName.StartsWith("Area"))
+                        AreaModelNames.Add(modelName);
+                }
+            }
+            else
+            {
+                if (UnusedObjs.Add(info.ClassName))
+                    Console.WriteLine($"Added {info.ClassName} to list of Unused Objects.");
+            }
+
+            if (info.isUseLinks)
+            {
+                foreach (var subActorList in info.Links)
+                {
+                    entry.LinkCategories.Add(subActorList.Name);
+
+                    foreach (var subActor in subActorList)
+                    {
+                        RegisterPlacementToDatabase(subActor, subActorList.Name, true);
+                        entry.LinkActors.Add(subActor.ClassName);
+                    }
+
+                }
+            }
+
+            entry.FoundCategories.Add(placementCategory);
         }
     }
 }

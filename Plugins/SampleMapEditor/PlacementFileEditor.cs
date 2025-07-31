@@ -79,10 +79,8 @@ namespace RedStarLibrary
         private string newLayerName = "";
         private bool isLayerEditTakeFocus = false;
 
-
         // misc
-
-        private AddObjectMenu addObjMenu;
+        private AddObjectMenu addObjMenu = new AddObjectMenu();
 
         public static Dictionary<string, Dictionary<string, string>> TempCameraParamCollection = new();
 
@@ -98,7 +96,7 @@ namespace RedStarLibrary
         /// </summary>
         public bool Identify(File_Info fileInfo, Stream stream)
         {
-            return fileInfo.FileName.EndsWith("StageMap.szs") || fileInfo.FileName.EndsWith("ZoneMap.szs"); // temp support for zone maps, in future, auto load zones listed in ZoneList
+            return fileInfo.FileName.EndsWith("StageMap.szs") || fileInfo.FileName.EndsWith("ZoneMap.szs");
         }
 
         /// <summary>
@@ -106,85 +104,36 @@ namespace RedStarLibrary
         /// </summary>
         public void Load(Stream stream)
         {
-            //{
-            //    ActorDataBase.LoadDatabase();
-            //    GenerateActorDataBase();
-            //    return;
-            //}
-
-            //var dlg = new ImguiFolderDialog();
-            //dlg.ShowDialog();
-            //foreach (var stageFilePath in Directory.GetFiles(ResourceManager.FindResourceDirectory($"StageData"), "*Design.szs"))
-            //{
-            //    var stageName = Path.GetFileNameWithoutExtension(stageFilePath);
-            //    SARC stageSarc = new SARC();
-            //    stageSarc.Load(new MemoryStream(YAZ0.Decompress(stageFilePath)));
-
-            //    var bymlStream = stageSarc.GetFileStream(stageName + ".byml");
-
-            //    if (bymlStream == null)
-            //        continue;
-
-            //    var stageByml = new BymlIter(bymlStream.ToArray());
-            //    if (!stageByml.Iterable)
-            //        continue;
-
-            //    File.WriteAllText(Path.Combine(dlg.SelectedPath, stageName + ".yaml"), stageByml.ToYaml());
-
-            //    //SarcData stageSarc = new SarcData();
-            //    //var cameraParamData = SARC.TryGetFile(stageFilePath, "CameraParam.byml");
-            //    //if (cameraParamData.Length == 0)
-            //    //    continue;
-            //    //var cameraParamIter = new BymlIter(cameraParamData);
-            //    //var cameraParam = new CameraParam();
-            //    //cameraParam.DeserializeByml(cameraParamIter);
-            //}
-            //File.WriteAllText("FoundParams.json", JsonSerializer.Serialize(TempCameraParamCollection, new JsonSerializerOptions() { WriteIndented = true, Encoder = JavaScriptEncoder.Create(UnicodeRanges.All)}));
-            //return;
-
-            //Set the game shader
-            BfresLoader.TargetShader = typeof(SMORenderer);
-
-            // add custom viewport item event
-
-            Workspace.ViewportWindow.DrawEditorDropdown += (_,_) => { DrawEditorDropdown(); };
-
-            ActorDataBase.LoadDatabase();
-
-            if (InitIcons())
-                CreateAssetCategories();
-
-            addObjMenu = new AddObjectMenu();
+            SetupWorkspace();
 
             mapArc = new SARC();
             mapArc.Load(stream);
 
             IsLoadingStage = true;
 
+            PlacementFileName = FileInfo.FileName.Replace("Map.szs", "");
+            Root.Header = PlacementFileName;
+
             CurrentMapScene = StageScene.LoadStage(mapArc, Path.GetFileNameWithoutExtension(FileInfo.FileName));
 
-            if (CurrentMapScene != null)
-            {
-                PlacementFileName = FileInfo.FileName.Replace("Map.szs", "");
-
-                string designPath = Path.Combine(FileInfo.FolderPath, $"{PlacementFileName}Design.szs");
-                if (File.Exists(designPath))
-                    LoadGraphicsData(designPath);
-
-                string soundPath = Path.Combine(FileInfo.FolderPath, $"{PlacementFileName}Sound.szs");
-                if (File.Exists(soundPath))
-                    LoadSoundData(soundPath);
-
-                LoadWorldList();
-
-                CurrentMapScene.Setup(this);
-                
-                IsLoadingStage = false;
-            }
-            else
-            {
+            if (CurrentMapScene == null)
                 throw new FileLoadException("Unable to Load Archive!");
-            }
+
+            CurrentMapScene.StageSuffix = "Map";
+
+            string designPath = Path.Combine(FileInfo.FolderPath, $"{PlacementFileName}Design.szs");
+            if (File.Exists(designPath))
+                LoadGraphicsData(designPath);
+
+            string soundPath = Path.Combine(FileInfo.FolderPath, $"{PlacementFileName}Sound.szs");
+            if (File.Exists(soundPath))
+                LoadSoundData(soundPath);
+
+            LoadWorldList();
+
+            CurrentMapScene.Setup(this);
+
+            IsLoadingStage = false;
         }
         
         /// <summary>
@@ -225,13 +174,7 @@ namespace RedStarLibrary
 
         public override bool CreateNew(string menu_name)
         {
-            BfresLoader.TargetShader = typeof(SMORenderer);
-            Workspace.ViewportWindow.DrawEditorDropdown += (_, _) => { DrawEditorDropdown(); };
-
-            ActorDataBase.LoadDatabase();
-
-            if (InitIcons())
-                CreateAssetCategories();
+            SetupWorkspace();
 
             PlacementFileName = "NewStageMap";
 
@@ -251,8 +194,11 @@ namespace RedStarLibrary
             IsLoadingStage = true;
 
             CurrentMapScene = new StageScene();
+            CurrentMapScene.StageSuffix = "Map";
 
             CurrentMapScene.Setup(this, true);
+
+            LoadWorldList();
 
             IsLoadingStage = false;
 
@@ -364,18 +310,36 @@ namespace RedStarLibrary
             return false;
         }
 
-        public void AddNewLinkedObject(NodeBase linkTarget)
+        public void SetAddObjLinkTarget(NodeBase linkTarget, bool openMenu = false)
         {
             CurrentMapScene.LinkTarget = linkTarget;
 
-            OpenAddObjectMenu();
+            addObjMenu.SetLinkDataEntry(CurrentMapScene.LinkTarget.Parent.Tag as LiveActor);
+
+            if (openMenu)
+                OpenAddObjectMenu();
+        }
+
+        private void SetupWorkspace()
+        {
+            //Set the game shader
+            BfresLoader.TargetShader = typeof(SMORenderer);
+
+            // add custom viewport item event
+
+            Workspace.ViewportWindow.DrawEditorDropdown += (_, _) => { DrawEditorDropdown(); };
+
+            ActorDataBase.LoadDatabase();
+
+            if (InitIcons())
+                CreateAssetCategories();
+
+            addObjMenu.Init();
         }
 
         // Iterates through every stage located within the users provided dump directory and creates a database with all objects found within the stages.
         private void GenerateActorDataBase()
         {
-            // TODO: re-generate database with type info for each parameter
-
             var stageDirectory = new List<string>(Directory.GetFiles(Path.Combine(PluginConfig.GamePath, "StageData")));
 
             foreach (var stagePath in stageDirectory.FindAll(e => Path.GetFileNameWithoutExtension(e).Contains("StageMap")))
@@ -410,9 +374,7 @@ namespace RedStarLibrary
                     foreach (var layers in curStage.GlobalLayers)
                     {
                         foreach (var layer in layers.Value)
-                        {
-                            ActorDataBase.RegisterActorsToDatabase(layer.LayerObjects);
-                        }
+                            ActorDataBase.RegisterActorsToDatabase(layer.LayerObjects, layers.Key, false);
                     }
                 }
             }
@@ -450,8 +412,12 @@ namespace RedStarLibrary
             Dictionary<string, AssetMenu.AssetLoaderLiveActor> categories = new();
             foreach (var obj in ActorDataBase.ObjDatabase)
             {
-                if(!categories.ContainsKey(obj.ActorCategory)) {
-                    categories.Add(obj.ActorCategory, new AssetMenu.AssetLoaderLiveActor(obj.ActorCategory));
+                string cat = obj.ActorCategory;
+                if (string.IsNullOrEmpty(cat) || cat == "None")
+                    cat = "Misc";
+
+                if (!categories.ContainsKey(cat)) {
+                    categories.Add(cat, new AssetMenu.AssetLoaderLiveActor(cat));
                 }
             }
 
@@ -547,29 +513,6 @@ namespace RedStarLibrary
 
             if(ImGui.Button("Open Graphics Preset Archive", btnSize))
                 Framework.QueueWindowFileDrop(ResourceManager.FindResourcePath(Path.Combine("SystemData", "GraphicsPreset.szs")));
-
-            //if(ImGui.Button("Open Stage Settings", btnSize))
-            //{
-            //    DialogHandler.Show("Stage Settings", 500, 400, () => {
-
-            //        System.Numerics.Vector2 settingsBtnSize = new System.Numerics.Vector2(ImGui.GetWindowWidth(), 23);
-            //        if (ImGui.Button("Close and Reload", settingsBtnSize))
-            //            DialogHandler.ClosePopup(true);
-
-            //        if (ImGui.CollapsingHeader($"Layer/Scenario Settings", ImGuiTreeNodeFlags.DefaultOpen))
-            //            DrawScenarioSettings();
-
-            //        if(ImGui.CollapsingHeader("Stage World List Settings", ImGuiTreeNodeFlags.DefaultOpen))
-            //            DrawWorldListSettings();
-
-            //        if (ImGui.CollapsingHeader("Stage Graphics Settings", ImGuiTreeNodeFlags.DefaultOpen))
-            //            DrawGraphicsSettings();
-
-            //    }, (isDone) => {
-            //        if(isDone)
-            //            CurrentMapScene.RestartScene(this);
-            //    });
-            //}
 
             if(ImGui.Button("Dump Stage Models", btnSize))
                 ShowStageDumpDialog();
@@ -676,16 +619,22 @@ namespace RedStarLibrary
             }
         }
 
-        private void OpenAddObjectMenu()
+        public void DrawAddObjectMenu() => addObjMenu.Draw();
+
+        public void FinalizeAddObject(bool isAddToScene)
         {
-            DialogHandler.Show("Add Object", 400, 800, () =>
-            {
-                addObjMenu.Draw();
-            }, (result) =>
-            {
-                if(result)
-                    CurrentMapScene.AddActorFromPlacementInfo(this, addObjMenu.GetPlacementInfo());
-            });
+            if (isAddToScene)
+                CurrentMapScene.AddActorFromPlacementInfo(this, addObjMenu.GetPlacementInfo());
+            else
+                CurrentMapScene.LinkTarget = null;
+        }
+
+        public void OpenAddObjectMenu()
+        {
+            if (CurrentMapScene.LinkTarget == null)
+                addObjMenu.UpdateCategoryList();
+
+            DialogHandler.Show("Add Object", 400, 800, DrawAddObjectMenu, FinalizeAddObject);
         }
 
         private List<MenuItemModel> GetLayerMenuItems()
@@ -989,6 +938,53 @@ namespace RedStarLibrary
             }
         }
 
+        // probably not best practice moving this stuff elsewhere instead of using "version control"
+        private void DataDumpingCode()
+        {
+            //{
+            //    ActorDataBase.LoadDatabase();
+            //    GenerateActorDataBase();
+            //    return;
+            //}
+
+            //var dlg = new ImguiFolderDialog();
+            //dlg.ShowDialog();
+            //var files = Directory.GetFiles(ResourceManager.FindResourceDirectory("StageData", true), "*Map.szs");
+            //foreach (var stageFilePath in files)
+            //{
+            //    var stageName = Path.GetFileNameWithoutExtension(stageFilePath);
+            //    SARC stageSarc = new SARC();
+            //    stageSarc.Load(new MemoryStream(YAZ0.Decompress(stageFilePath)));
+
+            //    var bymlStream = stageSarc.GetFileStream(stageName + ".byml");
+
+            //    if (bymlStream == null)
+            //        continue;
+
+            //    var stageByml = new BymlIter(bymlStream.ToArray());
+            //    if (!stageByml.Iterable)
+            //        continue;
+
+            //    Console.WriteLine("Dumping Stage File: " + stageName);
+
+            //    File.WriteAllText(Path.Combine(dlg.SelectedPath, stageName + ".yaml"), stageByml.ToYaml());
+            //}
+            //return;
+
+            //var files = Directory.GetFiles(ResourceManager.FindResourceDirectory("StageData", true), "*Map.szs");
+            //foreach (var stageFilePath in files)
+            //{
+            //    //SarcData stageSarc = new SarcData();
+            //    //var cameraParamData = SARC.TryGetFile(stageFilePath, "CameraParam.byml");
+            //    //if (cameraParamData.Length == 0)
+            //    //    continue;
+            //    //var cameraParamIter = new BymlIter(cameraParamData);
+            //    //var cameraParam = new CameraParam();
+            //    //cameraParam.DeserializeByml(cameraParamIter);
+            //}
+            //File.WriteAllText("FoundParams.json", JsonSerializer.Serialize(TempCameraParamCollection, new JsonSerializerOptions() { WriteIndented = true, Encoder = JavaScriptEncoder.Create(UnicodeRanges.All)}));
+            //return;
+        }
 
         //public void AddActorToRender(LiveActor actor)
         //{

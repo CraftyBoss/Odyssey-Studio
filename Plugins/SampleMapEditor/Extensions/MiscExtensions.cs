@@ -4,6 +4,7 @@ using OpenTK;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using Toolbox.Core;
 
 namespace RedStarLibrary.Extensions
@@ -18,6 +19,29 @@ namespace RedStarLibrary.Extensions
                 return source;
 
             return source.Remove(source.LastIndexOf(value));
+        }
+
+        public static string AddSpacesToText(this string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return "";
+            StringBuilder newText = new StringBuilder(text.Length * 2);
+
+            if (!char.IsUpper(text[0]))
+                newText.Append(char.ToUpper(text[0]));
+            else
+                newText.Append(text[0]);
+
+            for (int i = 1; i < text.Length; i++)
+            {
+                if (char.IsUpper(text[i]) && text[i - 1] != ' ')
+                    newText.Append(' ');
+                else if (char.IsDigit(text[i]) && !char.IsDigit(text[i - 1]) && text[i - 1] != ' ')
+                    newText.Append(' ');
+
+                newText.Append(text[i]);
+            }
+            return newText.ToString();
         }
 
         public static bool ExportModel(this BfresRender bfresRender, string outPath, string outFolderName)

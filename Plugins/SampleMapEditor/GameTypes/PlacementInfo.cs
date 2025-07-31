@@ -296,6 +296,34 @@ namespace RedStarLibrary.GameTypes
             return serializedNode;
         }
 
+        private static Dictionary<string, dynamic> SaveValuesAsDict(object obj)
+        {
+            Dictionary<string, dynamic> serializedNode = new();
+
+            var properties = obj.GetType().GetProperties();
+
+            foreach (var property in properties)
+            {
+                var value = property.GetValue(obj);
+
+                if (property.PropertyType == typeof(Vector3))
+                    serializedNode.Add(property.Name, Helpers.Placement.SaveVector((Vector3)value));
+                else if (property.PropertyType == typeof(PlacementUnitConfig))
+                    serializedNode.Add(property.Name, SaveValuesAsDict(value));
+                else if (property.Name == "Comment") // this is the last param in the node, so terminate the properties loop
+                {
+                    serializedNode[property.Name.ToLower()] = value;
+                    break;
+                }
+                else if (property.Name == "Links" && obj is PlacementInfo info)
+                    serializedNode.Add(property.Name, info.SerializeLinks());
+                else
+                    serializedNode[property.Name] = value;
+            }
+
+            return serializedNode;
+        }
+
         private static Dictionary<string, dynamic> SaveVector(Vector3 vec)
         {
             return new Dictionary<string, dynamic>() {
@@ -406,6 +434,16 @@ namespace RedStarLibrary.GameTypes
             return serializedDefaults;
         }
 
+        public Dictionary<string,dynamic> ConvertToDict()
+        {
+            var serializedDefaults = SaveValuesAsDict(this);
+
+            foreach (var kvp in ActorParams)
+                serializedDefaults[kvp.Key] = kvp.Value;
+
+            return serializedDefaults;
+        }
+
         private void DeserializeLinks(BymlIter rootNode)
         {
             foreach ((var linkName, var placementListIter) in rootNode.As<BymlIter>())
@@ -428,7 +466,7 @@ namespace RedStarLibrary.GameTypes
                 var placementListIter = new BymlArray();
                 linkHash.Add(placementList.Name, placementListIter);
 
-                foreach (var subPlacement in placementList.Placements)
+                foreach (var subPlacement in placementList)
                     placementListIter.Add(subPlacement.SerializeByml());
             }
 

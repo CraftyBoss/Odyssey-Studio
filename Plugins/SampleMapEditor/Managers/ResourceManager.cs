@@ -103,8 +103,16 @@ namespace RedStarLibrary
                 return null;
         }
 
-        public static string FindResourceDirectory(string relativePath)
+        public static string FindResourceDirectory(string relativePath, bool isGamePathOnly = false)
         {
+            if(isGamePathOnly)
+            {
+                if(Directory.Exists(Path.Combine(PluginConfig.GamePath, relativePath)))
+                    return Path.Combine(PluginConfig.GamePath, relativePath);
+                else
+                    return null;
+            }
+
             if (Directory.Exists(Path.Combine(WorkspaceHelper.WorkingDirectory, relativePath)))
                 return Path.Combine(WorkspaceHelper.WorkingDirectory, relativePath);
             if (Directory.Exists(Path.Combine(PluginConfig.ModPath, relativePath)))
