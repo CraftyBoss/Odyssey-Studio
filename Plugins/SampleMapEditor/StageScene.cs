@@ -777,6 +777,9 @@ namespace RedStarLibrary
 
         private void DeserializeScenario(BymlIter rootNode, int scenarioIdx)
         {
+            HashSet<string> loadedObjIds = new HashSet<string>();
+            int duplicateCount = 0;
+
             foreach ((string objCategory, BymlIter listIter) in rootNode.As<BymlIter>())
             {
                 HashSet<string> layerNames = new HashSet<string>();
@@ -784,9 +787,39 @@ namespace RedStarLibrary
                 foreach (BymlIter actorIter in listIter.AsArray<BymlIter>())
                 {
                     PlacementId actorId = new PlacementId(actorIter);
+                    bool isNeedNewId = false;
 
                     if (!GlobalLayers.TryGetValue(objCategory, out LayerList globalList))
                         GlobalLayers.Add(objCategory, globalList = new LayerList());
+
+                    if (int.TryParse(actorId.Id.Substring(3), out int objId))
+                    {
+                        if (CurrentObjectID < objId)
+                            CurrentObjectID = objId;
+                    }
+                    else
+                    {
+                        var logMsg = "Warning: Object ID is not formatted as expected! Value: " + actorId.Id;
+                        Console.WriteLine(logMsg);
+                        StudioLogger.WriteWarning(logMsg);
+
+                        // edge case for placement infos with funky obj ids 
+                        if (int.TryParse(string.Join("", actorId.Id.Where(char.IsDigit).ToArray()), out objId) && CurrentObjectID < objId)
+                            CurrentObjectID = objId;
+                    }
+
+                    if (!loadedObjIds.Add(actorId.Id))
+                    {
+                        var newId = "obj" + ++CurrentObjectID;
+                        var logMsg = "Placement for actor " + actorId.UnitConfigName + " has duplicate id. Replacing with new ID. Old ID: " + actorId.Id + " New ID: " + newId;
+
+                        StudioLogger.WriteWarning(logMsg);
+                        Console.WriteLine(logMsg);
+
+                        actorId.Id = newId;
+                        isNeedNewId = true;
+                        loadedObjIds.Add(newId);
+                    }
 
                     PlacementInfo actorInfo;
                     if (globalList.IsIdInAnyLayer(actorId))
@@ -797,25 +830,16 @@ namespace RedStarLibrary
                     }
                     else
                     {
-                        globalList.AddObjectToLayers(actorInfo = new PlacementInfo(actorIter), scenarioIdx);
+                        actorInfo = new PlacementInfo(actorIter);
+
+                        if (isNeedNewId)
+                            actorInfo.Id = actorId.Id;
+
+                        globalList.AddObjectToLayers(actorInfo, scenarioIdx);
                         if (string.IsNullOrWhiteSpace(actorInfo.UnitConfig.GenerateCategory))
                             actorInfo.UnitConfig.GenerateCategory = objCategory;
                     }
                         
-
-                    if(int.TryParse(actorInfo.Id.Substring(3), out int objId))
-                    {
-                        if (CurrentObjectID < objId)
-                            CurrentObjectID = objId;
-                    }
-                    else 
-                    {
-                        Console.WriteLine("Warning: Object ID is not formatted as expected! Value: " + actorInfo.Id);
-                        // edge case for placement infos with funky obj ids 
-                        if (int.TryParse(new string(actorInfo.Id.Where(char.IsDigit).ToArray()), out objId) && CurrentObjectID < objId)
-                            CurrentObjectID = objId;
-                    }
-
                     actorInfo.SetScenarioActive(scenarioIdx, true);
 
                     layerNames.Add(actorId.LayerConfigName);
