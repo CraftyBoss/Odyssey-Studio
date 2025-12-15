@@ -25,6 +25,20 @@ namespace RedStarLibrary.MapData
             get => _placementList[index];
             set => _placementList[index] = value;
         }
+
+        public bool IsInList(PlacementInfo info) => _placementList.Contains(info);
+        public bool IsInList(PlacementId id) => _placementList.Any(info => info.Equals(id));
+
+        public PlacementInfo? GetInfoById(PlacementId id)
+        {
+            foreach (var info in _placementList)
+            {
+                if(info.Equals(id)) 
+                    return info;
+            }
+            return null;
+        }
+
         public IEnumerator<PlacementInfo> GetEnumerator()
         {
             foreach (var actor in _placementList)

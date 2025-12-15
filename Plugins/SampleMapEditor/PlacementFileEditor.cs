@@ -1,28 +1,28 @@
-﻿using System;
-using System.IO;
-using Toolbox.Core;
-using MapStudio.UI;
-using OpenTK;
+﻿using CafeLibrary;
+using CafeLibrary.Rendering;
 using GLFrameworkEngine;
-using CafeLibrary;
-using System.Collections.Generic;
-using RedStarLibrary.GameTypes;
-using RedStarLibrary.Rendering;
-using Toolbox.Core.IO;
-using RedStarLibrary.MapData;
-using ImGuiNET;
-using Toolbox.Core.ViewModels;
-using RedStarLibrary.Extensions;
 using HakoniwaByml.Iter;
 using HakoniwaByml.Writer;
+using ImGuiNET;
+using MapStudio.UI;
+using OpenTK;
+using RedStarLibrary.Extensions;
+using RedStarLibrary.GameTypes;
+using RedStarLibrary.Helpers;
+using RedStarLibrary.MapData;
+using RedStarLibrary.MapData.Graphics;
+using RedStarLibrary.Rendering;
+using RedStarLibrary.UI;
+using RedStarLibrary.UI.Windows;
+using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text.Json;
-using CafeLibrary.Rendering;
-using RedStarLibrary.Helpers;
-using RedStarLibrary.MapData.Graphics;
-using RedStarLibrary.UI;
+using Toolbox.Core;
+using Toolbox.Core.IO;
+using Toolbox.Core.ViewModels;
 using UIFramework;
-using RedStarLibrary.UI.Windows;
 
 
 namespace RedStarLibrary
@@ -72,7 +72,7 @@ namespace RedStarLibrary
         private SARC designArc = null;
         private SARC soundArc = null;
         private SARC presetSarc = null;
-        private SARC worldListSarc = null;
+        private WorldList worldList = null;
 
         // layer menu variables
         private string editLayerName = "";
@@ -130,6 +130,8 @@ namespace RedStarLibrary
                 LoadSoundData(soundPath);
 
             LoadWorldList();
+
+            // TODO: Load CheckpointFlagInfo.szs from SystemData and write code for updating it when a stage has a CheckpointList
 
             CurrentMapScene.Setup(this);
 
@@ -233,23 +235,6 @@ namespace RedStarLibrary
             }
 
             mapArc.Save(stream);
-
-            //{
-            //    var origMapIter = new BymlIter(mapData.FileData.ToArray());
-            //    File.WriteAllText(Path.Combine(FileInfo.FolderPath, "OrigStageByml.yaml"), origMapIter.ToYaml());
-            //    File.WriteAllText(Path.Combine(FileInfo.FolderPath, "NewStageByml.yaml"), mapContainer.ToYaml());
-            //    if (Helpers.Placement.CompareStages(origMapIter, new BymlIter(memStream.ToArray())))
-            //    {
-            //        Console.ForegroundColor = ConsoleColor.Green;
-            //        Console.WriteLine("New Stage matches original!");
-            //    }
-            //    else
-            //    {
-            //        Console.ForegroundColor = ConsoleColor.Red;
-            //        Console.WriteLine("New Stage does not match original!");
-            //    }
-            //    Console.ForegroundColor = ConsoleColor.Gray;
-            //}
         }
 
         public void SaveDesign(Stream stream)
@@ -431,6 +416,9 @@ namespace RedStarLibrary
 
             if (worldListSarc == null)
                 throw new FileNotFoundException("Failed to find World List file!");
+
+            worldList = new WorldList();
+            worldList.DeserializeByml(new BymlIter(worldListSarc.GetFileStream("WorldListFromDb.byml").ToArray()));
         }
 
         private void LoadGraphicsData(string path)
@@ -508,9 +496,6 @@ namespace RedStarLibrary
         {
             System.Numerics.Vector2 btnSize = new System.Numerics.Vector2(ImGui.GetWindowWidth(), 23);
 
-            if (ImGui.Button("Reload Scene", btnSize))
-                CurrentMapScene.RestartScene(this);
-
             if(ImGui.Button("Open Graphics Preset Archive", btnSize))
                 Framework.QueueWindowFileDrop(ResourceManager.FindResourcePath(Path.Combine("SystemData", "GraphicsPreset.szs")));
 
@@ -549,6 +534,7 @@ namespace RedStarLibrary
 
             var layerWindow = new WorkspaceUIDrawer(Workspace, "Layer Editor", (e, arg) => { DrawScenarioSettings(); });
             var graphicsWindow = new WorkspaceUIDrawer(Workspace, "Stage Graphics", (e, arg) => { DrawGraphicsSettings(); });
+            var worldListWindow = new WorkspaceUIDrawer(Workspace, "World Info", (e, arg) => { DrawWorldListSettings(); });
 
             layerWindow.DockDirection = ImGuiDir.Down;
             layerWindow.SplitRatio = 0.3f;
@@ -557,8 +543,13 @@ namespace RedStarLibrary
             graphicsWindow.SplitRatio = 0.3f;
             graphicsWindow.ParentDock = Workspace.PropertyWindow;
 
+            worldListWindow.DockDirection = ImGuiDir.Up;
+            worldListWindow.SplitRatio = 0.3f;
+            worldListWindow.ParentDock = Workspace.PropertyWindow;
+
             windows.Add(layerWindow);
             windows.Add(graphicsWindow);
+            windows.Add(worldListWindow);
 
             return windows;
         }
@@ -655,10 +646,6 @@ namespace RedStarLibrary
 
         private void DrawScenarioSettings()
         {
-            var scenario = CurrentMapScene.MapScenarioNo;
-            ImGui.DragInt("Scenario", ref scenario, 1, 0, 14);
-            CurrentMapScene.MapScenarioNo = scenario;
-
             ImGuiHelper.BoldText("Scenario Layers");
             ImGui.Separator();
 
@@ -768,7 +755,91 @@ namespace RedStarLibrary
 
         private void DrawWorldListSettings()
         {
+            var scenario = CurrentMapScene.MapScenarioNo;
+            ImGui.DragInt("Stage Scenario", ref scenario, 1, 0, 14);
+            CurrentMapScene.MapScenarioNo = scenario;
 
+            ImGui.SameLine();
+            if (ImGui.SmallButton("Reload"))
+                CurrentMapScene.RestartScene(this);
+
+            var worldEntry = worldList.GetWorldEntryByStage(PlacementFileName);
+
+            if(worldEntry == null)
+            {
+                ImGuiHelper.BoldText("Stage does not exist in WorldList! Consider adding it to your project's WorldList.");
+                ImGui.Separator();
+
+                return;
+            }
+
+            ImGuiHelper.BoldText("Kingdom Scenarios");
+
+            var clearMain = worldEntry.ClearMainScenario - 1;
+            if (ImGui.InputInt("Cleared Main", ref clearMain))
+                worldEntry.ClearMainScenario = clearMain + 1;
+
+            ImGui.SameLine();
+            if (ImGui.SmallButton("Load###LoadScenarioClearMain"))
+            {
+                CurrentMapScene.MapScenarioNo = worldEntry.ClearMainScenario - 1;
+                CurrentMapScene.RestartScene(this);
+            }
+
+            var afterEnd = worldEntry.AfterEndingScenario - 1;
+            if (ImGui.InputInt("After Ending", ref afterEnd))
+                worldEntry.AfterEndingScenario = afterEnd + 1;
+
+            ImGui.SameLine();
+            if(ImGui.SmallButton("Load###LoadScenarioAfterEnding"))
+            {
+                CurrentMapScene.MapScenarioNo = worldEntry.AfterEndingScenario - 1;
+                CurrentMapScene.RestartScene(this);
+            }
+
+            var moonRock = worldEntry.MoonRockScenario - 1;
+            if (ImGui.InputInt("Moon Rock", ref moonRock))
+                worldEntry.MoonRockScenario = moonRock + 1;
+
+            ImGui.SameLine();
+            if (ImGui.SmallButton("Load###LoadScenarioMoonRock"))
+            {
+                CurrentMapScene.MapScenarioNo = worldEntry.MoonRockScenario - 1;
+                CurrentMapScene.RestartScene(this);
+            }
+
+            ImGui.Separator();
+
+            ImGuiHelper.BoldText("Main Quest Info");
+            ImGui.Text("Not Implemented.");
+
+            ImGui.Separator();
+
+            if (ImGui.TreeNode("Kingdom Stages"))
+            {
+                foreach (var stageEntry in worldEntry.StageList)
+                {
+                    ImGui.InputText("Stage Name", ref stageEntry.name, 0x100);
+
+                    if(ImGui.BeginCombo($"Stage Category###{stageEntry.name}Category", stageEntry.category))
+                    {
+                        foreach(var category in WorldList.WorldStageEntryCategories)
+                        {
+                            if(ImGui.Selectable(category))
+                                stageEntry.category = category;
+                        }
+
+                        ImGui.EndCombo();
+                    }
+
+                    if(ImGui.Button("Open Stage"))
+                        Framework.QueueWindowFileDrop(ResourceManager.FindResourcePath(Path.Combine("StageData", $"{stageEntry.name}Map.szs")));
+
+                    ImGui.Separator();
+                }
+
+                ImGui.TreePop();
+            }
         }
 
         private void DrawGraphicsSettings()
@@ -787,13 +858,15 @@ namespace RedStarLibrary
                 int idx = 0;
                 foreach (var areaParam in CurrentMapScene.GraphicsArea.ParamArray)
                 {
-                    bool isOpen = ImGui.TreeNode($"Param {1 + (idx++)}");
-                    ImGui.SameLine();
+                    string nodeName = $"Param {1 + (idx++)}";
+                    if (areaParam.SuffixName == $"Scenario{CurrentMapScene.MapScenarioNo + 1}" && areaParam.AreaName == "DefaultArea")
+                        nodeName += " (Currently Visible)";
 
                     if (ImGui.SmallButton("Remove"))
                         removeParams.Add(areaParam);
+                    ImGui.SameLine();
 
-                    if (isOpen)
+                    if (ImGui.TreeNode(nodeName))
                     {
                         ImGui.InputText("Preset Name", ref areaParam.PresetName, 0x100);
                         ImGui.InputText("Area Name", ref areaParam.AreaName, 0x100);

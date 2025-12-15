@@ -1,6 +1,7 @@
 ﻿using HakoniwaByml.Iter;
 using HakoniwaByml.Writer;
 using OpenTK;
+using RedStarLibrary.GameTypes;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,6 +10,20 @@ namespace RedStarLibrary.Helpers
 {
     public class Placement
     {
+        public static int GetPlacementObjectIndex(string strObjId)
+        {
+            if (int.TryParse(strObjId.Substring(3), out int objId))
+                return objId;
+            else
+            {
+                // edge case for placement infos with funky obj ids (note: this will be really wrong if the string has digits that are not sequential)
+                if (int.TryParse(string.Join("", strObjId.Where(char.IsDigit).ToArray()), out objId))
+                    return objId;
+            }
+            ConsoleHelper.WriteWarn($"Failed to parse object ID for index! (ID: {strObjId})");
+            return -1;
+        }
+
         public static dynamic CopyNode<K,V>(Dictionary<K, V> node)
         {
             Dictionary<K, V> copy = new();
@@ -187,11 +202,12 @@ namespace RedStarLibrary.Helpers
 
         public static Dictionary<string, dynamic> ConvertVectorToDict(Vector3 vec)
         {
-            Dictionary<string, dynamic> bymlHash = new();
-
-            bymlHash.Add("X", vec.X);
-            bymlHash.Add("Y", vec.Y);
-            bymlHash.Add("Z", vec.Z);
+            Dictionary<string, dynamic> bymlHash = new()
+            {
+                { "X", vec.X },
+                { "Y", vec.Y },
+                { "Z", vec.Z }
+            };
 
             return bymlHash;
         }
@@ -221,74 +237,113 @@ namespace RedStarLibrary.Helpers
             return actorParams;
         }
 
-        public static bool CompareLists(List<dynamic> origRootNode, List<dynamic> newRootNode, bool isRoot = false)
+        public static bool CompareLists(List<dynamic> origRootNode, List<dynamic> newRootNode, bool searchForMatch = false)
         {
             if (origRootNode.Count != newRootNode.Count)
-                throw new Exception("New node does not match original Count!");
+            {
+                ConsoleHelper.WriteError("New node does not match original Count!");
+                return false;
+            }
 
             bool isMatch = true;
 
-            if(isRoot)
+            for (int i = 0; i < origRootNode.Count; i++)
             {
-                for (int i = 0; i < origRootNode.Count; i++)
-                {
-                    Console.WriteLine($"Comparing Scenario {i}.");
+                Dictionary<string, dynamic> origEntry = origRootNode[i];
+                Dictionary<string, dynamic> newEntry = newRootNode[i];
 
-                    Dictionary<string, dynamic> origScenario = origRootNode[i];
-                    Dictionary<string, dynamic> newScenario = newRootNode[i];
-
-                    if (!CompareDicts(origScenario, newScenario))
-                    {
-                        Console.WriteLine("New Scenario does not match original!");
-                        isMatch = false;
-                        break;
-                    }
-                }
-            }else
-            {
-                isMatch = false;
-                foreach (Dictionary<string, dynamic> origScenario in origRootNode)
+                if (!CompareDicts(origEntry, newEntry))
                 {
-                    foreach (Dictionary<string, dynamic> newScenario in newRootNode)
+                    isMatch = false;
+
+                    if(searchForMatch)
                     {
-                        if (CompareDicts(origScenario, newScenario))
+                        int searchIdx = 0;
+                        foreach (Dictionary<string, dynamic> searchEntry in newRootNode)
                         {
-                            isMatch = true;
-                            break;
+                            if (CompareDicts(origEntry, searchEntry))
+                            {
+                                ConsoleHelper.WriteWarn($"Entry at idx {i} differs from original's position ({searchIdx})");
+                                isMatch = true;
+                                break;
+                            }
+                            searchIdx++;
                         }
                     }
 
-                    if (isMatch)
+                    if (!isMatch)
+                    {
+                        ConsoleHelper.WriteError($"Entry at idx {i} does not match original!");
                         break;
+                    }
                 }
             }
 
-            if(isMatch)
+            //if (searchForMatch && !isMatch)
+            //{
+            //    foreach (Dictionary<string, dynamic> origScenario in origRootNode)
+            //    {
+            //        foreach (Dictionary<string, dynamic> newScenario in newRootNode)
+            //        {
+            //            if (CompareDicts(origScenario, newScenario))
+            //            {
+            //                isMatch = true;
+            //                break;
+            //            }
+            //        }
+
+            //        if (isMatch)
+            //            break;
+            //    }
+            //}
+
+            if (isMatch)
                 return true;
             else
-                throw new Exception("New dictionary entry does not match original!");
+            {
+                ConsoleHelper.WriteError("New List does not match original!");
+                return false;
+            }
         }
 
         public static bool CompareStages(BymlIter origStage, BymlIter newStage)
         {
-            return CompareLists(ConvertToList(origStage), ConvertToList(newStage), true);
+            return CompareLists(ConvertToList(origStage), ConvertToList(newStage));
         }
 
-        private static bool CompareDicts(Dictionary<string,dynamic> origScenario, Dictionary<string,dynamic> newScenario)
+        private static bool CompareDicts(Dictionary<string,dynamic> origDict, Dictionary<string,dynamic> newDict)
         {
-            if (origScenario.Count != newScenario.Count)
+            int origCount = origDict.Count;
+            if (origDict.ContainsKey("comment"))
+                origCount--;
+
+            int newCount = newDict.Count;
+            if (newDict.ContainsKey("comment"))
+                newCount--;
+
+            if (origCount != newCount)
                 return false;
 
-            foreach (var origList in origScenario)
+            if(origDict.Select(x => x.Key)
+                          .Intersect(newDict.Keys).Count() != origCount)
+                return false;
+
+            foreach (var origList in origDict)
             {
-                if(!newScenario.ContainsKey(origList.Key))
+                // skip comment field for PlacementInfos
+                if (origList.Key == "comment")
+                    continue;
+
+                if(!newDict.ContainsKey(origList.Key))
+                    return false;
+                if (newDict[origList.Key]?.GetType() != origList.Value?.GetType()) 
                     return false;
 
-                if (newScenario[origList.Key] is List<object> newList)
-                    return CompareLists(origList.Value, newList);
-                else if (newScenario[origList.Key] is Dictionary<string, object> obj)
+                if (newDict[origList.Key] is List<object> newList)
+                    return CompareLists(origList.Value, newList, true);
+                else if (newDict[origList.Key] is Dictionary<string, object> obj)
                     return CompareDicts(origList.Value, obj);
-                else if (newScenario[origList.Key] != origList.Value)
+                else if (newDict[origList.Key] != origList.Value)
                     return false;
             }
 

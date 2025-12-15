@@ -14,7 +14,7 @@ namespace RedStarLibrary.MapData
             _layerList = new List<LayerConfig>();
         }
 
-        public LayerConfig AddObjectToLayers(PlacementInfo actorPlacement, int useScenario = -1)
+        public LayerConfig AddObjectToLayers(PlacementInfo actorPlacement, int useScenario = -1, bool updateMatching = true)
         {
             LayerConfig config = _layerList.Find(e => e.LayerName == actorPlacement.LayerConfigName);
 
@@ -24,7 +24,7 @@ namespace RedStarLibrary.MapData
                     config.LayerObjects.Add(actorPlacement);
 
                 if(useScenario != -1)
-                    config.SetScenarioActive(useScenario, true);
+                    config.SetScenarioActive(useScenario, true, updateMatching);
 
                 return config;
             }

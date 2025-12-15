@@ -6,11 +6,19 @@ using RedStarLibrary.MapData;
 using Toolbox.Core;
 using HakoniwaByml.Iter;
 using HakoniwaByml.Writer;
+using RedStarLibrary.Helpers;
 
 namespace RedStarLibrary.GameTypes
 {
-    public class PlacementInfo : IEquatable<PlacementInfo>, IEquatable<PlacementId>, Interfaces.IBymlSerializable
+    public class PlacementInfo : IEquatable<PlacementInfo>, IEquatable<PlacementId>
     {
+        public enum ScenarioFlagType
+        {
+            None,
+            Normal,
+            LinkOnly
+        }
+
         public class PlacementUnitConfig
         {
             // (next 4 fields) Data used for display models an actor uses
@@ -118,9 +126,13 @@ namespace RedStarLibrary.GameTypes
 
         public bool isUseLinks = false;
 
+        public bool isUseComment = false;
+
         public bool isSyncInfoToLayer = true; // if disabled, placement info will only save itself in the scenario currently loaded
 
-        private bool[] activeLayers = new bool[StageScene.SCENARIO_COUNT];
+        public int objectIndex = -1; // int version of ObjID
+
+        private ScenarioFlagType[] activeLayers = new ScenarioFlagType[StageScene.SCENARIO_COUNT];
 
         private List<string> loadedParams;
         public PlacementInfo()
@@ -140,7 +152,9 @@ namespace RedStarLibrary.GameTypes
 
             loadedParams = new List<string>();
 
-            DeserializeByml(actorIter);
+            DeserializeInfo(actorIter);
+
+            objectIndex = Helpers.Placement.GetPlacementObjectIndex(Id);
         }
 
         public PlacementInfo(ObjectDatabaseEntry objEntry, string assetName)
@@ -204,6 +218,7 @@ namespace RedStarLibrary.GameTypes
             ActorParams = Helpers.Placement.CopyNode(other.ActorParams);
             isActorLoaded = other.isActorLoaded;
             isUseLinks = other.isUseLinks;
+            isUseComment = other.isUseComment;
             isSyncInfoToLayer = other.isSyncInfoToLayer;
             Array.Copy(other.activeLayers, activeLayers, activeLayers.Length);
 
@@ -211,18 +226,19 @@ namespace RedStarLibrary.GameTypes
                 loadedParams = Helpers.Placement.CopyNode(other.loadedParams);
         }
 
-        public void SetScenarioActive(int idx, bool active) => activeLayers[idx] = active;
-        public bool IsScenarioActive(int idx) => activeLayers[idx];
+        public void SetScenarioActive(int idx, ScenarioFlagType type) => activeLayers[idx] = type;
+        public bool IsScenarioActive(int idx) => activeLayers[idx] != ScenarioFlagType.None;
+        public ScenarioFlagType GetScenarioFlagType(int idx) => activeLayers[idx];
         public void SetActiveScenarios(LayerConfig config)
         {
             for (int i = 0; i < activeLayers.Length; i++)
-                activeLayers[i] = config.IsScenarioActive(i);
+                activeLayers[i] = config.IsScenarioActive(i) ? ScenarioFlagType.Normal : ScenarioFlagType.None;
         }
 
         public void SetActiveScenarios(PlacementInfo info)
         {
             for (int i = 0; i < activeLayers.Length; i++)
-                activeLayers[i] = info.IsScenarioActive(i);
+                activeLayers[i] = info.GetScenarioFlagType(i);
         }
 
         public bool IsScenariosMatch(bool[] activeList)
@@ -233,7 +249,7 @@ namespace RedStarLibrary.GameTypes
 
             for (int i = 0; i < activeLayers.Length; i++)
             {
-                if(activeLayers[i] != activeList[i])
+                if(IsScenarioActive(i) != activeList[i])
                 {
                     isMatch = false; 
                     break;
@@ -268,7 +284,7 @@ namespace RedStarLibrary.GameTypes
             return dict;
         }
 
-        private static BymlContainer SaveValues(object obj)
+        private static BymlContainer SaveValues(object obj, int scenarioIdx)
         {
             BymlHash serializedNode = new();
 
@@ -281,22 +297,27 @@ namespace RedStarLibrary.GameTypes
                 if (property.PropertyType == typeof(Vector3))
                     serializedNode.Add(property.Name, Helpers.Placement.SaveVector((Vector3)value));
                 else if (property.PropertyType == typeof(PlacementUnitConfig))
-                    serializedNode.Add(property.Name, SaveValues(value));
+                    serializedNode.Add(property.Name, SaveValues(value, scenarioIdx));
                 else if (property.Name == "Comment") // this is the last param in the node, so terminate the properties loop
                 {
                     serializedNode[property.Name.ToLower()] = value;
                     break;
                 }
-                else if(property.Name == "Links" && obj is PlacementInfo info)
-                    serializedNode.Add(property.Name, info.SerializeLinks());
-                else 
+                else if (property.Name == "Links" && obj is PlacementInfo info)
+                    serializedNode.Add(property.Name, info.SerializeLinks(scenarioIdx));
+                else if (property.Name == "PlacementFileName" && obj is PlacementInfo info2) 
+                {
+                    if(info2.loadedParams != null && info2.loadedParams.Contains("PlacementFileName")) // for some reason, some objects don't have PlacementFileNames, so don't write them if it was never loaded
+                        serializedNode[property.Name] = value;
+                }
+                else
                     serializedNode[property.Name] = value;
             }
 
             return serializedNode;
         }
 
-        private static Dictionary<string, dynamic> SaveValuesAsDict(object obj)
+        private static Dictionary<string, dynamic> SaveValuesAsDict(object obj, int scenarioIdx)
         {
             Dictionary<string, dynamic> serializedNode = new();
 
@@ -307,16 +328,16 @@ namespace RedStarLibrary.GameTypes
                 var value = property.GetValue(obj);
 
                 if (property.PropertyType == typeof(Vector3))
-                    serializedNode.Add(property.Name, Helpers.Placement.SaveVector((Vector3)value));
+                    serializedNode.Add(property.Name, Helpers.Placement.ConvertVectorToDict((Vector3)value));
                 else if (property.PropertyType == typeof(PlacementUnitConfig))
-                    serializedNode.Add(property.Name, SaveValuesAsDict(value));
+                    serializedNode.Add(property.Name, SaveValuesAsDict(value, scenarioIdx));
                 else if (property.Name == "Comment") // this is the last param in the node, so terminate the properties loop
                 {
                     serializedNode[property.Name.ToLower()] = value;
                     break;
                 }
                 else if (property.Name == "Links" && obj is PlacementInfo info)
-                    serializedNode.Add(property.Name, info.SerializeLinks());
+                    serializedNode.Add(property.Name, info.SerializeLinks(scenarioIdx));
                 else
                     serializedNode[property.Name] = value;
             }
@@ -363,6 +384,8 @@ namespace RedStarLibrary.GameTypes
                     LoadValues(property.GetValue(obj), (BymlIter)value);
                 else if (property.Name == "Comment") // this is the last param in the node, so terminate the properties loop
                 {
+                    if (obj is PlacementInfo info)
+                        info.isUseComment = true;
                     property.SetValue(obj, value); // dumb
                     break;
                 }
@@ -415,7 +438,7 @@ namespace RedStarLibrary.GameTypes
             }
         }
         
-        public void DeserializeByml(BymlIter rootNode)
+        public void DeserializeInfo(BymlIter rootNode)
         {
             LoadValues(this, rootNode);
 
@@ -424,9 +447,14 @@ namespace RedStarLibrary.GameTypes
             isUseLinks = Links?.Count > 0;
         }
 
-        public BymlContainer SerializeByml()
+        public BymlContainer SerializeInfo(int scenarioIdx)
         {
-            var serializedDefaults = SaveValues(this);
+            if(Id.StartsWith("rail"))
+            {
+
+            }
+
+            var serializedDefaults = SaveValues(this, scenarioIdx);
 
             foreach (var kvp in ActorParams)
                 serializedDefaults[kvp.Key] = Helpers.Placement.SaveObject(kvp.Value);
@@ -434,14 +462,42 @@ namespace RedStarLibrary.GameTypes
             return serializedDefaults;
         }
 
-        public Dictionary<string,dynamic> ConvertToDict()
+        public Dictionary<string,dynamic> ConvertToDict(int scenarioIdx)
         {
-            var serializedDefaults = SaveValuesAsDict(this);
+            var serializedDefaults = SaveValuesAsDict(this, scenarioIdx);
 
             foreach (var kvp in ActorParams)
                 serializedDefaults[kvp.Key] = kvp.Value;
 
             return serializedDefaults;
+        }
+
+        public void UpdateLinksScenarios(BymlIter scenarioIter, int scenarioIdx)
+        {
+            if(scenarioIter.TryGetValue("Links", out BymlIter linksIter))
+            {
+                foreach ((var linkName, var placementListIter) in linksIter.As<BymlIter>())
+                {
+                    var placementList = Links.FirstOrDefault(e => e.Name == linkName);
+                    if (placementList == null)
+                        Links.Add(placementList = new PlacementList(linkName));
+
+
+                    foreach (var subPlacementIter in placementListIter.AsArray<BymlIter>())
+                    {
+                        var subInfo = placementList.GetInfoById(new PlacementId(subPlacementIter));
+                        if (subInfo is null)
+                        {
+                            subInfo = new PlacementInfo(subPlacementIter);
+                            placementList.Add(subInfo);
+                        }
+
+                        subInfo.SetScenarioActive(scenarioIdx, ScenarioFlagType.LinkOnly);
+
+                        subInfo.UpdateLinksScenarios(subPlacementIter, scenarioIdx);
+                    }
+                }
+            }
         }
 
         private void DeserializeLinks(BymlIter rootNode)
@@ -452,22 +508,42 @@ namespace RedStarLibrary.GameTypes
                 if (placementList == null)
                     Links.Add(placementList = new PlacementList(linkName));
 
+                // TODO: big problem here, because we don't use any global lists for this, linked objects do not behave the same at all as their parent counterparts, as editing one linked object
+                // will not update any other instances.
                 foreach (var subPlacementIter in placementListIter.AsArray<BymlIter>())
-                    placementList.Add(new PlacementInfo(subPlacementIter));
+                {
+                    var subInfo = new PlacementInfo(subPlacementIter);
+                    placementList.Add(subInfo);
+                    subInfo.SetActiveScenarios(this);
+                }
             }
         }
 
-        private BymlContainer SerializeLinks()
+        private BymlContainer SerializeLinks(int scenarioIdx)
         {
             BymlHash linkHash = new BymlHash();
 
             foreach (var placementList in Links)
             {
-                var placementListIter = new BymlArray();
-                linkHash.Add(placementList.Name, placementListIter);
+                //if(placementList.IsScenarioActive(scenarioIdx))
+                //{
+                //    var placementListIter = new BymlArray();
+                //    linkHash.Add(placementList.Name, placementListIter);
 
-                foreach (var subPlacement in placementList)
-                    placementListIter.Add(subPlacement.SerializeByml());
+                //    foreach (var subPlacement in placementList)
+                //        placementListIter.Add(subPlacement.SerializeInfo(scenarioIdx));
+                //}
+
+                var activePlacements = placementList.Where(e => e.IsScenarioActive(scenarioIdx));
+
+                if (activePlacements.Any())
+                {
+                    var placementListIter = new BymlArray();
+                    linkHash.Add(placementList.Name, placementListIter);
+
+                    foreach (var subPlacement in activePlacements)
+                        placementListIter.Add(subPlacement.SerializeInfo(scenarioIdx));
+                }
             }
 
             return linkHash;

@@ -3,6 +3,7 @@ using RedStarLibrary.GameTypes;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using static RedStarLibrary.GameTypes.PlacementInfo;
 
 namespace RedStarLibrary.MapData
 {
@@ -40,6 +41,13 @@ namespace RedStarLibrary.MapData
             IsEnabled = true;
         }
 
+        public LayerConfig()
+        {
+            LayerName = string.Empty;
+            LayerObjects = new List<PlacementInfo>();
+            IsEnabled = true;
+        }
+
         public void SetLayerName(string layerName)
         {
             LayerName = layerName;
@@ -49,12 +57,15 @@ namespace RedStarLibrary.MapData
         }
 
         public bool IsInfoInLayer(PlacementInfo info) => LayerObjects.Any(e => e == info);
-        public void SetScenarioActive(int idx, bool active)
+        public void SetScenarioActive(int idx, bool active, bool updateMatching = true)
         {
             bool[] prevValues = new bool[activeScenarios.Length];
             Array.Copy(activeScenarios, prevValues, activeScenarios.Length);
 
             activeScenarios[idx] = active;
+
+            if (!updateMatching)
+                return;
 
             foreach (var obj in LayerObjects)
             {
@@ -70,7 +81,7 @@ namespace RedStarLibrary.MapData
         }
 
         public bool IsScenarioActive(int idx) => activeScenarios[idx];
-        public IEnumerable<PlacementInfo> GetPlacementsInScenario(int idx) => LayerObjects.Where(e=> e.IsScenarioActive(idx));
+        public IEnumerable<PlacementInfo> GetPlacementsInScenario(int idx, ScenarioFlagType type = ScenarioFlagType.Normal) => LayerObjects.Where(e=> e.GetScenarioFlagType(idx) == type);
 
         internal void DrawScenarioTable()
         {

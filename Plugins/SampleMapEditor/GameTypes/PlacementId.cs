@@ -25,6 +25,11 @@ namespace RedStarLibrary.GameTypes
             LayerConfigName = info.LayerConfigName;
         }
 
+        public bool IsValid()
+        {
+            return !string.IsNullOrEmpty(Id) && !string.IsNullOrEmpty(UnitConfigName) && !string.IsNullOrEmpty(LayerConfigName);
+        }
+
         public static bool operator ==(PlacementId obj1, PlacementId obj2)
         {
             if (ReferenceEquals(obj1, obj2))

@@ -3,15 +3,35 @@ using HakoniwaByml.Writer;
 using RedStarLibrary.Interfaces;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Toolbox.Core;
 
 namespace RedStarLibrary.MapData
 {
     public class WorldList : IBymlSerializable
     {
+        public static readonly List<string> WorldStageEntryCategories = [
+            "Demo",
+            "ExStage",
+            "MainStage",
+            "MainRouteStage",
+            "MoonExStage",
+            "ShopStage",
+            "PathwayStage",
+            "SmallStage",
+            "Zone",
+            "MiniGame",
+            "BossRevenge",
+            "MoonFarSideExStage",
+        ];
+
         public class Entry
         {
-            public record struct StageEntry(string category, string name);
+            public class StageEntry(string category, string name)
+            {
+                public string category = category;
+                public string name = name;
+            }
 
             public int AfterEndingScenario = 0;
             public int ClearMainScenario = 0;
@@ -65,6 +85,18 @@ namespace RedStarLibrary.MapData
         public BymlContainer SerializeByml()
         {
             throw new NotImplementedException();
+        }
+
+        internal Entry GetWorldEntryByStage(string placementFileName)
+        {
+            foreach(var entry in WorldEntries)
+            {
+                if(entry.StageName == placementFileName)
+                    return entry;
+                else if(entry.StageList.Any(e => e.name == placementFileName))
+                    return entry;
+            }
+            return null;
         }
     }
 }

@@ -17,6 +17,7 @@ using HakoniwaByml.Writer;
 using System.Linq;
 using RedStarLibrary.MapData.Graphics;
 using static Toolbox.Core.Runtime;
+using RedStarLibrary.Helpers;
 
 namespace RedStarLibrary
 {
@@ -252,7 +253,8 @@ namespace RedStarLibrary
 
             actorPlacement.LayerConfigName = SelectedLayer;
             actorPlacement.PlacementFileName = loader.PlacementFileName;
-            actorPlacement.Id = "obj" + GetNextAvailableObjID();
+            actorPlacement.objectIndex = GetNextAvailableObjID();
+            actorPlacement.Id = "obj" + actorPlacement.objectIndex;
             actorPlacement.IsLinkDest = LinkTarget != null;
 
             LiveActor actor;
@@ -401,7 +403,8 @@ namespace RedStarLibrary
             {
                 var copyActor = actor.Clone();
 
-                copyActor.Placement.Id = "obj" + GetNextAvailableObjID(); // update objId with new one
+                copyActor.Placement.objectIndex = GetNextAvailableObjID(); // update objId with new one
+                copyActor.Placement.Id = "obj" + copyActor.Placement.objectIndex;
 
                 editor.AddRender(copyActor.GetDrawer());
 
@@ -757,15 +760,26 @@ namespace RedStarLibrary
 
                 foreach ((var objCategory, var layerList) in GlobalLayers)
                 {
-                    var listByml = new BymlArray();
-
+                    var scenarioPlacementList = new List<PlacementInfo>();
                     foreach (var config in layerList)
                     {
                         foreach (var placement in config.GetPlacementsInScenario(i))
-                            listByml.Add(placement.SerializeByml());
+                            scenarioPlacementList.Add(placement);
                     }
 
-                    if(listByml.Length() > 0)
+                    var listByml = new BymlArray();
+                    int listIdx = 0;
+
+                    foreach (var placement in scenarioPlacementList.OrderBy(e => e.objectIndex))
+                    {
+                        //if(placement.IsLinkDest)
+                        //    ConsoleHelper.WriteWarn($"[Scenario {i}; {placement.UnitConfig.GenerateCategory}] Warning! {placement.Id} ({placement.UnitConfigName}) is marked as a link destination, but is being serialized as a root object!");
+
+                        listByml.Add(placement.SerializeInfo(i));
+                        listIdx++;
+                    }
+
+                    if (listByml.Length() > 0)
                         scenarioByml.Add(objCategory, listByml);
                 }
 
@@ -783,34 +797,28 @@ namespace RedStarLibrary
             foreach ((string objCategory, BymlIter listIter) in rootNode.As<BymlIter>())
             {
                 HashSet<string> layerNames = new HashSet<string>();
+                int actorCount = 0;
 
                 foreach (BymlIter actorIter in listIter.AsArray<BymlIter>())
                 {
                     PlacementId actorId = new PlacementId(actorIter);
                     bool isNeedNewId = false;
 
+                    if(!actorId.IsValid())
+                    {
+                        var actorDict = actorIter.ToDictionary();
+                        continue;
+                    }
+
                     if (!GlobalLayers.TryGetValue(objCategory, out LayerList globalList))
                         GlobalLayers.Add(objCategory, globalList = new LayerList());
 
-                    if (int.TryParse(actorId.Id.Substring(3), out int objId))
-                    {
-                        if (CurrentObjectID < objId)
-                            CurrentObjectID = objId;
-                    }
-                    else
-                    {
-                        var logMsg = "Warning: Object ID is not formatted as expected! Value: " + actorId.Id;
-                        Console.WriteLine(logMsg);
-                        StudioLogger.WriteWarning(logMsg);
-
-                        // edge case for placement infos with funky obj ids 
-                        if (int.TryParse(string.Join("", actorId.Id.Where(char.IsDigit).ToArray()), out objId) && CurrentObjectID < objId)
-                            CurrentObjectID = objId;
-                    }
+                    int objId = Helpers.Placement.GetPlacementObjectIndex(actorId.Id);
 
                     if (!loadedObjIds.Add(actorId.Id))
                     {
-                        var newId = "obj" + ++CurrentObjectID;
+                        objId = ++CurrentObjectID;
+                        var newId = "obj" + objId;
                         var logMsg = "Placement for actor " + actorId.UnitConfigName + " has duplicate id. Replacing with new ID. Old ID: " + actorId.Id + " New ID: " + newId;
 
                         StudioLogger.WriteWarning(logMsg);
@@ -826,7 +834,7 @@ namespace RedStarLibrary
                     {
                         actorInfo = globalList.GetInfoById(actorId);
 
-                        globalList.GetLayerByName(actorId.LayerConfigName).SetScenarioActive(scenarioIdx, true);
+                        globalList.GetLayerByName(actorId.LayerConfigName).SetScenarioActive(scenarioIdx, true, false);
                     }
                     else
                     {
@@ -835,23 +843,20 @@ namespace RedStarLibrary
                         if (isNeedNewId)
                             actorInfo.Id = actorId.Id;
 
-                        globalList.AddObjectToLayers(actorInfo, scenarioIdx);
+                        globalList.AddObjectToLayers(actorInfo, scenarioIdx, false);
                         if (string.IsNullOrWhiteSpace(actorInfo.UnitConfig.GenerateCategory))
                             actorInfo.UnitConfig.GenerateCategory = objCategory;
                     }
-                        
-                    actorInfo.SetScenarioActive(scenarioIdx, true);
+
+                    actorInfo.UpdateLinksScenarios(actorIter, scenarioIdx);
+
+                    actorInfo.SetScenarioActive(scenarioIdx, PlacementInfo.ScenarioFlagType.Normal);
 
                     layerNames.Add(actorId.LayerConfigName);
+
+                    actorCount++;
                 }
             }
-
-            // actor linking
-
-            //foreach (var item in LoadedLayerNames)
-            //{
-
-            //}
         }
 
         private void UpdateActorPlacementInfo()
@@ -859,7 +864,7 @@ namespace RedStarLibrary
             var loadedActors = GetLoadedActors(true);
 
             foreach (var actor in loadedActors)
-                actor.UpdatePlacementInfoForSave();
+                actor.UpdatePlacementInfoForSave(MapScenarioNo);
         }
     }
 }

@@ -200,8 +200,9 @@ namespace RedStarLibrary.GameTypes
                 CreateAreaRenderer();
                 SetActorIcon(MapEditorIcons.AREA_BOX);
             }
-            else if (Placement.Id.Contains("rail")) // all rails use "rail" instead of "obj" for the id prefix
+            else if (Placement.ClassName == "Rail" && Placement.Id.Contains("rail")) // all rails use "rail" instead of "obj" for the id prefix
             {
+                // TODO: remove classname check to be able to handle ALL types of rails (Rail, RailElectricWire, etc)
                 CreateRailRenderer();
                 SetActorIcon(MapEditorIcons.POINT_ICON);
             }
@@ -470,7 +471,7 @@ namespace RedStarLibrary.GameTypes
             }
         }
 
-        public void UpdatePlacementInfoForSave()
+        public void UpdatePlacementInfoForSave(int scenarioIdx)
         {
             if(RenderMode == ActorRenderMode.Rail) // do manual serialization for rail actors
             {
@@ -484,8 +485,9 @@ namespace RedStarLibrary.GameTypes
                 {
                     PlacementInfo pointPlacement = new()
                     {
+                        objectIndex = idx,
                         Id = $"{Placement.Id}/{idx++}",
-                        IsLinkDest = true,
+                        IsLinkDest = false,
                         LayerConfigName = Placement.LayerConfigName,
                         ModelName = null,
                         Translate = point.Transform.Position,
@@ -495,6 +497,7 @@ namespace RedStarLibrary.GameTypes
                     pointPlacement.UnitConfig.DisplayName = pointPlacement.UnitConfigName;
                     pointPlacement.UnitConfig.ParameterConfigName = pointPlacement.UnitConfigName;
                     pointPlacement.UnitConfig.PlacementTargetFile = Placement.UnitConfig.PlacementTargetFile;
+                    pointPlacement.UnitConfig.GenerateCategory = Placement.UnitConfig.GenerateCategory;
 
                     List<dynamic> controlPoints = new()
                     {
@@ -503,7 +506,9 @@ namespace RedStarLibrary.GameTypes
                     };
                     pointPlacement.ActorParams.Add("ControlPoints", controlPoints);
 
-                    railPoints.Add(pointPlacement.ConvertToDict());
+                    var pointContainer = pointPlacement.SerializeInfo(scenarioIdx);
+
+                    railPoints.Add(pointContainer);
                 }
 
                 Placement.ActorParams["RailPoints"] = railPoints;
@@ -810,7 +815,7 @@ namespace RedStarLibrary.GameTypes
 
                             bool isChecked = Placement.IsScenarioActive(i);
                             if (ImGui.Checkbox($"##{i}", ref isChecked))
-                                Placement.SetScenarioActive(i, isChecked);
+                                Placement.SetScenarioActive(i, isChecked ? (Placement.IsLinkDest ? PlacementInfo.ScenarioFlagType.LinkOnly : PlacementInfo.ScenarioFlagType.Normal) : PlacementInfo.ScenarioFlagType.None);
                         }
 
                         ImGui.EndTable();
@@ -860,6 +865,7 @@ namespace RedStarLibrary.GameTypes
 
             PathRender.Loop = actorPlacement.ActorParams["IsClosed"];
 
+            // TODO: rework this to use a custom PathPoint class instead of the built in one for better control
             RenderablePathPoint parentPoint = null;
 
             foreach (Dictionary<string, dynamic> railPoint in actorPlacement.ActorParams["RailPoints"])
@@ -867,15 +873,14 @@ namespace RedStarLibrary.GameTypes
                 var trans = Helpers.Placement.LoadVector(railPoint, "Translate");
 
                 var point = PathRender.CreatePoint(trans);
+                point.Transform.RotationEulerDegrees = Helpers.Placement.LoadVector(railPoint, "Rotate");
 
-                if(parentPoint != null)
+                if (parentPoint != null)
                     parentPoint.AddChild(point);
 
-                if (PathRender.InterpolationMode == RenderablePath.Interpolation.Bezier)
-                {
-                    point.ControlPoint1.Transform.Position = Helpers.Placement.LoadVector(railPoint["ControlPoints"][0]);
-                    point.ControlPoint2.Transform.Position = Helpers.Placement.LoadVector(railPoint["ControlPoints"][1]);
-                }
+                // rail points always have two control points, regardless of if they're Linear or Bezier
+                point.ControlPoint1.Transform.Position = Helpers.Placement.LoadVector(railPoint["ControlPoints"][0]);
+                point.ControlPoint2.Transform.Position = Helpers.Placement.LoadVector(railPoint["ControlPoints"][1]);
 
                 point.UpdateMatrices();
 
