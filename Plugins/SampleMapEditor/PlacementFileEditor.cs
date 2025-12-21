@@ -12,6 +12,7 @@ using RedStarLibrary.Helpers;
 using RedStarLibrary.MapData;
 using RedStarLibrary.MapData.Graphics;
 using RedStarLibrary.Rendering;
+using RedStarLibrary.Schemas;
 using RedStarLibrary.UI;
 using RedStarLibrary.UI.Windows;
 using System;
@@ -80,13 +81,12 @@ namespace RedStarLibrary
         private bool isLayerEditTakeFocus = false;
 
         private float scale = 75.0f;
-        private Vector3 blockCoordOffset = new Vector3(5.5f, -70.5f, 1.5f);
+        private float groundScale = 1.1f;
+        private Vector3 blockCoordOffset = new Vector3(0.0f, 74.6f, 0.0f);
         private Vector3 mapCoordOffset = new Vector3(0.0f, 0.0f, 0.0f);
 
 		// misc
 
-        private AddObjectMenu addObjMenu;
-        // misc
         private AddObjectMenu addObjMenu = new AddObjectMenu();
 
         public static Dictionary<string, Dictionary<string, string>> TempCameraParamCollection = new();
@@ -508,18 +508,25 @@ namespace RedStarLibrary
 
             if (ImGui.Button("Import Placement JSON", btnSize))
             {
-                ImguiFileDialog dlg = new ImguiFileDialog();
-                dlg.FileName = Path.Combine(PluginConfig.ModPath, $"{PlacementFileName}.json");
-                dlg.AddFilter(".json", ".json");
+                var jsonPath = Path.Combine(PluginConfig.ModPath, $"{PlacementFileName}.json");
+                if (Path.Exists(jsonPath))
+                    AddActorsFromJSON(jsonPath);
+                else
+                {
+                    ImguiFileDialog dlg = new ImguiFileDialog();
+                    dlg.FileName = jsonPath;
+                    dlg.AddFilter(".json", ".json");
 
-                if (dlg.ShowDialog())
-                    AddActorsFromJSON(dlg.FilePath);
+                    if (dlg.ShowDialog())
+                        AddActorsFromJSON(dlg.FilePath);
+                }
             }
 
             if(ImGui.Button("Dump Stage Models", btnSize))
                 ShowStageDumpDialog();
 
             ImGui.InputFloat("MC to Map Scale", ref scale);
+            ImGui.InputFloat("Ground Scale", ref groundScale);
 
             var offset = new System.Numerics.Vector3(blockCoordOffset.X, blockCoordOffset.Y, blockCoordOffset.Z);
             if (ImGui.InputFloat3("Block Coord Offset", ref offset))
@@ -975,56 +982,49 @@ namespace RedStarLibrary
         
         private void AddActorsFromJSON(string path)
         {
-            ActorJSONData data = new ActorJSONData(path);
+            ActorJSONData data = new ActorJSONData(path, scale, groundScale, blockCoordOffset, mapCoordOffset);
 
-            HashSet<string> unknownTypes = new HashSet<string>();
+            var layerList = CurrentMapScene.GetOrCreateLayerConfig("ObjectList", "ImportedObjs");
+            layerList.SetAllScenarioActive(true);
+
+            CurrentMapScene.SelectedLayer = layerList.LayerName;
+
             foreach (var actorEntry in data.ActorEntries)
             {
-                if (actorEntry.Name == "checkpoint")
-                    continue; // checkpoints aren't able to be done yet
-
-                if(!ActorJSONData.TypeTranslation.TryGetValue(actorEntry.Name, out string className))
-                {
-                    unknownTypes.Add(actorEntry.Name);
-                    continue;
-                }
-
-                Vector3 actorOffset = Vector3.Zero;
-                ActorJSONData.TypeOffsets.TryGetValue(actorEntry.Name, out actorOffset);
-
-                var newPos = ((actorEntry.Position + blockCoordOffset) * scale) + actorOffset + mapCoordOffset;
-
-                if (className == "ShineTowerRocket")
+                if (actorEntry.ClassName == "ShineTowerRocket")
                 {
                     var towerObj = CurrentMapScene.FindActorWithClass("PlayerStartInfoList", "ShineTowerRocket");
                     if(towerObj != null)
                     {
-                        towerObj.Transform.Position = newPos;
+                        towerObj.Transform.Position = actorEntry.Position;
                         continue;
                     }
                 }
 
-                var databaseEntry = ActorDataBase.GetObjectFromDatabase(className, "Object");
+                var databaseEntry = ActorDataBase.GetObjectFromDatabase(actorEntry.ClassName, "Object");
 
                 if(databaseEntry == null)
-                    databaseEntry = ActorDataBase.GetObjectFromDatabase(className);
+                    databaseEntry = ActorDataBase.GetObjectFromDatabase(actorEntry.ClassName);
 
                 if (databaseEntry == null)
                 {
                     var col = Console.ForegroundColor;
                     Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine("Failed to find Database Entry for ClassName: " + className);
+                    Console.WriteLine("Failed to find Database Entry for ClassName: " + actorEntry.ClassName);
                     Console.ForegroundColor = col;
 
                     continue;
                 }
-                    
 
-                var actor = CurrentMapScene.AddActorFromAsset(this, newPos, new AssetMenu.LiveActorAsset(databaseEntry, className));
+                var modelName = actorEntry.ClassName;
+                if (ActorJSONData.TypeModels.ContainsKey(actorEntry.ClassName))
+                    modelName = ActorJSONData.TypeModels[actorEntry.ClassName];
 
-                if(ActorJSONData.TypeParams.TryGetValue(className, out var typeParams))
+                var actor = CurrentMapScene.AddActorFromAsset(this, actorEntry.Position, new AssetMenu.LiveActorAsset(databaseEntry, modelName));
+
+                if(actorEntry.HasParams)
                 {
-                    foreach ((string paramName, var paramValue) in typeParams)
+                    foreach ((string paramName, var paramValue) in actorEntry.ActorParams)
                     {
                         if(actor.Placement.ActorParams.ContainsKey(paramName))
                             actor.Placement.ActorParams[paramName] = paramValue;
@@ -1032,13 +1032,9 @@ namespace RedStarLibrary
                             actor.Placement.ActorParams.Add(paramName, paramValue);
                     }
                 }
-            }
 
-            var prevColor = Console.ForegroundColor;
-            Console.ForegroundColor = ConsoleColor.Red;
-            foreach(var type in unknownTypes)
-                Console.WriteLine("Unknown Actor Type: " + type);
-            Console.ForegroundColor = prevColor;
+                
+            }
         }
 
         private void ShowStageDumpDialog()

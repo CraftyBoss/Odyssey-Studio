@@ -790,7 +790,10 @@ namespace RedStarLibrary.GameTypes
                     foreach (var layerName in curStage.GetLoadedLayers())
                     {
                         if(ImGui.Selectable(layerName))
+                        {
+                            // TODO: update RenderNode to be a child of the updated layer
                             Placement.LayerConfigName = layerName;
+                        }
                     }
                     ImGui.EndCombo();
                 }
